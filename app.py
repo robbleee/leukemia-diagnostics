@@ -1,13 +1,16 @@
 import streamlit as st
-import openai
+from openai import OpenAI
 import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file if present
 load_dotenv()
 
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+
+
 # Set OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def classify_blood_cancer(
     blasts_percentage: float,
@@ -39,14 +42,14 @@ def classify_blood_cancer(
     Returns a tuple of (classification, explanation list).
     """
     explanation = []
-    
+
     # ------------------------------------------------
     # (A) INITIAL PROCESSING & FLAGS
     # ------------------------------------------------
     explanation.append(f"Blasts: {blasts_percentage}%. " 
                        f"Lineage (user-chosen): {lineage}. "
                        f"Monocyte count: {monocyte_count}, Age: {patient_age}")
-    
+
     # Summaries for morphology & immunophenotyping
     if morphological_details:
         explanation.append(f"Morphological findings: {', '.join(morphological_details)}.")
@@ -54,12 +57,12 @@ def classify_blood_cancer(
         explanation.append(f"Immunophenotype markers: {', '.join(immunophenotype_markers)}.")
     if immunophenotype_notes:
         explanation.append(f"Additional immunophenotype notes: {immunophenotype_notes}")
-    
+
     if cytogenetic_abnormalities:
         explanation.append(f"Cytogenetic abnormalities: {', '.join(cytogenetic_abnormalities)}.")
     if molecular_mutations:
         explanation.append(f"Molecular mutations: {', '.join(molecular_mutations)}.")
-    
+
     # We’ll track “decision points” in a variable named `decision_points`
     decision_points = []
 
@@ -317,18 +320,16 @@ def get_gpt4_review(classification, explanation):
     """
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a knowledgeable hematologist."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=500,
-            n=1,
-            stop=None,
-            temperature=0.2,
-        )
-        review = response.choices[0].message['content'].strip()
+        response = client.chat.completions.create(model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are a knowledgeable hematologist."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=500,
+        n=1,
+        stop=None,
+        temperature=0.2)
+        review = response.choices[0].message.content.strip()
         return review
     except Exception as e:
         return f"Error communicating with OpenAI: {str(e)}"
@@ -356,11 +357,11 @@ def validate_inputs(
     """
     errors = []
     warnings = []
-    
+
     # Convert cytogenetic abnormalities and molecular mutations to uppercase for consistent comparison
     cytogen_list_upper = [ab.upper() for ab in cytogenetic_abnormalities]
     mutation_list_upper = [m.upper() for m in molecular_mutations]
-    
+
     # 1. Validate numerical ranges
     if not (0 <= blasts_percentage <= 100):
         errors.append("Blasts percentage must be between 0 and 100.")

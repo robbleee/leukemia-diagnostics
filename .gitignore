@@ -3,3 +3,5 @@
 
 # Ignore Python dependencies file
 requirements.txt
+
+venv
