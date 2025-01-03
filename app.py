@@ -1,10 +1,9 @@
 import streamlit as st
 import bcrypt
-from openai import OpenAI
-
-client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+import openai
 
 # Initialize OpenAI API key from secrets
+openai.api_key = st.secrets["openai"]["api_key"]
 
 # ----------------------------
 # Password Verification Functions
@@ -42,7 +41,7 @@ def login_logout():
         if st.sidebar.button("Logout"):
             st.session_state['authenticated'] = False
             st.session_state['username'] = ''
-
+            st.experimental_rerun()
     else:
         st.sidebar.header("Login")
         username = st.sidebar.text_input("Username")
@@ -52,7 +51,7 @@ def login_logout():
                 st.session_state['authenticated'] = True
                 st.session_state['username'] = username
                 st.success("Logged in successfully!")
-
+                st.experimental_rerun()
             else:
                 st.sidebar.error("Invalid username or password")
 
@@ -376,8 +375,8 @@ def classify_blood_cancer(
                 decision_points.append("Ring sideroblasts + thrombocytosis -> RARS-T (MDS/MPN overlap).")
                 final_classification = "MDS/MPN: RARS-T"
             elif has_ring_sideroblasts:
-                decision_points.append("Ring sideroblasts -> RARS (MDS).")
-                final_classification = "MDS with Ring Sideroblasts"
+                decision_points.append("Ring sideroblasts -> Myelodysplastic Syndrome with Ring Sideroblasts.")
+                final_classification = "Myelodysplastic Syndrome with Ring Sideroblasts"
             else:
                 # Check for monocytes for CMML/aCML/JMML
                 if monocyte_count >= 1.0:
@@ -462,15 +461,17 @@ def get_gpt4_review(classification: str, explanation: str) -> str:
     """
 
     try:
-        response = client.chat.completions.create(model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are a knowledgeable hematologist."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=500,
-        n=1,
-        stop=None,
-        temperature=0.2)
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a knowledgeable hematologist."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=500,
+            n=1,
+            stop=None,
+            temperature=0.2,
+        )
         review = response.choices[0].message.content.strip()
         return review
     except Exception as e:
@@ -480,7 +481,7 @@ def get_gpt4_review(classification: str, explanation: str) -> str:
 # Main Application Function
 # ----------------------------
 def app_main():
-    st.title("WHO Classification Demo Tool")
+    st.title("WHO Classification Demo with Enhanced Input Validation and GPT-4 Review")
 
     st.markdown("""
     This **Streamlit** app classifies hematologic malignancies based on user inputs and provides an **automated review** and **clinical next steps** using OpenAI's GPT-4.
@@ -650,13 +651,16 @@ def app_main():
         # Prepare data to send to GPT-4
         explanation_text = "\n".join(explanation)
 
-        # Get GPT-4 review and next steps
-        with st.spinner("Generating GPT-4 review and clinical next steps..."):
-            gpt4_review = get_gpt4_review(classification, explanation_text)
+        # If user is authenticated, make the OpenAI call
+        if st.session_state['authenticated']:
+            with st.spinner("Generating GPT-4 review and clinical next steps..."):
+                gpt4_review = get_gpt4_review(classification, explanation_text)
 
-        # Display GPT-4's response
-        st.markdown("### **GPT-4 Review & Clinical Next Steps**")
-        st.write(gpt4_review)
+            # Display GPT-4's response
+            st.markdown("### **GPT-4 Review & Clinical Next Steps**")
+            st.write(gpt4_review)
+        else:
+            st.info("Log in to receive an AI-generated review and clinical recommendations.")
 
         st.markdown("""
         ---
@@ -665,7 +669,53 @@ def app_main():
         """)
 
 # ----------------------------
-# Check Authentication and Run App
+# GPT-4 Review Function
 # ----------------------------
-if st.session_state['authenticated']:
-    app_main()
+def get_gpt4_review(classification: str, explanation: str) -> str:
+    """
+    Sends the classification and explanation to GPT-4 for review and next steps.
+    Returns the GPT-4's response.
+    """
+    prompt = f"""
+    You are a medical expert reviewing a hematologic malignancy classification.
+
+    **Classification Result**: {classification}
+
+    **Derivation**:
+    {explanation}
+
+    **Task**:
+    1. Provide a quick review of the classification result, highlighting any potential concerns or inconsistencies.
+    2. Suggest clinically relevant next steps for further evaluation or management.
+
+    **Response should be concise and professional.**
+    """
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a knowledgeable hematologist."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=500,
+            n=1,
+            stop=None,
+            temperature=0.2,
+        )
+        review = response.choices[0].message.content.strip()
+        return review
+    except Exception as e:
+        return f"Error communicating with OpenAI: {str(e)}"
+
+# ----------------------------
+# Main Application Execution
+# ----------------------------
+def main():
+    if st.session_state['authenticated'] or True:
+        # Allow classification to be accessible to all users
+        app_main()
+
+# Execute the main function
+if __name__ == "__main__":
+    main()
