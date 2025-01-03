@@ -10,6 +10,9 @@ import graphviz
 # -----------------------------
 st.set_page_config(page_title="Hematologic Classification", layout="wide")
 
+if "show_explanation" not in st.session_state:
+    st.session_state["show_explanation"] = False
+
 ##############################
 # OPENAI API CONFIG
 ##############################
@@ -129,6 +132,143 @@ def build_decision_flowchart(classification: str, decision_points: list) -> str:
     dot.edge(previous_node, "Result")
 
     return dot.source
+
+
+##############################
+# EXPLANATION FUNCTION
+##############################
+def show_explanation():
+    """
+    Displays a nicely formatted explanation/help page, 
+    with an option to hide it again.
+    """
+    st.title("Hematologic Classification – Explanation & Help")
+
+    # Provide a button to hide the explanation (go back to main view)
+    if st.button("Hide Explanation"):
+        st.session_state["show_explanation"] = False
+        st.rerun()
+
+    # A bit of visual styling (light gray box) to separate the explanation
+    st.markdown("""
+    <div style="background-color: #f9f9f9; padding: 20px; border-radius: 5px;">
+    <h2 style="margin-top: 0;">Overview</h2>
+    <p>
+      This application uses a simplified WHO-based logic to classify hematologic
+      malignancies. The classification hinges on:
+      <ul>
+        <li><strong>Blasts Percentage</strong> (acute vs. chronic threshold at 20%)</li>
+        <li><strong>Lineage</strong> (myeloid, lymphoid, or undetermined)</li>
+        <li><strong>Immunophenotype Markers &amp; Notes</strong></li>
+        <li><strong>Cytogenetic Abnormalities &amp; Molecular Mutations</strong></li>
+        <li><strong>Patient Age</strong> (for pediatric vs. adult logic)</li>
+        <li>Various <strong>special flags</strong> (Hodgkin, histiocytic, etc.)</li>
+      </ul>
+    </p>
+
+    <hr>
+
+    <h3>1. Acute vs. Chronic</h3>
+    <ul>
+      <li><strong>Blasts ≥ 20%</strong> ⇒ Suggests <em>acute leukemia</em>.</li>
+      <li><strong>Blasts < 20%</strong> ⇒ Suggests <em>chronic</em> neoplasm or MDS/MPN.</li>
+    </ul>
+
+    <h4>Acute Myeloid Leukemia (AML)</h4>
+    <ul>
+      <li>Possible subtypes based on t(15;17), t(8;21), inv(16), FLT3, NPM1.</li>
+      <li>If none of those, classified as <em>AML (NOS)</em>.</li>
+    </ul>
+
+    <h4>Acute Lymphoblastic Leukemia (ALL)</h4>
+    <ul>
+      <li><em>Pediatric ALL</em> if patient under 18.</li>
+      <li><em>Adult ALL</em> otherwise.</li>
+    </ul>
+
+    <h4>Ambiguous Lineage</h4>
+    <ul>
+      <li>If lineage is not clearly myeloid or lymphoid, 
+        classified as <em>Acute Leukemia of Ambiguous Lineage</em>.</li>
+    </ul>
+
+    <hr>
+
+    <h3>2. Chronic Myeloid &amp; MDS/MPN</h3>
+    <ul>
+      <li>If <strong>blasts < 20%</strong> and lineage = Myeloid:</li>
+      <li><em>MPN</em> if JAK2/CALR/MPL driver mutations present.</li>
+      <li><em>MDS</em> subtypes (e.g., MDS w/ Excess Blasts, del(5q), etc.) 
+          if certain morphological or cytogenetic features appear.</li>
+      <li><em>CML</em> if none of the above criteria is triggered.</li>
+    </ul>
+
+    <hr>
+
+    <h3>3. Chronic Lymphoid</h3>
+    <ul>
+      <li><strong>Suspect Hodgkin Lymphoma</strong>:
+        <ul>
+          <li><em>Classical Hodgkin</em> if CD15+ &amp; CD30+.</li>
+          <li><em>NLPHL</em> if CD20+ only, no CD15/CD30.</li>
+          <li>Otherwise, <em>Hodgkin (Unspecified)</em>.</li>
+        </ul>
+      </li>
+      <li><strong>Non-Hodgkin Lymphoma</strong> (NHL) checks:
+        <ul>
+          <li><em>B-Cell</em> (Follicular Lymphoma if CD10+; else DLBCL default).</li>
+          <li><em>T-Cell</em> (Peripheral T-Cell Lymphoma as fallback).</li>
+        </ul>
+      </li>
+      <li><strong>CLL</strong> if no specific markers for other B/T subtypes.</li>
+      <li><strong>Hairy Cell Leukemia</strong> if 'hairy' in notes.</li>
+    </ul>
+
+    <hr>
+
+    <h3>4. Multiple Myeloma</h3>
+    <ul>
+      <li>If immunophenotype suggests <em>plasma cells</em> (CD138) or 
+          notes say "plasma," classified as 
+          <em>Multiple Myeloma (Plasma Cell Neoplasm)</em>.</li>
+    </ul>
+
+    <hr>
+
+    <h3>5. Special &amp; Rare Entities</h3>
+    <ul>
+      <li><em>Mast Cell Involvement</em> → Possible Mastocytosis (basic placeholder).</li>
+      <li><em>Histiocytic Marker</em> → Histiocytic or Dendritic Cell Neoplasm 
+          (also placeholder in this demo).</li>
+      <li><em>Undetermined/Other</em> if no logic branch triggers a specific classification.</li>
+    </ul>
+
+    <hr>
+
+    <h3>Final Classification List (Simplified)</h3>
+    <ul>
+      <li><strong>AML</strong> (incl. APL, t(8;21), inv(16), AML w/ FLT3, AML w/ NPM1, etc.)</li>
+      <li><strong>ALL</strong> (pediatric or adult)</li>
+      <li><strong>Acute Leukemia of Ambiguous Lineage</strong></li>
+      <li><strong>Myeloproliferative Neoplasm (MPN)</strong></li>
+      <li><strong>Myelodysplastic Syndromes (MDS)</strong> subtypes</li>
+      <li><strong>Chronic Myeloid Leukemia (CML)</strong></li>
+      <li><strong>Hodgkin Lymphoma</strong> (Classical, NLPHL, or Unspecified)</li>
+      <li><strong>Non-Hodgkin Lymphoma</strong> (Follicular, DLBCL, T-Cell, etc.)</li>
+      <li><strong>Chronic Lymphocytic Leukemia (CLL)</strong></li>
+      <li><strong>Hairy Cell Leukemia</strong></li>
+      <li><strong>Multiple Myeloma (Plasma Cell Neoplasm)</strong></li>
+      <li><strong>Other Chronic Hematologic Neoplasm</strong></li>
+    </ul>
+
+    <div style="border-top: 1px solid #ccc; margin-top: 20px; padding-top: 10px;">
+    <em>Disclaimer</em>: This classification logic is <strong>simplified</strong> and
+    should not replace real-world pathology review. Consult a hematologist or oncologist 
+    for definitive diagnosis and treatment recommendations.
+    </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 ##############################
 # VALIDATION
@@ -370,14 +510,13 @@ def classify_blood_cancer(
 
     return classification, derivation, decision_points
 
-
 def get_gpt4_review(
     classification: str,
     explanation: str,
     user_inputs: dict
 ) -> str:
     """
-    Sends the classification, explanation, and all user input data to GPT-4 
+    Sends the classification, explanation, and all user input data to AI
     for review and next steps.
     """
     # Format user inputs into a readable string
@@ -429,7 +568,7 @@ def get_gpt4_review(
     # Send to GPT-4
     try:
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a knowledgeable hematologist."},
                 {"role": "user", "content": prompt}
@@ -452,18 +591,20 @@ def app_main():
     """
     Primary Streamlit app function.
     """
-    st.title("WHO Classification Demo – Interactive Visualization with Flowchart")
+    st.title("WHO Blood Cancer Classification Tool")
+
+    # Check if user wants to show/hide explanation
+    st.sidebar.write("---")
+    if st.sidebar.button("Show Explanation"):
+        st.session_state["show_explanation"] = True
+
+    if st.session_state["show_explanation"]:
+        show_explanation()
+        return  # Stop after showing explanation page
 
     st.markdown("""
     This **Streamlit** app classifies hematologic malignancies based on user inputs,
     showcasing **interactive visualization** via a simple **Graphviz** flowchart of decision steps.
-
-    **Key Features**:
-    - Subtype refinement for AML/ALL
-    - Pediatric vs. adult logic
-    - Rare entities (e.g., Hairy Cell Leukemia)
-    - Graphviz-based flowchart of how the classification was reached
-    - GPT-4 integration for review and suggestions (authenticated users)
 
     **Disclaimer**: This tool is for **educational demonstration** only and is not a clinical or diagnostic tool.
     """)
@@ -660,13 +801,13 @@ def app_main():
 
         # 6) If authenticated, call GPT-4 with the user_inputs
         if st.session_state['authenticated']:
-            with st.spinner("Generating GPT-4 review and clinical next steps..."):
+            with st.spinner("Generating AI review and clinical next steps..."):
                 gpt4_review_result = get_gpt4_review(
                     classification=classification,
                     explanation=derivation_string,
                     user_inputs=user_inputs  # PASS THE ENTIRE DICT HERE
                 )
-            st.markdown("### **GPT-4 Review & Clinical Next Steps**")
+            st.markdown("### **AI Review & Clinical Next Steps**")
             st.markdown(f"""
                 <div style='background-color: #cff4fc; padding: 10px; border-radius: 5px;'>
                     {gpt4_review_result}
