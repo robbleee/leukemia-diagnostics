@@ -1,6 +1,12 @@
 import streamlit as st
 import bcrypt
 import openai
+import graphviz
+
+# -----------------------------
+# SET PAGE CONFIGURATION FIRST
+# -----------------------------
+st.set_page_config(page_title="Hematologic Classification", layout="wide")
 
 ##############################
 # OPENAI API CONFIG
@@ -69,8 +75,8 @@ def log_derivation(
     Builds a verbose derivation string explaining how classification decisions were made.
     """
     derivation = ""
-    derivation += f"<strong>Blasts Observed:</strong> {blasts}%. This percentage is crucial for differentiating between acute and chronic leukemias.<br>"
-    derivation += f"<strong>Lineage Determination:</strong> The lineage is <strong>{lineage}</strong>, guiding the next steps in classification.<br><br>"
+    derivation += f"<strong>Blasts Observed:</strong> {blasts}%. This percentage is crucial for differentiating acute vs. chronic leukemias.<br>"
+    derivation += f"<strong>Lineage Determination:</strong> The chosen lineage is <strong>{lineage}</strong>, guiding the next steps.<br><br>"
 
     if decision_points:
         derivation += "<strong>Key Decision Points in Classification:</strong><br>"
@@ -96,6 +102,34 @@ def display_derivation(derivation: str):
             </p>
         </div>
     """, unsafe_allow_html=True)
+
+def build_decision_flowchart(classification: str, decision_points: list) -> str:
+    """
+    Builds a simple Graphviz flowchart representing the classification path.
+
+    For demonstration, we'll create nodes for each major decision step plus the final classification.
+    Returns the DOT source string for rendering with st.graphviz_chart.
+    """
+    dot = graphviz.Digraph(comment="Classification Flow", format='png')
+
+    # Start node
+    dot.node("Start", "Start", shape="ellipse")
+
+    # Each decision point becomes a node in the flow.
+    previous_node = "Start"
+    for i, point in enumerate(decision_points, 1):
+        node_name = f"Step{i}"
+        # Shorten the label for better visualization
+        label = point if len(point) < 50 else point[:47] + "..."
+        dot.node(node_name, label, shape="box")
+        dot.edge(previous_node, node_name)
+        previous_node = node_name
+
+    # Final classification node
+    dot.node("Result", f"Final: {classification}", shape="doublerectangle", color="green")
+    dot.edge(previous_node, "Result")
+
+    return dot.source
 
 ##############################
 # VALIDATION
@@ -176,7 +210,7 @@ def classify_blood_cancer(
     patient_age: float
 ) -> tuple:
     """
-    Returns a tuple of (classification, derivation_string).
+    Returns a tuple of (classification, derivation_string, decision_points).
     Incorporates:
       - Subtype refinement (AML/ALL, etc.)
       - Context-specific classification (e.g., pediatric vs. adult)
@@ -186,126 +220,75 @@ def classify_blood_cancer(
     additional_info = []
     classification = "Unspecified Hematologic Neoplasm"
 
-    #######################
-    # 1) Context-Specific Classification
-    #######################
+    # Pediatric vs. adult example
     pediatric_case = (patient_age < 18)
     if pediatric_case:
-        additional_info.append("Patient age is under 18, applying pediatric considerations.")
+        additional_info.append("Patient is pediatric (<18), applying pediatric considerations.")
 
-    #######################
-    # 2) ACUTE VS. CHRONIC
-    #######################
+    # ACUTE VS CHRONIC
     if blasts_percentage >= 20:
-        decision_points.append(
-            "Blasts >= 20% indicates a likely acute leukemia."
-        )
-
+        decision_points.append("Blasts >= 20% indicates a likely acute leukemia.")
         if lineage == "Myeloid":
-            # Subtype refinement for AML
             classification = "Acute Myeloid Leukemia (AML)"
-            decision_points.append(
-                "Lineage is Myeloid -> AML classification."
-            )
+            decision_points.append("Lineage: Myeloid => AML classification.")
 
-            # Check for specific AML cytogenetic/molecular subtypes
+            # Subtype checks
             if "t(15;17)" in cytogenetic_abnormalities:
-                classification = "Acute Promyelocytic Leukemia (APL, AML with t(15;17))"
-                decision_points.append(
-                    "Detected t(15;17), indicating Acute Promyelocytic Leukemia (APL)."
-                )
+                classification = "Acute Promyelocytic Leukemia (APL)"
+                decision_points.append("Detected t(15;17) => APL subtype.")
             elif "t(8;21)" in cytogenetic_abnormalities:
                 classification = "AML with t(8;21)"
-                decision_points.append(
-                    "Detected t(8;21), refining classification to AML with t(8;21)."
-                )
+                decision_points.append("Detected t(8;21), refining AML subtype.")
             elif "inv(16)" in cytogenetic_abnormalities or "t(16;16)" in cytogenetic_abnormalities:
-                classification = "AML with inv(16) or t(16;16)"
-                decision_points.append(
-                    "Detected inv(16)/t(16;16), refining classification accordingly."
-                )
+                classification = "AML with inv(16)/t(16;16)"
+                decision_points.append("Detected inv(16) or t(16;16), refining AML subtype.")
             else:
-                # Check for relevant mutations e.g., FLT3, NPM1
+                # Mutation checks
                 if "FLT3" in molecular_mutations:
                     classification = "AML with FLT3 Mutation"
-                    decision_points.append(
-                        "Detected FLT3 mutation -> Subclassifying AML with FLT3."
-                    )
+                    decision_points.append("Detected FLT3 mutation, further refining AML subtype.")
                 elif "NPM1" in molecular_mutations:
                     classification = "AML with NPM1 Mutation"
-                    decision_points.append(
-                        "Detected NPM1 mutation -> Subclassifying AML with NPM1."
-                    )
+                    decision_points.append("Detected NPM1 mutation, further refining AML subtype.")
 
         elif lineage == "Lymphoid":
             if pediatric_case:
                 classification = "Acute Lymphoblastic Leukemia (ALL, Pediatric)"
-                decision_points.append(
-                    "Lineage is Lymphoid + pediatric case -> Pediatric ALL."
-                )
+                decision_points.append("Lineage: Lymphoid + Pediatric => ALL (Pediatric).")
             else:
                 classification = "Acute Lymphoblastic Leukemia (ALL, Adult)"
-                decision_points.append(
-                    "Lineage is Lymphoid + adult patient -> Adult ALL."
-                )
+                decision_points.append("Lineage: Lymphoid + Adult => ALL (Adult).")
         else:
             classification = "Acute Leukemia of Ambiguous Lineage"
-            decision_points.append(
-                "Lineage is Undetermined -> Possible mixed phenotype or ambiguous lineage acute leukemia."
-            )
-
+            decision_points.append("Lineage undetermined => Possible mixed phenotype or ambiguous lineage.")
     else:
-        decision_points.append(
-            "Blasts < 20% suggests chronic or other non-acute hematologic neoplasm."
-        )
-
+        decision_points.append("Blasts < 20% => Chronic or other non-acute neoplasm.")
         if lineage == "Myeloid":
             classification = "Chronic Myeloid Leukemia (CML)"
-            decision_points.append(
-                "Lineage Myeloid with blasts < 20% -> CML classification (unless other evidence suggests MDS/MPN overlap)."
-            )
-
-            # Basic mention of myelodysplastic or MPN overlap
+            decision_points.append("Lineage: Myeloid => CML classification unless MDS/MPN overlap indicated.")
             if "Ring sideroblasts" in morphological_details:
-                additional_info.append(
-                    "Presence of ring sideroblasts, commonly seen in MDS or MDS/MPN overlap."
-                )
+                additional_info.append("Ring sideroblasts noted => Possible MDS or overlap syndrome if more data support it.")
 
         elif lineage == "Lymphoid":
             classification = "Chronic Lymphocytic Leukemia (CLL)"
-            decision_points.append(
-                "Lineage Lymphoid with blasts < 20% -> Chronic Lymphocytic Leukemia or other mature B/T/NK neoplasm."
-            )
-
-            # Rare Entity Example: Hairy Cell Leukemia
-            # (In reality, you'd have more specific morphological or immunophenotype hints, e.g., 'hairy' cells, CD103, etc.)
-            if "hairy" in immunophenotype_notes.lower():
+            decision_points.append("Lineage: Lymphoid => CLL or mature B/T/NK neoplasm.")
+            if immunophenotype_notes and "hairy" in immunophenotype_notes.lower():
                 classification = "Hairy Cell Leukemia (Rare B-Cell Neoplasm)"
-                decision_points.append(
-                    "Detected notes referencing 'hairy cells' -> classifying as Hairy Cell Leukemia."
-                )
-
+                decision_points.append("Detected 'hairy' in immunophenotype notes => Hairy Cell Leukemia.")
         else:
             classification = "Other Chronic Hematologic Neoplasm"
-            decision_points.append(
-                "Lineage undetermined, blasts < 20% -> Possibly other chronic or rare entity."
-            )
+            decision_points.append("Lineage undetermined => Possibly other chronic/rare entity.")
 
-    # Add immunophenotype notes, cytogenetics, etc. to derivation
+    # Additional data checks
     if immunophenotype_notes:
         additional_info.append(f"Immunophenotype notes: {immunophenotype_notes}.")
-
+    
     if cytogenetic_abnormalities:
-        additional_info.append(
-            f"Cytogenetic abnormalities detected: {', '.join(cytogenetic_abnormalities)}."
-        )
-
+        additional_info.append(f"Cytogenetic abnormalities: {', '.join(cytogenetic_abnormalities)}.")
+    
     if molecular_mutations:
-        additional_info.append(
-            f"Molecular mutations identified: {', '.join(molecular_mutations)}."
-        )
+        additional_info.append(f"Molecular mutations: {', '.join(molecular_mutations)}.")
 
-    # Build a verbose derivation
     derivation = log_derivation(
         blasts=blasts_percentage,
         lineage=lineage,
@@ -313,7 +296,7 @@ def classify_blood_cancer(
         additional_info=additional_info
     )
 
-    return classification, derivation
+    return classification, derivation, decision_points
 
 ##############################
 # GPT-4 REVIEW
@@ -361,13 +344,18 @@ def app_main():
     """
     Primary Streamlit app function.
     """
-    st.title("WHO Blood Cancer Classification Demo Tool")
+    st.title("WHO Classification Demo – Interactive Visualization with Flowchart")
 
     st.markdown("""
-    This **Streamlit** app classifies hematologic malignancies based on user inputs.
+    This **Streamlit** app classifies hematologic malignancies based on user inputs,
+    showcasing **interactive visualization** via a simple **Graphviz** flowchart of decision steps.
 
-    It also provides an **automated review** and **clinical next steps** (for authenticated users) 
-    using AI.
+    **Key Features**:
+    - Subtype refinement for AML/ALL
+    - Pediatric vs. adult logic
+    - Rare entities (e.g., Hairy Cell Leukemia)
+    - Graphviz-based flowchart of how the classification was reached
+    - GPT-4 integration for review and suggestions (authenticated users)
 
     **Disclaimer**: This tool is for **educational demonstration** only and is not a clinical or diagnostic tool.
     """)
@@ -498,8 +486,8 @@ def app_main():
             for warning in warnings:
                 st.warning(f"**Warning:** {warning}")
 
-        # Proceed with classification
-        classification, derivation_string = classify_blood_cancer(
+        # Perform classification
+        classification, derivation_string, decision_points = classify_blood_cancer(
             blasts_percentage=blasts_percentage,
             lineage=lineage,
             is_b_cell=is_b_cell,
@@ -525,7 +513,7 @@ def app_main():
             patient_age=patient_age
         )
 
-        # Highlight classification result in a more compact box
+        # ---- Classification Result Box ----
         st.markdown(f"""
             <div style='background-color: #d1e7dd; padding: 5px 10px; border-radius: 5px; margin-bottom: 15px;'>
                 <h4 style='color: #0f5132; margin: 0;'>Classification Result</h4>
@@ -533,7 +521,7 @@ def app_main():
             </div>
         """, unsafe_allow_html=True)
 
-        # Display the derivation
+        # ---- Derivation Explanation ----
         display_derivation(derivation_string)
 
         # If user is authenticated, show GPT-4 review
@@ -553,6 +541,17 @@ def app_main():
             """, unsafe_allow_html=True)
         else:
             st.info("Log in to receive an AI-generated review and clinical recommendations.")
+
+        # ---- Build Decision Flowchart from Decision Points ----
+        # Use the decision_points list directly
+        if decision_points:
+            flowchart_src = build_decision_flowchart(classification, decision_points)
+            st.subheader("Interactive Classification Flowchart")
+            st.graphviz_chart(flowchart_src)
+        else:
+            st.warning("No decision points available to display in the flowchart.")
+
+        
 
         st.markdown("""
         ---
