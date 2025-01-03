@@ -1,17 +1,157 @@
 import streamlit as st
+import bcrypt
 from openai import OpenAI
-import os
-from dotenv import load_dotenv
 
-# Load environment variables from .env file if present
-load_dotenv()
+client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI API key from secrets
 
+# ----------------------------
+# Password Verification Functions
+# ----------------------------
 
+def verify_password(stored_password: str, provided_password: str) -> bool:
+    """
+    Verifies a provided password against the stored hashed password using bcrypt.
+    """
+    return bcrypt.checkpw(provided_password.encode('utf-8'), stored_password.encode('utf-8'))
 
-# Set OpenAI API key
+def authenticate_user(username: str, password: str) -> bool:
+    """
+    Authenticates a user by username and password.
+    """
+    users = st.secrets["auth"]["users"]
+    for user in users:
+        if user["username"] == username:
+            return verify_password(user["hashed_password"], password)
+    return False
 
+# ----------------------------
+# Authentication State Management
+# ----------------------------
+
+# Initialize session state for authentication
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = False
+    st.session_state['username'] = ''
+
+# Sidebar for login/logout
+def login_logout():
+    if st.session_state['authenticated']:
+        st.sidebar.write(f"Logged in as **{st.session_state['username']}**")
+        if st.sidebar.button("Logout"):
+            st.session_state['authenticated'] = False
+            st.session_state['username'] = ''
+
+    else:
+        st.sidebar.header("Login")
+        username = st.sidebar.text_input("Username")
+        password = st.sidebar.text_input("Password", type="password")
+        if st.sidebar.button("Login"):
+            if authenticate_user(username, password):
+                st.session_state['authenticated'] = True
+                st.session_state['username'] = username
+                st.success("Logged in successfully!")
+
+            else:
+                st.sidebar.error("Invalid username or password")
+
+# Execute the login/logout function
+login_logout()
+
+# ----------------------------
+# Input Validation Function
+# ----------------------------
+def validate_inputs(
+    blasts_percentage: float,
+    lineage: str,
+    is_b_cell: bool,
+    is_t_cell: bool,
+    is_nk_cell: bool,
+    morphological_details: list,
+    immunophenotype_markers: list,
+    cytogenetic_abnormalities: list,
+    molecular_mutations: list,
+    wbc_count: float,
+    rbc_count: float,
+    platelet_count: float,
+    eosinophil_count: float,
+    monocyte_count: float,
+    patient_age: float
+) -> tuple:
+    """
+    Validates user inputs for consistency and completeness.
+    Returns a tuple of (errors, warnings).
+    """
+    errors = []
+    warnings = []
+
+    # Convert cytogenetic abnormalities and molecular mutations to uppercase for consistent comparison
+    cytogen_list_upper = [ab.upper() for ab in cytogenetic_abnormalities]
+    mutation_list_upper = [m.upper() for m in molecular_mutations]
+
+    # 1. Validate numerical ranges
+    if not (0 <= blasts_percentage <= 100):
+        errors.append("Blasts percentage must be between 0 and 100.")
+
+    if not (0 <= wbc_count <= 200):
+        warnings.append("WBC count seems unusually high or low.")
+
+    if not (0 <= rbc_count <= 10):
+        warnings.append("RBC count seems unusually high or low.")
+
+    if not (0 <= platelet_count <= 1500):
+        warnings.append("Platelet count seems unusually high or low.")
+
+    if not (0 <= eosinophil_count <= 50):
+        warnings.append("Eosinophil count seems unusually high or low.")
+
+    if not (0 <= monocyte_count <= 50):
+        warnings.append("Monocyte count seems unusually high or low.")
+
+    if patient_age < 0 or patient_age > 120:
+        errors.append("Patient age must be between 0 and 120 years.")
+
+    # 2. Lineage vs. markers consistency
+    myeloid_markers = ["Myeloperoxidase (MPO)"]
+    lymphoid_markers = ["CD19", "CD20", "CD79a", "CD2", "CD3", "CD5", "CD7", "CD56"]
+
+    # Check if lineage matches markers
+    if lineage == "Myeloid" and not any(marker in immunophenotype_markers for marker in myeloid_markers):
+        warnings.append("Lineage set to Myeloid, but no myeloid markers detected.")
+
+    if lineage == "Lymphoid":
+        if is_b_cell and not any(marker in immunophenotype_markers for marker in ["CD19", "CD20", "CD79a"]):
+            warnings.append("Lineage set to Lymphoid (B-cell), but no B-cell markers detected.")
+        if is_t_cell and not any(marker in immunophenotype_markers for marker in ["CD2", "CD3", "CD5", "CD7"]):
+            warnings.append("Lineage set to Lymphoid (T-cell), but no T-cell markers detected.")
+        if is_nk_cell and "CD56" not in immunophenotype_markers:
+            warnings.append("Lineage set to Lymphoid (NK-cell), but CD56 marker not detected.")
+
+    # 3. Morphological findings vs. lineage
+    if lineage == "Lymphoid" and "Ring sideroblasts" in morphological_details:
+        warnings.append("Ring sideroblasts are typically associated with myeloid disorders, not lymphoid.")
+
+    # 4. Detect conflicting lineage markers
+    if lineage == "Myeloid" and any(marker in immunophenotype_markers for marker in ["CD19", "CD20", "CD79a", "CD2", "CD3", "CD5", "CD7", "CD56"]):
+        warnings.append("Myeloid lineage selected, but lymphoid markers detected.")
+
+    if lineage == "Lymphoid" and any(marker in immunophenotype_markers for marker in myeloid_markers):
+        warnings.append("Lymphoid lineage selected, but myeloid markers detected.")
+
+    # 5. Detect possible mixed phenotype
+    if lineage == "Undetermined" and (is_b_cell or is_t_cell or is_nk_cell):
+        warnings.append("Lineage undetermined, but specific lymphoid subsets detected.")
+
+    # 6. Additional Checks
+    if "Ring sideroblasts" in morphological_details and "INV(16)" in cytogen_list_upper:
+        warnings.append("Ring sideroblasts and inv(16) are typically associated with myeloid neoplasms.")
+
+    return errors, warnings
+
+# ----------------------------
+# Classification Logic Function
+# ----------------------------
 def classify_blood_cancer(
     blasts_percentage: float,
     lineage: str,
@@ -36,7 +176,7 @@ def classify_blood_cancer(
     cd45_negative: bool,
     monocyte_count: float,
     patient_age: float
-):
+) -> tuple:
     """
     Enhanced classification logic with derivation/explanation tracking.
     Returns a tuple of (classification, explanation list).
@@ -177,7 +317,7 @@ def classify_blood_cancer(
             else:
                 if has_bcr_abl:
                     decision_points.append("Detected BCR-ABL in myeloid blasts -> AML with BCR-ABL1.")
-                    final_classification = "AML with BCR-ABL1"
+                    final_classification = "Acute Myeloid Leukemia with BCR-ABL1"
                 else:
                     decision_points.append("Myeloid blasts >=20%, no special translocation -> AML (NOS).")
                     final_classification = "Acute Myeloid Leukemia (NOS / Other Subtype)"
@@ -298,14 +438,16 @@ def classify_blood_cancer(
     explanation.append("Decision Points:\n" + "\n".join(f"- {dp}" for dp in decision_points))
     return final_classification, explanation
 
-def get_gpt4_review(classification, explanation):
+# ----------------------------
+# GPT-4 Review Function
+# ----------------------------
+def get_gpt4_review(classification: str, explanation: str) -> str:
     """
     Sends the classification and explanation to GPT-4 for review and next steps.
     Returns the GPT-4's response.
     """
-    # Construct the prompt
     prompt = f"""
-    You are a medical expert reviewing a hematologic malignancy classification. 
+    You are a medical expert reviewing a hematologic malignancy classification.
 
     **Classification Result**: {classification}
 
@@ -320,7 +462,7 @@ def get_gpt4_review(classification, explanation):
     """
 
     try:
-        response = client.chat.completions.create(model="gpt-4o",
+        response = client.chat.completions.create(model="gpt-4",
         messages=[
             {"role": "system", "content": "You are a knowledgeable hematologist."},
             {"role": "user", "content": prompt}
@@ -334,96 +476,11 @@ def get_gpt4_review(classification, explanation):
     except Exception as e:
         return f"Error communicating with OpenAI: {str(e)}"
 
-def validate_inputs(
-    blasts_percentage: float,
-    lineage: str,
-    is_b_cell: bool,
-    is_t_cell: bool,
-    is_nk_cell: bool,
-    morphological_details: list,
-    immunophenotype_markers: list,
-    cytogenetic_abnormalities: list,
-    molecular_mutations: list,
-    wbc_count: float,
-    rbc_count: float,
-    platelet_count: float,
-    eosinophil_count: float,
-    monocyte_count: float,
-    patient_age: float
-):
-    """
-    Validates user inputs for consistency and completeness.
-    Returns a tuple of (errors, warnings).
-    """
-    errors = []
-    warnings = []
-
-    # Convert cytogenetic abnormalities and molecular mutations to uppercase for consistent comparison
-    cytogen_list_upper = [ab.upper() for ab in cytogenetic_abnormalities]
-    mutation_list_upper = [m.upper() for m in molecular_mutations]
-
-    # 1. Validate numerical ranges
-    if not (0 <= blasts_percentage <= 100):
-        errors.append("Blasts percentage must be between 0 and 100.")
-
-    if not (0 <= wbc_count <= 200):
-        warnings.append("WBC count seems unusually high or low.")
-
-    if not (0 <= rbc_count <= 10):
-        warnings.append("RBC count seems unusually high or low.")
-
-    if not (0 <= platelet_count <= 1500):
-        warnings.append("Platelet count seems unusually high or low.")
-
-    if not (0 <= eosinophil_count <= 50):
-        warnings.append("Eosinophil count seems unusually high or low.")
-
-    if not (0 <= monocyte_count <= 50):
-        warnings.append("Monocyte count seems unusually high or low.")
-
-    if patient_age < 0 or patient_age > 120:
-        errors.append("Patient age must be between 0 and 120 years.")
-
-    # 2. Lineage vs. markers consistency
-    myeloid_markers = ["Myeloperoxidase (MPO)"]
-    lymphoid_markers = ["CD19", "CD20", "CD79a", "CD2", "CD3", "CD5", "CD7", "CD56"]
-
-    # Check if lineage matches markers
-    if lineage == "Myeloid" and not any(marker in immunophenotype_markers for marker in myeloid_markers):
-        warnings.append("Lineage set to Myeloid, but no myeloid markers detected.")
-
-    if lineage == "Lymphoid":
-        if is_b_cell and not any(marker in immunophenotype_markers for marker in ["CD19", "CD20", "CD79a"]):
-            warnings.append("Lineage set to Lymphoid (B-cell), but no B-cell markers detected.")
-        if is_t_cell and not any(marker in immunophenotype_markers for marker in ["CD2", "CD3", "CD5", "CD7"]):
-            warnings.append("Lineage set to Lymphoid (T-cell), but no T-cell markers detected.")
-        if is_nk_cell and "CD56" not in immunophenotype_markers:
-            warnings.append("Lineage set to Lymphoid (NK-cell), but CD56 marker not detected.")
-
-    # 3. Morphological findings vs. lineage
-    if lineage == "Lymphoid" and "Ring sideroblasts" in morphological_details:
-        warnings.append("Ring sideroblasts are typically associated with myeloid disorders, not lymphoid.")
-
-    # 4. Detect conflicting lineage markers
-    if lineage == "Myeloid" and any(marker in immunophenotype_markers for marker in ["CD19", "CD20", "CD79a", "CD2", "CD3", "CD5", "CD7", "CD56"]):
-        warnings.append("Myeloid lineage selected, but lymphoid markers detected.")
-
-    if lineage == "Lymphoid" and any(marker in immunophenotype_markers for marker in myeloid_markers):
-        warnings.append("Lymphoid lineage selected, but myeloid markers detected.")
-
-    # 5. Detect possible mixed phenotype
-    if lineage == "Undetermined" and (is_b_cell or is_t_cell or is_nk_cell):
-        warnings.append("Lineage undetermined, but specific lymphoid subsets detected.")
-
-    # 6. Additional Checks
-    if "Ring sideroblasts" in morphological_details and "INV(16)" in cytogen_list_upper:
-        warnings.append("Ring sideroblasts and inv(16) are typically associated with myeloid neoplasms.")
-
-    return errors, warnings
-
-
-def main():
-    st.title("WHO Classification Demo with Enhanced Input Validation and GPT-4 Review")
+# ----------------------------
+# Main Application Function
+# ----------------------------
+def app_main():
+    st.title("WHO Classification Demo Tool")
 
     st.markdown("""
     This **Streamlit** app classifies hematologic malignancies based on user inputs and provides an **automated review** and **clinical next steps** using OpenAI's GPT-4.
@@ -591,7 +648,6 @@ def main():
             st.write(line)
 
         # Prepare data to send to GPT-4
-        # Join the explanation list into a single string for clarity
         explanation_text = "\n".join(explanation)
 
         # Get GPT-4 review and next steps
@@ -608,6 +664,8 @@ def main():
         professional pathology review or real-world WHO classification.
         """)
 
-# Run the app
-if __name__ == "__main__":
-    main()
+# ----------------------------
+# Check Authentication and Run App
+# ----------------------------
+if st.session_state['authenticated']:
+    app_main()

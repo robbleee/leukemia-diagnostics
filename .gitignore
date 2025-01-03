@@ -1,7 +1,8 @@
 # Ignore environment variables file
 .env
 
-# Ignore Python dependencies file
-requirements.txt
-
 venv
+
+secrets.toml
+
+hash_passwords.py
