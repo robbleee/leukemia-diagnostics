@@ -649,7 +649,7 @@ def get_gpt4_review(
     input_data_str += f"- Is NK-Cell: {user_inputs['is_nk_cell']}\n"
     input_data_str += f"- Morphological Details: {user_inputs['morphological_details']}\n"
     input_data_str += f"- Immunophenotype Markers: {user_inputs['immunophenotype_markers']}\n"
-    input_data_str += f"- Immunophenotype Notes: {user_inputs['immunophenotype_notes']}\n"
+    input_data_str += f"- Immunophenotype Notes: {user_inputs['immunophenotype_special']}\n"
     input_data_str += f"- Cytogenetic Abnormalities: {user_inputs['cytogenetic_abnormalities']}\n"
     input_data_str += f"- Molecular Mutations: {user_inputs['molecular_mutations']}\n"
     input_data_str += f"- WBC Count: {user_inputs['wbc_count']}\n"
@@ -682,7 +682,7 @@ def get_gpt4_review(
     1. Provide a quick review of the classification result, highlighting any potential concerns or inconsistencies.
     2. Suggest clinically relevant next steps for further evaluation or management.
 
-    **Response should be concise and professional.**
+    **Response should be concise and professional. It should also be beautifully structured in markdown.**
     """
 
     # Send to AI
