@@ -50,7 +50,7 @@ def login_logout():
             st.session_state['authenticated'] = False
             st.session_state['username'] = ''
     else:
-        st.sidebar.header("Login")
+        st.sidebar.header("Login for AI Features")
         username = st.sidebar.text_input("Username")
         password = st.sidebar.text_input("Password", type="password")
         if st.sidebar.button("Login"):
