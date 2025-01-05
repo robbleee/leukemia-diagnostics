@@ -137,7 +137,6 @@ def show_explanation():
     detailing how classification logic is applied to arrive at each cancer type.
     Also provides a list of all cancer types that can be classified.
     """
-    st.title("Haematologic Classification – Detailed Explanation & Help")
 
     # Provide a button to hide the explanation (go back to the main view)
     if st.button("Hide Explanation"):
