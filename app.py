@@ -629,7 +629,9 @@ def validate_inputs(
     return errors, warnings
 
 
-
+##############################
+# AI Review
+##############################
 def get_gpt4_review(
     classification: str,
     explanation: str,

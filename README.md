@@ -33,148 +33,103 @@ The **WHO Hematologic Classification Tool** is a web-based application designed 
 11. Angioimmunoblastic T-Cell Lymphoma (AITL)
 12. Anaplastic Large Cell Lymphoma (ALCL, ALK+)
 13. Anaplastic Large Cell Lymphoma (ALCL, ALK–)
-14. Blastic Plasmacytoid Dendritic Cell Neoplasm (BPDCN)
-15. Burkitt's Lymphoma (High-Grade B-Cell NHL)
-16. Chronic Lymphocytic Leukemia (CLL)
-17. Chronic Myeloid Leukemia (CML)
-18. Cutaneous T-Cell Lymphoma (Mycosis Fungoides)
-19. Diffuse Large B-Cell Lymphoma (DLBCL)
-20. Follicular Lymphoma (Non-Hodgkin)
-21. Hairy Cell Leukemia (Rare B-Cell Neoplasm)
-22. Histiocytic/Dendritic Cell Neoplasm
-23. Hodgkin Lymphoma (Unspecified Subtype)
-24. Mantle Cell Lymphoma
-25. Marginal Zone Lymphoma
-26. Mastocytosis
-27. Myelodysplastic Syndromes (MDS)
-28. Myeloproliferative Neoplasm (MPN)
-29. Peripheral T-Cell Lymphoma (PTCL)
-30. Refractory Anemia (MDS)
-31. Refractory Cytopenia with Multilineage Dysplasia (RCMD)
-32. Primary CNS Lymphoma (DLBCL)
-33. Undetermined Hematologic Neoplasm
+14. Burkitt's Lymphoma (High-Grade B-Cell NHL)
+15. Chronic Lymphocytic Leukemia (CLL)
+16. Cutaneous T-Cell Lymphoma (Mycosis Fungoides)
+17. Diffuse Large B-Cell Lymphoma (DLBCL)
+18. Follicular Lymphoma (Non-Hodgkin)
+19. Hairy Cell Leukemia (Rare B-Cell Neoplasm)
+20. Mantle Cell Lymphoma
+21. Marginal Zone Lymphoma
+22. Myeloproliferative Neoplasm (MPN)
+23. Nodular Lymphocyte-Predominant Hodgkin Lymphoma (NLPHL)
+24. Primary CNS Lymphoma (DLBCL)
+25. Refractory Anemia (MDS)
+26. Refractory Cytopenia with Multilineage Dysplasia (RCMD)
 
 ## 🛠️ Installation
 
-### 📋 Prerequisites
+Follow the steps below to install and run the application locally:
 
-- **Python 3.8 or higher**
-- **Git**
+### Prerequisites
 
-### 🔧 Clone the Repository
+Ensure you have the following installed on your system:
+- Python 3.8 or higher
+- pip (Python package manager)
 
-```bash
-git clone https://github.com/yourusername/hematologic-classification-tool.git
-cd hematologic-classification-tool
+### Steps
+
+1. Clone the repository and navigate to the project directory:
+
+    ```bash
+    git clone https://github.com/yourusername/hematologic-classification-tool.git
+    cd hematologic-classification-tool
+    ```
+
+2. Create and activate a virtual environment:
+
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    ```
+
+3. Install the required dependencies:
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4. Hash your password using the provided script:
+   - Run the `hash_password.py` script included in the repository to generate a bcrypt-hashed password.
+   
+     ```bash
+     python hash_password.py
+     ```
+
+   - Enter your desired password when prompted. Copy the hashed password from the output.
+
+5. Set up your environment variables:
+   - Create a `.streamlit/secrets.toml` file in the project directory.
+   - Add the following contents to `secrets.toml`:
+     
+     ```toml
+     [auth]
+     users = [
+       {username = "admin", hashed_password = "<paste-your-hashed-password-here>"}
+     ]
+
+     [openai]
+     api_key = "<your-openai-api-key>"
+     ```
+
+6. Run the application:
+
+    ```bash
+    streamlit run app.py
+    ```
+
+7. Open your browser and navigate to `http://localhost:8501`.
+
+## 🗂️ `hash_password.py`
+
+Here’s the `hash_password.py` script included in the repository:
+
+```python
+import bcrypt
+
+def main():
+    password = input("Enter a password to hash: ").encode('utf-8')
+    hashed = bcrypt.hashpw(password, bcrypt.gensalt())
+    print(f"Hashed password: {hashed.decode('utf-8')}")
+
+if __name__ == "__main__":
+    main()
 ```
-🐍 Create a Virtual Environment
-It's recommended to use a virtual environment to manage dependencies.
 
+## 🤝 Contribution
 
-bash
-Copy code
-python -m venv venv
-Activate the virtual environment:
+Contributions, issues, and feature requests are welcome! Feel free to open an issue or submit a pull request.
 
-Windows:
+## 📜 License
 
-bash
-Copy code
-venv\Scripts\activate
-macOS/Linux:
-
-bash
-Copy code
-source venv/bin/activate
-📦 Install Dependencies
-Ensure you have pip updated:
-
-bash
-Copy code
-pip install --upgrade pip
-Install the required packages:
-
-bash
-Copy code
-pip install -r requirements.txt
-If requirements.txt is not provided, you can install the necessary packages manually:
-
-bash
-Copy code
-pip install streamlit
-pip install openai  # If AI features are integrated
-🗂️ Project Structure
-plaintext
-Copy code
-hematologic-classification-tool/
-├── app.py
-├── helpers.py
-├── requirements.txt
-├── README.md
-└── assets/
-    └── app_screenshot.png
-🚀 Running the Application
-Activate your virtual environment if not already active:
-
-Windows:
-
-bash
-Copy code
-venv\Scripts\activate
-macOS/Linux:
-
-bash
-Copy code
-source venv/bin/activate
-Start the Streamlit app:
-
-bash
-Copy code
-streamlit run app.py
-This command will launch the application in your default web browser. If it doesn't open automatically, navigate to the URL provided in the terminal (typically http://localhost:8501).
-
-🖥️ Usage
-Data Input Panel: Enter all relevant patient data, including Complete Blood Count (CBC), Bone Marrow Blasts percentage, Morphological Details, Lineage, Immunophenotyping Markers, Cytogenetic Abnormalities, Molecular Mutations, and any Special Entities.
-Classify: Click the "Classify" button to process the inputs.
-Results Panel: View the classification result, detailed derivation, AI-generated clinical recommendations (if authenticated), and an interactive classification flowchart.
-Explanation & Help: Access detailed explanations of the classification logic through the "Show Explanation" button in the sidebar.
-🎓 Explanation & Help
-Access the detailed Explanation & Help section by clicking the "Show Explanation" button in the sidebar. This section provides an in-depth overview of the classification logic, key decision factors, step-by-step explanations, and a comprehensive list of classifiable hematologic malignancies.
-
-🔒 Authentication (Optional)
-For users to access AI-powered reviews and clinical recommendations, authentication is required. Implement your preferred authentication method to manage user access. Ensure that sensitive data and AI recommendations are securely handled.
-
-📈 Future Improvements
-Expand Classifiable Entities: Incorporate additional rare hematologic malignancies.
-Machine Learning Integration: Utilize ML models for enhanced classification accuracy.
-User Management: Implement role-based access control for different user types.
-Multi-Language Support: Make the tool accessible to non-English-speaking users.
-Enhanced Visualizations: Add more interactive elements like detailed flowcharts and real-time data validation.
-🤝 Contributing
-Contributions are welcome! Please follow these steps to contribute:
-
-Fork the Repository
-
-Create a Feature Branch
-
-bash
-Copy code
-git checkout -b feature/YourFeatureName
-Commit Your Changes
-
-bash
-Copy code
-git commit -m "Add some feature"
-Push to the Branch
-
-bash
-Copy code
-git push origin feature/YourFeatureName
-Open a Pull Request
-
-📄 License
-This project is licensed under the MIT License.
-
-📞 Contact
-For any questions, suggestions, or feedback, please contact your.email@example.com.
-
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
