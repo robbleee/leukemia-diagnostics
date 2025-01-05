@@ -1,7 +1,8 @@
 import streamlit as st
 import bcrypt
-from openai import OpenAI
+import json
 import graphviz
+from openai import OpenAI
 
 ##############################
 # OPENAI API CONFIG
@@ -13,8 +14,12 @@ client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 ##############################
 st.set_page_config(page_title="Hematologic Classification", layout="wide")
 
+# Initialize session state variables
 if "show_explanation" not in st.session_state:
     st.session_state["show_explanation"] = False
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = False
+    st.session_state['username'] = ''
 
 ##############################
 # AUTHENTICATION
@@ -35,11 +40,6 @@ def authenticate_user(username: str, password: str) -> bool:
             return verify_password(user["hashed_password"], password)
     return False
 
-# Initialize session state for authentication
-if 'authenticated' not in st.session_state:
-    st.session_state['authenticated'] = False
-    st.session_state['username'] = ''
-
 def login_logout():
     """
     Displays login/logout controls in the sidebar.
@@ -49,6 +49,7 @@ def login_logout():
         if st.sidebar.button("Logout"):
             st.session_state['authenticated'] = False
             st.session_state['username'] = ''
+            st.sidebar.success("Logged out successfully!")
     else:
         st.sidebar.header("Login for AI Features")
         username = st.sidebar.text_input("Username")
@@ -57,7 +58,7 @@ def login_logout():
             if authenticate_user(username, password):
                 st.session_state['authenticated'] = True
                 st.session_state['username'] = username
-                st.success("Logged in successfully!")
+                st.sidebar.success("Logged in successfully!")
             else:
                 st.sidebar.error("Invalid username or password")
 
@@ -123,219 +124,10 @@ def build_decision_flowchart(classification: str, decision_points: list) -> str:
         previous_node = node_name
 
     # Final classification node
-    dot.node("Result", f"Final: {classification}", shape="doublerectangle", color="green")
+    dot.node("Result", f"Final: {classification}", shape="rectangle", color="green")
     dot.edge(previous_node, "Result")
 
     return dot.source
-
-##############################
-# EXPLANATION FUNCTION
-##############################
-def show_explanation():
-    """
-    Displays a comprehensive and visually appealing explanation/help page in Markdown,
-    detailing how classification logic is applied to arrive at each cancer type.
-    Also provides a list of all cancer types that can be classified.
-    """
-
-    # Provide a button to hide the explanation (go back to the main view)
-    if st.button("Hide Explanation"):
-        st.session_state["show_explanation"] = False
-        st.rerun()
-
-    st.markdown("""
-    <div style="background-color: #f0f8ff; padding: 20px; border-radius: 10px; border: 1px solid #add8e6;">
-      <h2 style="color: #003366;">Welcome to the Hematologic Classification Tool</h2>
-      <p>
-        This application assists in classifying hematologic malignancies based on user-provided data.
-        Below is an in-depth overview of how the classification logic operates, including each decision point
-        and the full range of cancer types it can identify.
-      </p>
-      <p><em>Disclaimer:</em> This tool is intended for <strong>educational purposes only</strong> and 
-      should <strong>not</strong> be used as a substitute for professional medical advice or diagnosis.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    st.markdown("""
-    ## 1. Key Decision Factors
-
-    The classification process is driven by several key inputs:
-
-    - **Blasts Percentage**:
-      - Determines whether a neoplasm is considered **acute** (≥20% blasts in marrow) or **chronic** (<20% blasts).
-    - **Lineage**:
-      - Identifies if cells appear **Myeloid**, **Lymphoid**, or **Undetermined**, guiding subsequent classification steps.
-    - **Immunophenotype & Special Flags**:
-      - **Markers** (e.g., CD19, CD3, CD138) indicate specific cell lineages or subtypes (B-cells, T-cells, plasma cells, etc.).
-      - **Special flags** (e.g., "Skin involvement", "CD7 loss") capture nuanced clinical/lab findings that can refine subtype.
-    - **Cytogenetic Abnormalities & Molecular Mutations**:
-      - **Chromosomal Translocations** (e.g., t(8;21), t(15;17)).
-      - **Gene Mutations** (e.g., FLT3, NPM1).
-    - **Patient Age**:
-      - Helps differentiate pediatric (<18 years) from adult presentations (≥18 years), especially relevant for ALL.
-    """)
-
-    st.markdown("""
-    ## 2. Full Classification Logic
-
-    This tool follows a hierarchical set of checks to arrive at the most specific possible diagnosis:
-
-    ### 2.1. Acute vs. Chronic
-    1. **Assess Blasts Percentage**:
-       - If **blasts ≥ 20%**, the case is treated as an **acute leukemia**.
-       - If **blasts < 20%**, the classification proceeds as **chronic** or **other** (e.g., lymphoma, myeloproliferative neoplasm).
-
-    ### 2.2. Myeloid vs. Lymphoid Lineage
-    - After determining acute vs. chronic, the tool examines **lineage**:
-      - **Myeloid** → Evaluate for AML, MDS, MPN, or CML.
-      - **Lymphoid** → Evaluate for ALL, Hodgkin, or Non-Hodgkin lymphoma.
-      - **Undetermined** → May end up as 'Acute Leukemia of Ambiguous Lineage' or 'Other Chronic Hematologic Neoplasm'.
-
-    ---
-    ### **A) Acute Myeloid Leukemia (≥20% blasts, Myeloid)**
-    1. **Initial AML Assignment**: If blasts ≥ 20% and lineage is myeloid, default is **Acute Myeloid Leukemia (AML)**.
-    2. **Further Subtyping** (checked in this order):
-       - **BPDCN (Blastic Plasmacytoid Dendritic Cell Neoplasm)**:
-         - Identified if the immunophenotype shows **CD123 + CD4 + CD56** (plasmacytoid dendritic phenotype).
-       - **AML-M6 (Erythroid)**:
-         - If morphological details mention “Erythroid precursors” or markers like **Glycophorin A** or **CD71** are present.
-       - **AML-M7 (Megakaryoblastic)**:
-         - If morphological details indicate “Megakaryoblasts” or markers **CD41**, **CD42b**, or **CD61** are found.
-       - **Acute Promyelocytic Leukemia (APL)**:
-         - If **t(15;17)** is present.
-       - **AML with t(8;21)**:
-         - If that specific translocation is observed.
-       - **AML with inv(16)/t(16;16)**:
-         - If those rearrangements appear in cytogenetics.
-       - **AML with FLT3**:
-         - If molecular testing detects a FLT3 mutation.
-       - **AML with NPM1**:
-         - If molecular testing detects an NPM1 mutation.
-
-    ---
-    ### **B) Acute Lymphoblastic Leukemia (≥20% blasts, Lymphoid)**
-    - **Pediatric ALL**: If the patient is <18.
-    - **Adult ALL**: If the patient is ≥18.
-
-    ---
-    ### **C) Acute Leukemia of Ambiguous Lineage**
-    - If blasts ≥ 20% but lineage is undetermined or contradictory, it may result in a diagnosis of ambiguous or mixed phenotype.
-
-    ---
-    ### **D) Chronic (Blasts < 20%) Myeloid Entities**
-    1. **Check MPN Driver Mutations** (JAK2, CALR, MPL):
-       - If positive, classify as **Myeloproliferative Neoplasm (MPN)**.
-    2. **Evaluate for MDS** (Myelodysplastic Syndromes):
-       - **MDS with Excess Blasts**: 5–19% blasts.
-       - **MDS with Isolated del(5q)**: If a del(5q) abnormality is detected.
-       - **RCMD**: If “Multilineage dysplasia” is present.
-       - **Refractory Anemia**: Subtype under MDS with primarily anemic presentation.
-    3. **Chronic Myeloid Leukemia (CML)**:
-       - If none of the above criteria (MPN or MDS) are met, default to CML.
-
-    ---
-    ### **E) Chronic (Blasts < 20%) Lymphoid Entities**
-    - **Suspect Hodgkin Lymphoma**:
-      - If `hodgkin_markers = True`; refine using **CD15+ CD30+** → Classic HL, **CD20+ only** → NLPHL, or Unspecified.
-    - **Non-Hodgkin**:
-      1. **B-cell**:
-         - **Mantle Cell Lymphoma**: (Cyclin D1 or t(11;14)) + **CD5+**. Typically **CD23-**.
-         - **Marginal Zone Lymphoma**: Usually **CD20+** or **CD79a+**, but negative for CD5/CD10.
-         - **Primary CNS Lymphoma**: Subset of DLBCL with **BCL6, CD20** and “CNS involvement”.
-         - **Burkitt’s Lymphoma**: **MYC** or **t(8;14)** + **CD10+**.
-         - **Follicular Lymphoma**: If **CD10+** without MYC features.
-         - **Diffuse Large B-Cell Lymphoma (DLBCL)**: Default if no other B-cell category matches.
-      2. **T-cell**:
-         - **ALCL**: T-cell with **CD30+**; if cytogenetics show "ALK" → ALCL (ALK+), otherwise ALK–.
-         - **AITL**: T-cell with **CD10** plus **PD-1/CXCL13/BCL6**.
-         - **Mycosis Fungoides**: T-cell with “Skin involvement” or “CD7 loss” + **CD4**.
-         - **Peripheral T-Cell Lymphoma (PTCL)**: T-lymphoid neoplasm not fitting the above specific categories.
-      3. **Chronic Lymphocytic Leukemia (CLL)**:
-         - Default if the immunophenotype suggests mature B-cells without any of the lymphoma indicators above.
-         - If “Hairy cells” flag is triggered, → **Hairy Cell Leukemia**.
-
-    ---
-    ### **F) Other or Rare Entities**
-    - **Multiple Myeloma (Plasma Cell Neoplasm)**:
-      - If **CD138** is detected among markers.
-    - **Mast Cell Involvement**:
-      - Suggests possible **Mastocytosis** (Placeholder logic).
-    - **Histiocytic Marker**:
-      - Suggests **Histiocytic or Dendritic Cell Neoplasm** (Placeholder logic).
-    - **Undetermined**:
-      - If none of the above branches apply, classification defaults to “Undetermined Hematologic Neoplasm.”
-
-    ---
-    ## 3. All Recognized Hematologic Malignancies
-
-    The following is a comprehensive list (alphabetical) of the malignancies the tool can classify:
-
-    | **Cancer Type**                                            | **Description**                                      |
-    |------------------------------------------------------------|------------------------------------------------------|
-    | Acute Erythroid Leukemia (AML-M6)                          | AML subtype with erythroid precursors.               |
-    | Acute Lymphoblastic Leukemia (ALL, Pediatric)              | ALL in patients younger than 18 years.               |
-    | Acute Lymphoblastic Leukemia (ALL, Adult)                  | ALL in patients 18 years and older.                  |
-    | Acute Megakaryoblastic Leukemia (AML-M7)                    | AML subtype with megakaryoblasts.                    |
-    | Acute Myeloid Leukemia (AML)                                | General AML classification.                           |
-    | Acute Promyelocytic Leukemia (APL)                          | AML subtype characterized by t(15;17).               |
-    | AML with FLT3 Mutation                                      | AML subtype with FLT3 mutation.                      |
-    | AML with NPM1 Mutation                                      | AML subtype with NPM1 mutation.                      |
-    | AML with t(8;21)                                            | AML subtype with t(8;21) translocation.              |
-    | AML with inv(16)/t(16;16)                                   | AML subtype with inv(16) or t(16;16) translocation.  |
-    | Anaplastic Large Cell Lymphoma (ALCL, ALK+)                 | ALCL subtype positive for ALK.                       |
-    | Anaplastic Large Cell Lymphoma (ALCL, ALK–)                 | ALCL subtype negative for ALK.                       |
-    | Angioimmunoblastic T-Cell Lymphoma (AITL)                   | T-cell lymphoma with angioimmunoblastic features.    |
-    | Blastic Plasmacytoid Dendritic Cell Neoplasm (BPDCN)        | Aggressive myeloid neoplasm with plasmacytoid dendritic phenotype. |
-    | Burkitt's Lymphoma (High-Grade B-Cell NHL)                  | Highly aggressive B-cell non-Hodgkin lymphoma.       |
-    | Chronic Lymphocytic Leukemia (CLL)                          | Chronic B-cell leukemia.                             |
-    | Chronic Myeloid Leukemia (CML)                              | Chronic leukemia with Philadelphia chromosome.       |
-    | Cutaneous T-Cell Lymphoma (Mycosis Fungoides)               | T-cell lymphoma affecting the skin.                  |
-    | Diffuse Large B-Cell Lymphoma (DLBCL)                       | Aggressive B-cell non-Hodgkin lymphoma.              |
-    | Follicular Lymphoma (Non-Hodgkin)                           | B-cell non-Hodgkin lymphoma with follicular features.|
-    | Hairy Cell Leukemia (Rare B-Cell Neoplasm)                  | Rare B-cell leukemia with characteristic “hairy” cells. |
-    | Histiocytic/Dendritic Cell Neoplasm                         | Placeholder logic for histiocytic marker positivity. |
-    | Hodgkin Lymphoma (Unspecified Subtype)                      | Hodgkin lymphoma without a specified marker profile. |
-    | Mantle Cell Lymphoma                                        | B-cell lymphoma with (Cyclin D1 or t(11;14)) + CD5+. |
-    | Marginal Zone Lymphoma                                      | B-cell lymphoma with marginal zone characteristics.  |
-    | Mastocytosis (Suspected)                                    | Basic placeholder if mast cell involvement is noted. |
-    | MDS (Refractory Anemia)                                     | MDS subtype primarily manifested as anemia.          |
-    | MDS with Excess Blasts                                      | Blasts 5–19% in a myeloid context.                   |
-    | MDS with Isolated del(5q)                                   | MDS subtype with 5q deletion.                        |
-    | Multiple Myeloma (Plasma Cell Neoplasm)                     | Plasma cell malignancy indicated by CD138.           |
-    | Myeloproliferative Neoplasm (MPN)                           | Chronic proliferation of myeloid lineages (JAK2/CALR/MPL). |
-    | Mycosis Fungoides (Cutaneous T-Cell Lymphoma)               | T-cell lymphoma often with skin lesions or CD7 loss. |
-    | Nodular Lymphocyte-Predominant HL (NLPHL)                   | Hodgkin variant with CD20 positivity and CD15/CD30 negativity. |
-    | Peripheral T-Cell Lymphoma (PTCL)                           | T-cell non-Hodgkin lymphoma not fitting other subtypes. |
-    | Primary CNS Lymphoma (DLBCL)                                | DLBCL confined to the central nervous system.        |
-    | Refractory Cytopenia with Multilineage Dysplasia (RCMD)     | MDS subtype with multiple dysplastic lineages.       |
-    | Undetermined Hematologic Neoplasm                           | Neoplasm that doesn’t meet specific classification.  |
-
-    ---
-
-    ## 4. How to Use the Classification Tool
-
-    1. **Data Entry**: Provide accurate CBC values, immunophenotyping markers, cytogenetics, etc.
-    2. **Classification**: Click **“Classify”** to run the logic and obtain a classification result.
-    3. **Derivation**: Review the step-by-step explanation describing how each decision was made.
-    4. **AI Review & Flowchart** (if authenticated):
-       - Get additional insights or next-step recommendations from an AI summary.
-       - Explore an interactive flowchart illustrating how each branching point led to the final classification.
-
-    ---
-
-    ## Important Considerations
-    
-    - **Data Quality**: All inputs must be **accurate** and **comprehensive** for an optimal match.
-    - **Placeholder Entities**: Some conditions (e.g., Mastocytosis, Histiocytic Neoplasm) are flagged but not deeply elaborated.
-    - **Clinical Correlation**: Always combine this tool’s results with full clinical evaluation, specialist consultation, and advanced diagnostics.
-    - **Disclaimer**: This logic is **simplified** and not a substitute for professional pathology or oncological expertise.
-
-    ---
-    """, unsafe_allow_html=True)
-
-
 
 ##############################
 # CLASSIFICATION
@@ -371,7 +163,7 @@ def classify_blood_cancer(
       - Rare B-Cell Lymphomas (Mantle Cell, Marginal Zone, Primary CNS)
       - Aggressive Myeloid Cancers (BPDCN, AML-M6, AML-M7)
       - ALK for ALCL
-      - immunophenotype_special for T-cell or special B-cell notes
+      - immunophenotype_special for T-cell notes (e.g., CD7 loss, Skin involvement, Hairy cells)
     """
 
     decision_points = []
@@ -538,7 +330,7 @@ def classify_blood_cancer(
                                 decision_points.append("T-cell + CD30+ => ALCL (ALK–).")
                         # AITL => CD10 + (PD-1 or CXCL13 or BCL6)
                         elif ("CD10" in immunophenotype_markers) and (
-                            any(x in immunophenotype_markers for x in ["PD-1", "CXCL13"])
+                            any(x in immunophenotype_markers for x in ["PD-1", "CXCL13"]) 
                             or "BCL6" in molecular_mutations
                         ):
                             classification = "Angioimmunoblastic T-Cell Lymphoma (AITL)"
@@ -579,7 +371,6 @@ def classify_blood_cancer(
     )
 
     return classification, derivation, decision_points
-
 
 ##############################
 # VALIDATION
@@ -627,9 +418,8 @@ def validate_inputs(
 
     return errors, warnings
 
-
 ##############################
-# AI Review
+# AI REVIEW
 ##############################
 def get_gpt4_review(
     classification: str,
@@ -642,35 +432,13 @@ def get_gpt4_review(
     """
     # Create a readable string of user inputs
     input_data_str = "Below is the data the user provided:\n"
-    input_data_str += f"- Blasts Percentage: {user_inputs['blasts_percentage']}\n"
-    input_data_str += f"- Lineage: {user_inputs['lineage']}\n"
-    input_data_str += f"- Is B-Cell: {user_inputs['is_b_cell']}\n"
-    input_data_str += f"- Is T-Cell: {user_inputs['is_t_cell']}\n"
-    input_data_str += f"- Is NK-Cell: {user_inputs['is_nk_cell']}\n"
-    input_data_str += f"- Morphological Details: {user_inputs['morphological_details']}\n"
-    input_data_str += f"- Immunophenotype Markers: {user_inputs['immunophenotype_markers']}\n"
-    input_data_str += f"- Immunophenotype Notes: {user_inputs['immunophenotype_special']}\n"
-    input_data_str += f"- Cytogenetic Abnormalities: {user_inputs['cytogenetic_abnormalities']}\n"
-    input_data_str += f"- Molecular Mutations: {user_inputs['molecular_mutations']}\n"
-    input_data_str += f"- WBC Count: {user_inputs['wbc_count']}\n"
-    input_data_str += f"- RBC Count: {user_inputs['rbc_count']}\n"
-    input_data_str += f"- Platelet Count: {user_inputs['platelet_count']}\n"
-    input_data_str += f"- Eosinophil Count: {user_inputs['eosinophil_count']}\n"
-    input_data_str += f"- Monocyte Count: {user_inputs['monocyte_count']}\n"
-    input_data_str += f"- Patient Age: {user_inputs['patient_age']}\n"
-    input_data_str += f"- Mast Cell Involvement: {user_inputs['mast_cell_involvement']}\n"
-    input_data_str += f"- Histiocytic Marker: {user_inputs['histiocytic_marker']}\n"
-    input_data_str += f"- Suspect Hodgkin Markers: {user_inputs['hodgkin_markers']}\n"
-    input_data_str += f"- CD15 Positive: {user_inputs['cd15_positive']}\n"
-    input_data_str += f"- CD30 Positive: {user_inputs['cd30_positive']}\n"
-    input_data_str += f"- CD20 Positive: {user_inputs['cd20_positive']}\n"
-    input_data_str += f"- CD45 Negative: {user_inputs['cd45_negative']}\n"
+    for key, value in user_inputs.items():
+        input_data_str += f"- {key.replace('_', ' ').capitalize()}: {value}\n"
 
-    # Build the final prompt
+    # Build the final prompt with refined structure
     prompt = f"""
-    You are a medical expert reviewing a hematologic malignancy classification.
+    You are a specialized medical AI. The user has provided the following hematological data:
 
-    **User Input Data**:
     {input_data_str}
 
     **Classification Result**: {classification}
@@ -688,7 +456,7 @@ def get_gpt4_review(
     # Send to AI
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",  # Or "gpt-4" if your environment supports it
+            model="gpt-4",  # Ensure your environment supports this model
             messages=[
                 {"role": "system", "content": "You are a knowledgeable hematologist."},
                 {"role": "user", "content": prompt}
@@ -703,6 +471,287 @@ def get_gpt4_review(
     except Exception as e:
         return f"Error communicating with OpenAI: {str(e)}"
 
+##############################
+# FREE-TEXT REPORT PARSER
+##############################
+def parse_hematology_report(report_text: str) -> dict:
+    """
+    Sends the free-text hematological report to OpenAI and requests a structured JSON
+    with all fields needed for classification.
+    """
+    # Safety check: if the user didn’t type anything, return an empty dict
+    if not report_text.strip():
+        return {}
+
+    prompt = f"""
+    You are a specialized medical AI. The user has pasted a free-text hematological report. 
+    Please extract the following fields from the text (if not found, set them to a best-guess, null, or a default):
+
+    Required JSON structure:
+
+    {{
+      "blasts_percentage": 0.0,
+      "lineage": "Myeloid | Lymphoid | Undetermined",
+      "is_b_cell": false,
+      "is_t_cell": false,
+      "is_nk_cell": false,
+      "morphological_details": ["list", "of", "strings"],
+      "immunophenotype_markers": ["list", "of", "markers"],
+      "immunophenotype_special": ["list", "of", "flags, e.g. 'Skin involvement', 'CD7 loss'"],
+      "cytogenetic_abnormalities": ["list", "of", "strings"],
+      "molecular_mutations": ["list", "of", "strings"],
+      "wbc_count": 0.0,
+      "rbc_count": 0.0,
+      "platelet_count": 0.0,
+      "eosinophil_count": 0.0,
+      "mast_cell_involvement": false,
+      "histiocytic_marker": false,
+      "hodgkin_markers": false,
+      "cd15_positive": false,
+      "cd30_positive": false,
+      "cd20_positive": false,
+      "cd45_negative": false,
+      "monocyte_count": 0.0,
+      "patient_age": 0.0
+    }}
+
+    **Important**: 
+    1. Return **valid JSON only** (no extra text or commentary). 
+    2. If uncertain about a specific field, provide your best-guess or keep it at a default/null. 
+    3. Do not wrap the JSON in Markdown.
+
+    Here is the free-text report to parse:
+    {report_text}
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4",  # Ensure your environment supports this model
+            messages=[
+                {"role": "system", "content": "You are a knowledgeable hematologist who formats output strictly in JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=800,
+            temperature=0.0
+        )
+        raw_content = response.choices[0].message.content.strip()
+
+        # Attempt to parse the JSON
+        parsed_data = json.loads(raw_content)
+        return parsed_data
+
+    except json.JSONDecodeError:
+        st.error("❌ Failed to parse the AI response into JSON. Please ensure the report is well-formatted.")
+        return {}
+    except Exception as e:
+        st.error(f"❌ Error communicating with OpenAI: {str(e)}")
+        return {}
+
+##############################
+# EXPLANATION FUNCTION
+##############################
+def show_explanation():
+    """
+    Displays a comprehensive and visually appealing explanation/help page in Markdown,
+    detailing how classification logic is applied to arrive at each cancer type.
+    Also provides a list of all cancer types that can be classified.
+    """
+
+    
+
+    st.markdown("""
+    <div style="background-color: #f0f8ff; padding: 20px; border-radius: 10px; border: 1px solid #add8e6;">
+      <h2 style="color: #003366;">Welcome to the Hematologic Classification Tool</h2>
+      <p>
+        This application assists in classifying hematologic malignancies based on user-provided data.
+        Below is an in-depth overview of how the classification logic operates, including each decision point
+        and the full range of cancer types it can identify.
+      </p>
+      <p><em>Disclaimer:</em> This tool is intended for <strong>educational purposes only</strong> and 
+      should <strong>not</strong> be used as a substitute for professional medical advice or diagnosis.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    st.markdown("""
+    ## 1. Key Decision Factors
+
+    The classification process is driven by several key inputs:
+
+    - **Blasts Percentage**:
+      - Determines whether a neoplasm is considered **acute** (≥20% blasts in marrow) or **chronic** (<20% blasts).
+    - **Lineage**:
+      - Identifies if cells appear **Myeloid**, **Lymphoid**, or **Undetermined**, guiding subsequent classification steps.
+    - **Immunophenotype & Special Flags**:
+      - **Markers** (e.g., CD19, CD3, CD138) indicate specific cell lineages or subtypes (B-cells, T-cells, plasma cells, etc.).
+      - **Special flags** (e.g., "Skin involvement", "CD7 loss") capture nuanced clinical/lab findings that can refine subtype.
+    - **Cytogenetic Abnormalities & Molecular Mutations**:
+      - **Chromosomal Translocations** (e.g., t(8;21), t(15;17)).
+      - **Gene Mutations** (e.g., FLT3, NPM1).
+    - **Patient Age**:
+      - Helps differentiate pediatric (<18 years) from adult presentations (≥18 years), especially relevant for ALL.
+    """)
+
+    st.markdown("""
+    ## 2. Full Classification Logic
+
+    This tool follows a hierarchical set of checks to arrive at the most specific possible diagnosis:
+
+    ### 2.1. Acute vs. Chronic
+    1. **Assess Blasts Percentage**:
+       - If **blasts ≥ 20%**, the case is treated as an **acute leukemia**.
+       - If **blasts < 20%**, the classification proceeds as **chronic** or **other** (e.g., lymphoma, myeloproliferative neoplasm).
+
+    ### 2.2. Myeloid vs. Lymphoid Lineage
+    - After determining acute vs. chronic, the tool examines **lineage**:
+      - **Myeloid** → Evaluate for AML, MDS, MPN, or CML.
+      - **Lymphoid** → Evaluate for ALL, Hodgkin, or Non-Hodgkin lymphoma.
+      - **Undetermined** → May end up as 'Acute Leukemia of Ambiguous Lineage' or 'Other Chronic Hematologic Neoplasm'.
+
+    ---
+    ### **A) Acute Myeloid Leukemia (≥20% blasts, Myeloid)**
+    1. **Initial AML Assignment**: If blasts ≥ 20% and lineage is myeloid, default is **Acute Myeloid Leukemia (AML)**.
+    2. **Further Subtyping** (checked in this order):
+       - **BPDCN (Blastic Plasmacytoid Dendritic Cell Neoplasm)**:
+         - Identified if the immunophenotype shows **CD123 + CD4 + CD56** (plasmacytoid dendritic phenotype).
+       - **AML-M6 (Erythroid)**:
+         - If morphological details mention “Erythroid precursors” or markers like **Glycophorin A** or **CD71** are present.
+       - **AML-M7 (Megakaryoblastic)**:
+         - If morphological details indicate “Megakaryoblasts” or markers **CD41**, **CD42b**, or **CD61** are found.
+       - **Acute Promyelocytic Leukemia (APL)**:
+         - If **t(15;17)** is present.
+       - **AML with t(8;21)**:
+         - If that specific translocation is observed.
+       - **AML with inv(16)/t(16;16)**:
+         - If those rearrangements appear in cytogenetics.
+       - **AML with FLT3**:
+         - If molecular testing detects a FLT3 mutation.
+       - **AML with NPM1**:
+         - If molecular testing detects an NPM1 mutation.
+
+    ---
+    ### **B) Acute Lymphoblastic Leukemia (≥20% blasts, Lymphoid)**
+    - **Pediatric ALL**: If the patient is <18.
+    - **Adult ALL**: If the patient is ≥18.
+
+    ---
+    ### **C) Acute Leukemia of Ambiguous Lineage**
+    - If blasts ≥ 20% but lineage is undetermined or contradictory, it may result in a diagnosis of ambiguous or mixed phenotype.
+
+    ---
+    ### **D) Chronic (Blasts < 20%) Myeloid Entities**
+    1. **Check MPN Driver Mutations** (JAK2, CALR, MPL):
+       - If positive, classify as **Myeloproliferative Neoplasm (MPN)**.
+    2. **Evaluate for MDS** (Myelodysplastic Syndromes):
+       - **MDS with Excess Blasts**: 5–19% blasts.
+       - **MDS with Isolated del(5q)**: If a del(5q) abnormality is detected.
+       - **RCMD**: If “Multilineage dysplasia” is present.
+       - **Refractory Anemia**: Subtype under MDS with primarily anemic presentation.
+    3. **Chronic Myeloid Leukemia (CML)**:
+       - If none of the above criteria (MPN or MDS) are met, default to CML.
+
+    ---
+    ### **E) Chronic (Blasts < 20%) Lymphoid Entities**
+    - **Suspect Hodgkin Lymphoma**:
+      - If `hodgkin_markers = True`; refine using **CD15+ CD30+** → Classic HL, **CD20+ only** → NLPHL, or Unspecified.
+    - **Non-Hodgkin**:
+      1. **B-cell**:
+         - **Mantle Cell Lymphoma**: (Cyclin D1 or t(11;14)) + **CD5+**. Typically **CD23-**.
+         - **Marginal Zone Lymphoma**: Usually **CD20+** or **CD79a+**, but negative for CD5/CD10.
+         - **Primary CNS Lymphoma**: Subset of DLBCL with **BCL6, CD20** and “CNS involvement”.
+         - **Burkitt’s Lymphoma**: **MYC** or **t(8;14)** + **CD10+**.
+         - **Follicular Lymphoma**: If **CD10+** without MYC features.
+         - **Diffuse Large B-Cell Lymphoma (DLBCL)**: Default if no other B-cell category matches.
+      2. **T-cell**:
+         - **ALCL**: T-cell with **CD30+**; if cytogenetics show "ALK" → ALCL (ALK+), otherwise ALCL–.
+         - **AITL**: T-cell with **CD10** plus **PD-1/CXCL13/BCL6**.
+         - **Mycosis Fungoides**: T-cell with “Skin involvement” or “CD7 loss” + **CD4**.
+         - **Peripheral T-Cell Lymphoma (PTCL)**: T-lymphoid neoplasm not fitting the above specific categories.
+      3. **Chronic Lymphocytic Leukemia (CLL)**:
+         - Default if the immunophenotype suggests mature B-cells without any of the lymphoma indicators above.
+         - If “Hairy cells” flag is triggered, → **Hairy Cell Leukemia**.
+
+    ---
+    ### **F) Other or Rare Entities**
+    - **Multiple Myeloma (Plasma Cell Neoplasm)**:
+      - If **CD138** is detected among markers.
+    - **Mast Cell Involvement**:
+      - Suggests possible **Mastocytosis** (Placeholder logic).
+    - **Histiocytic Marker**:
+      - Suggests **Histiocytic or Dendritic Cell Neoplasm** (Placeholder logic).
+    - **Undetermined**:
+      - If none of the above branches apply, classification defaults to “Undetermined Hematologic Neoplasm.”
+
+    ---
+
+    ## 3. All Recognized Hematologic Malignancies
+
+    The following is a comprehensive list (alphabetical) of the malignancies the tool can classify:
+
+    | **Cancer Type**                                            | **Description**                                      |
+    |------------------------------------------------------------|------------------------------------------------------|
+    | Acute Erythroid Leukemia (AML-M6)                          | AML subtype with erythroid precursors.               |
+    | Acute Lymphoblastic Leukemia (ALL, Pediatric)              | ALL in patients younger than 18 years.               |
+    | Acute Lymphoblastic Leukemia (ALL, Adult)                  | ALL in patients 18 years and older.                  |
+    | Acute Megakaryoblastic Leukemia (AML-M7)                    | AML subtype with megakaryoblasts.                    |
+    | Acute Myeloid Leukemia (AML)                                | General AML classification.                           |
+    | Acute Promyelocytic Leukemia (APL)                          | AML subtype characterized by t(15;17).               |
+    | AML with FLT3 Mutation                                      | AML subtype with FLT3 mutation.                      |
+    | AML with NPM1 Mutation                                      | AML subtype with NPM1 mutation.                      |
+    | AML with t(8;21)                                            | AML subtype with t(8;21) translocation.              |
+    | AML with inv(16)/t(16;16)                                   | AML subtype with inv(16) or t(16;16) translocation.  |
+    | Anaplastic Large Cell Lymphoma (ALCL, ALK+)                 | ALCL subtype positive for ALK.                       |
+    | Anaplastic Large Cell Lymphoma (ALCL, ALK–)                 | ALCL subtype negative for ALK.                       |
+    | Angioimmunoblastic T-Cell Lymphoma (AITL)                   | T-cell lymphoma with angioimmunoblastic features.    |
+    | Blastic Plasmacytoid Dendritic Cell Neoplasm (BPDCN)        | Aggressive myeloid neoplasm with plasmacytoid dendritic phenotype. |
+    | Burkitt's Lymphoma (High-Grade B-Cell NHL)                  | Highly aggressive B-cell non-Hodgkin lymphoma.       |
+    | Chronic Lymphocytic Leukemia (CLL)                          | Chronic B-cell leukemia.                             |
+    | Chronic Myeloid Leukemia (CML)                              | Chronic leukemia with Philadelphia chromosome.       |
+    | Cutaneous T-Cell Lymphoma (Mycosis Fungoides)               | T-cell lymphoma affecting the skin.                  |
+    | Diffuse Large B-Cell Lymphoma (DLBCL)                       | Aggressive B-cell non-Hodgkin lymphoma.              |
+    | Follicular Lymphoma (Non-Hodgkin)                           | B-cell non-Hodgkin lymphoma with follicular features.|
+    | Hairy Cell Leukemia (Rare B-Cell Neoplasm)                  | Rare B-cell leukemia with characteristic “hairy” cells. |
+    | Histiocytic/Dendritic Cell Neoplasm                         | Placeholder logic for histiocytic marker positivity. |
+    | Hodgkin Lymphoma (Unspecified Subtype)                      | Hodgkin lymphoma without a specified marker profile. |
+    | Mantle Cell Lymphoma                                        | B-cell lymphoma with (Cyclin D1 or t(11;14)) + CD5+. |
+    | Marginal Zone Lymphoma                                      | B-cell lymphoma with marginal zone characteristics.  |
+    | Mastocytosis (Suspected)                                    | Basic placeholder if mast cell involvement is noted. |
+    | MDS (Refractory Anemia)                                     | MDS subtype primarily manifested as anemia.          |
+    | MDS with Excess Blasts                                      | Blasts 5–19% in a myeloid context.                   |
+    | MDS with Isolated del(5q)                                   | MDS subtype with 5q deletion.                        |
+    | Multiple Myeloma (Plasma Cell Neoplasm)                     | Plasma cell malignancy indicated by CD138.           |
+    | Myeloproliferative Neoplasm (MPN)                           | Chronic proliferation of myeloid lineages (JAK2/CALR/MPL). |
+    | Mycosis Fungoides (Cutaneous T-Cell Lymphoma)               | T-cell lymphoma often with skin lesions or CD7 loss. |
+    | Nodular Lymphocyte-Predominant HL (NLPHL)                   | Hodgkin variant with CD20 positivity and CD15/CD30 negativity. |
+    | Peripheral T-Cell Lymphoma (PTCL)                           | T-cell non-Hodgkin lymphoma not fitting other subtypes. |
+    | Primary CNS Lymphoma (DLBCL)                                | DLBCL confined to the central nervous system.        |
+    | Refractory Cytopenia with Multilineage Dysplasia (RCMD)     | MDS subtype with multiple dysplastic lineages.       |
+    | Undetermined Hematologic Neoplasm                           | Neoplasm that doesn’t meet specific classification.  |
+
+    ---
+
+    ## 4. How to Use the Classification Tool
+
+    1. **Data Entry**: Provide accurate CBC values, immunophenotyping markers, cytogenetics, etc.
+    2. **Classification**: Click **“Classify”** to run the logic and obtain a classification result.
+    3. **Derivation**: Review the step-by-step explanation describing how each decision was made.
+    4. **AI Review & Flowchart** (if authenticated):
+       - Get additional insights or next-step recommendations from an AI summary.
+       - Explore an interactive flowchart illustrating how each branching point led to the final classification.
+
+    ---
+
+    ## Important Considerations
+    
+    - **Data Quality**: All inputs must be **accurate** and **comprehensive** for an optimal match.
+    - **Placeholder Entities**: Some conditions (e.g., Mastocytosis, Histiocytic Neoplasm) are flagged but not deeply elaborated.
+    - **Clinical Correlation**: Always combine this tool’s results with full clinical evaluation, specialist consultation, and advanced diagnostics.
+    - **Disclaimer**: This logic is **simplified** and not a substitute for professional pathology or oncological expertise.
+
+    ---
+    """, unsafe_allow_html=True)
+
 
 ##############################
 # MAIN APP
@@ -710,18 +759,18 @@ def get_gpt4_review(
 def app_main():
     """
     Primary Streamlit app function using the updated classification logic.
-    Includes new inputs relevant for:
-      - Rare B-Cell Lymphomas (Mantle Cell, Marginal Zone, Primary CNS)
-      - Aggressive Myeloid Cancers (BPDCN, AML-M6, AML-M7)
-      - ALK for ALCL detection
-      - immunophenotype_special for T-cell notes (e.g., CD7 loss, Skin involvement, Hairy cells)
+    Shows free-text hematological report parsing only to logged-in users
+    within a collapsed expander, while manual input remains available for all.
     """
-    
+
     # Sidebar for Explanation and Authentication
     st.sidebar.header("Navigation")
-    if st.sidebar.button("Show Explanation"):
-        st.session_state["show_explanation"] = True
+    toggle_button_label = "Hide Explanation" if st.session_state.get("show_explanation", False) else "Show Explanation"
+    if st.sidebar.button(toggle_button_label):
+        st.session_state["show_explanation"] = not st.session_state["show_explanation"]
+        st.rerun()
     
+    # Show explanation if toggled
     if st.session_state.get("show_explanation", False):
         show_explanation()
         return
@@ -738,6 +787,190 @@ def app_main():
     """, unsafe_allow_html=True)
     
     st.markdown("---")
+    
+    # ---------------------------
+    # FREE-TEXT REPORT PARSER (Visible Only to Authenticated Users)
+    # ---------------------------
+    if st.session_state.get("authenticated", False):
+        with st.expander("Free-Text Hematology Report Parsing (Beta)", expanded=False):
+            st.markdown("""
+            Enter the **full** hematological report in the text box below. The AI will extract key fields, and classification will proceed based on the extracted data.
+            """)
+    
+            report_text = st.text_area("Paste the free-text hematological report here:", height=200, help="Paste the complete hematological report from laboratory results.")
+    
+            if st.button("Parse & Classify from Free-Text"):
+                if report_text.strip():
+                    with st.spinner("Extracting data and classifying..."):
+                        # 1) Parse the report with GPT
+                        parsed_fields = parse_hematology_report(report_text)
+    
+                        if not parsed_fields:
+                            st.warning("No data extracted or an error occurred during parsing.")
+                        else:
+                            st.success("Report parsed successfully! Attempting classification...")
+    
+                            # 2) Extract fields with sensible defaults
+                            blasts_percentage = parsed_fields.get("blasts_percentage", 0.0)
+                            lineage = parsed_fields.get("lineage", "Undetermined")
+                            is_b_cell = parsed_fields.get("is_b_cell", False)
+                            is_t_cell = parsed_fields.get("is_t_cell", False)
+                            is_nk_cell = parsed_fields.get("is_nk_cell", False)
+                            morphological_details = parsed_fields.get("morphological_details", [])
+                            immunophenotype_markers = parsed_fields.get("immunophenotype_markers", [])
+                            immunophenotype_special = parsed_fields.get("immunophenotype_special", [])
+                            cytogenetic_abnormalities = parsed_fields.get("cytogenetic_abnormalities", [])
+                            molecular_mutations = parsed_fields.get("molecular_mutations", [])
+                            wbc_count = parsed_fields.get("wbc_count", 0.0)
+                            rbc_count = parsed_fields.get("rbc_count", 0.0)
+                            platelet_count = parsed_fields.get("platelet_count", 0.0)
+                            eosinophil_count = parsed_fields.get("eosinophil_count", 0.0)
+                            monocyte_count = parsed_fields.get("monocyte_count", 0.0)
+                            patient_age = parsed_fields.get("patient_age", 50.0)
+                            mast_cell_involvement = parsed_fields.get("mast_cell_involvement", False)
+                            histiocytic_marker = parsed_fields.get("histiocytic_marker", False)
+                            hodgkin_markers = parsed_fields.get("hodgkin_markers", False)
+                            cd15_positive = parsed_fields.get("cd15_positive", False)
+                            cd30_positive = parsed_fields.get("cd30_positive", False)
+                            cd20_positive = parsed_fields.get("cd20_positive", False)
+                            cd45_negative = parsed_fields.get("cd45_negative", False)
+    
+                            # 3) Validate Inputs
+                            errors, warnings = validate_inputs(
+                                blasts_percentage=blasts_percentage,
+                                lineage=lineage,
+                                is_b_cell=is_b_cell,
+                                is_t_cell=is_t_cell,
+                                is_nk_cell=is_nk_cell,
+                                morphological_details=morphological_details,
+                                immunophenotype_markers=immunophenotype_markers,
+                                cytogenetic_abnormalities=cytogenetic_abnormalities,
+                                molecular_mutations=molecular_mutations,
+                                wbc_count=wbc_count,
+                                rbc_count=rbc_count,
+                                platelet_count=platelet_count,
+                                eosinophil_count=eosinophil_count,
+                                monocyte_count=monocyte_count,
+                                patient_age=patient_age
+                            )
+    
+                            if errors:
+                                for error in errors:
+                                    st.error(f"⚠️ **Error:** {error}")
+                                st.stop()
+    
+                            if warnings:
+                                for warning in warnings:
+                                    st.warning(f"⚠️ **Warning:** {warning}")
+    
+                            # 4) Classification
+                            classification, derivation_string, decision_points = classify_blood_cancer(
+                                blasts_percentage=blasts_percentage,
+                                lineage=lineage,
+                                is_b_cell=is_b_cell,
+                                is_t_cell=is_t_cell,
+                                is_nk_cell=is_nk_cell,
+                                morphological_details=morphological_details,
+                                immunophenotype_markers=immunophenotype_markers,
+                                immunophenotype_special=immunophenotype_special,
+                                cytogenetic_abnormalities=cytogenetic_abnormalities,
+                                molecular_mutations=molecular_mutations,
+                                wbc_count=wbc_count,
+                                rbc_count=rbc_count,
+                                platelet_count=platelet_count,
+                                eosinophil_count=eosinophil_count,
+                                mast_cell_involvement=mast_cell_involvement,
+                                histiocytic_marker=histiocytic_marker,
+                                hodgkin_markers=hodgkin_markers,
+                                cd15_positive=cd15_positive,
+                                cd30_positive=cd30_positive,
+                                cd20_positive=cd20_positive,
+                                cd45_negative=cd45_negative,
+                                monocyte_count=monocyte_count,
+                                patient_age=patient_age
+                            )
+    
+                            # 5) Build user_inputs dict
+                            user_inputs = {
+                                "blasts_percentage": blasts_percentage,
+                                "lineage": lineage,
+                                "is_b_cell": is_b_cell,
+                                "is_t_cell": is_t_cell,
+                                "is_nk_cell": is_nk_cell,
+                                "morphological_details": morphological_details,
+                                "immunophenotype_markers": immunophenotype_markers,
+                                "immunophenotype_special": immunophenotype_special,
+                                "cytogenetic_abnormalities": cytogenetic_abnormalities,
+                                "molecular_mutations": molecular_mutations,
+                                "wbc_count": wbc_count,
+                                "rbc_count": rbc_count,
+                                "platelet_count": platelet_count,
+                                "eosinophil_count": eosinophil_count,
+                                "monocyte_count": monocyte_count,
+                                "patient_age": patient_age,
+                                "mast_cell_involvement": mast_cell_involvement,
+                                "histiocytic_marker": histiocytic_marker,
+                                "hodgkin_markers": hodgkin_markers,
+                                "cd15_positive": cd15_positive,
+                                "cd30_positive": cd30_positive,
+                                "cd20_positive": cd20_positive,
+                                "cd45_negative": cd45_negative
+                            }
+    
+                            # 6) Display Classification Result
+                            st.markdown(f"""
+                            <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
+                                <h3 style='color: #0f5132;'>Classification Result</h3>
+                                <p style='color: #0f5132; font-size: 1.2rem;'><strong>{classification}</strong></p>
+                            </div>
+                            """, unsafe_allow_html=True)
+    
+                            # 7) Display derivation
+                            display_derivation(derivation_string)
+    
+                            # 8) AI Review and Clinical Next Steps
+                            st.markdown("### **AI Review & Clinical Next Steps**")
+                            if st.session_state['authenticated']:
+                                with st.spinner("Generating AI review and clinical next steps..."):
+                                    gpt4_review_result = get_gpt4_review(
+                                        classification=classification,
+                                        explanation=derivation_string,
+                                        user_inputs=user_inputs
+                                    )
+                                # Use st.info or st.success to render markdown correctly
+                                st.info(gpt4_review_result)
+                            else:
+                                st.info("🔒 **Log in** to receive an AI-generated review and clinical recommendations.")
+    
+                            # 9) Interactive Classification Flowchart
+                            if decision_points:
+                                flowchart_src = build_decision_flowchart(classification, decision_points)
+                                st.markdown("### **Interactive Classification Flowchart**")
+                                st.graphviz_chart(flowchart_src)
+                            else:
+                                st.warning("⚠️ No decision points available to display in the flowchart.")
+    
+                            # Final Disclaimer
+                            st.markdown("""
+                            ---
+                            <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+                                <p><strong>Disclaimer:</strong> This app is a simplified demonstration and <strong>not</strong> a replacement 
+                                for professional pathology review or real-world WHO classification.</p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                else:
+                    st.error("Please paste a valid hematological report.")
+    else:
+        # User not authenticated, show a message or keep it hidden
+        st.info("🔒 **Log in** to use the free-text hematological report parsing.")
+    
+    st.markdown("---")
+    
+    # ---------------------------
+    # MANUAL INPUT SECTIONS (ALWAYS VISIBLE)
+    # ---------------------------
+    st.subheader("Manual Data Entry")
+    st.markdown("Use the fields below to classify a hematologic malignancy without AI-based text parsing.")
     
     # 1) Complete Blood Count (CBC)
     with st.container():
@@ -776,7 +1009,11 @@ def app_main():
             "Erythroid precursors", # e.g., AML-M6
             "Megakaryoblasts"       # e.g., AML-M7
         ]
-        morphological_details = st.multiselect("Select observed morphological features:", morphological_options, help="Choose all that apply based on bone marrow examination.")
+        morphological_details = st.multiselect(
+            "Select observed morphological features:", 
+            morphological_options, 
+            help="Choose all that apply based on bone marrow examination."
+        )
     
     st.markdown("---")
     
@@ -877,9 +1114,9 @@ def app_main():
         molecular_mutations = st.multiselect(
             "Select Molecular Mutations:", 
             mutation_samples,
-            help="Select all molecular mutations identified in the patient's cells."
+            help="Choose all molecular mutations identified in the patient's cells."
         )
-
+    
     st.markdown("---")
     
     # 8) Special Entities
@@ -898,7 +1135,7 @@ def app_main():
     
     st.markdown("---")
     
-    # CLASSIFY button
+    # CLASSIFY button for manual inputs
     with st.container():
         if st.button("🔍 Classify"):
             # 1) Validate Inputs
@@ -938,7 +1175,7 @@ def app_main():
                 is_nk_cell=is_nk_cell,
                 morphological_details=morphological_details,
                 immunophenotype_markers=immunophenotype_markers,
-                immunophenotype_special=immunophenotype_special, # New param
+                immunophenotype_special=immunophenotype_special,
                 cytogenetic_abnormalities=cytogenetic_abnormalities,
                 molecular_mutations=molecular_mutations,
                 wbc_count=wbc_count,
@@ -965,7 +1202,7 @@ def app_main():
                 "is_nk_cell": is_nk_cell,
                 "morphological_details": morphological_details,
                 "immunophenotype_markers": immunophenotype_markers,
-                "immunophenotype_special": immunophenotype_special,  # collecting special flags
+                "immunophenotype_special": immunophenotype_special,
                 "cytogenetic_abnormalities": cytogenetic_abnormalities,
                 "molecular_mutations": molecular_mutations,
                 "wbc_count": wbc_count,
@@ -995,6 +1232,7 @@ def app_main():
             display_derivation(derivation_string)
     
             # 6) AI Review and Clinical Next Steps
+            st.markdown("### **AI Review & Clinical Next Steps**")
             if st.session_state['authenticated']:
                 with st.spinner("Generating AI review and clinical next steps..."):
                     gpt4_review_result = get_gpt4_review(
@@ -1002,12 +1240,8 @@ def app_main():
                         explanation=derivation_string,
                         user_inputs=user_inputs
                     )
-                st.markdown("### **AI Review & Clinical Next Steps**")
-                st.markdown(f"""
-                    <div style='background-color: #cff4fc; padding: 15px; border-radius: 10px;'>
-                        {gpt4_review_result}
-                    </div>
-                """, unsafe_allow_html=True)
+                # Use st.info to render markdown correctly
+                st.info(gpt4_review_result)
             else:
                 st.info("🔒 **Log in** to receive an AI-generated review and clinical recommendations.")
     
@@ -1029,6 +1263,9 @@ def app_main():
             """, unsafe_allow_html=True)
 
 
+##############################
+# MAIN FUNCTION
+##############################
 def main():
     app_main()
 
