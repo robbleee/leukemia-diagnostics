@@ -18,35 +18,6 @@ The **WHO Hematologic Classification Tool** is a web-based application designed 
 - **Multi-Language Support**: Future updates to include multiple languages.
 - **Secure Authentication**: Ensures that sensitive recommendations are accessible only to authorized users.
 
-## 📋 Classifiable Hematologic Malignancies
-
-1. Acute Erythroid Leukemia (AML-M6)
-2. Acute Lymphoblastic Leukemia (ALL, Pediatric)
-3. Acute Lymphoblastic Leukemia (ALL, Adult)
-4. Acute Megakaryoblastic Leukemia (AML-M7)
-5. Acute Myeloid Leukemia (AML)
-6. Acute Promyelocytic Leukemia (APL)
-7. AML with FLT3 Mutation
-8. AML with NPM1 Mutation
-9. AML with t(8;21)
-10. AML with inv(16)/t(16;16)
-11. Angioimmunoblastic T-Cell Lymphoma (AITL)
-12. Anaplastic Large Cell Lymphoma (ALCL, ALK+)
-13. Anaplastic Large Cell Lymphoma (ALCL, ALK–)
-14. Burkitt's Lymphoma (High-Grade B-Cell NHL)
-15. Chronic Lymphocytic Leukemia (CLL)
-16. Cutaneous T-Cell Lymphoma (Mycosis Fungoides)
-17. Diffuse Large B-Cell Lymphoma (DLBCL)
-18. Follicular Lymphoma (Non-Hodgkin)
-19. Hairy Cell Leukemia (Rare B-Cell Neoplasm)
-20. Mantle Cell Lymphoma
-21. Marginal Zone Lymphoma
-22. Myeloproliferative Neoplasm (MPN)
-23. Nodular Lymphocyte-Predominant Hodgkin Lymphoma (NLPHL)
-24. Primary CNS Lymphoma (DLBCL)
-25. Refractory Anemia (MDS)
-26. Refractory Cytopenia with Multilineage Dysplasia (RCMD)
-
 ## 🛠️ Installation
 
 Follow the steps below to install and run the application locally:
@@ -181,6 +152,35 @@ if __name__ == "__main__":
      [openai]
      api_key = "<your-openai-api-key>"
      ```
+
+## 📋 Classifiable Hematologic Malignancies
+
+1. Acute Erythroid Leukemia (AML-M6)
+2. Acute Lymphoblastic Leukemia (ALL, Pediatric)
+3. Acute Lymphoblastic Leukemia (ALL, Adult)
+4. Acute Megakaryoblastic Leukemia (AML-M7)
+5. Acute Myeloid Leukemia (AML)
+6. Acute Promyelocytic Leukemia (APL)
+7. AML with FLT3 Mutation
+8. AML with NPM1 Mutation
+9. AML with t(8;21)
+10. AML with inv(16)/t(16;16)
+11. Angioimmunoblastic T-Cell Lymphoma (AITL)
+12. Anaplastic Large Cell Lymphoma (ALCL, ALK+)
+13. Anaplastic Large Cell Lymphoma (ALCL, ALK–)
+14. Burkitt's Lymphoma (High-Grade B-Cell NHL)
+15. Chronic Lymphocytic Leukemia (CLL)
+16. Cutaneous T-Cell Lymphoma (Mycosis Fungoides)
+17. Diffuse Large B-Cell Lymphoma (DLBCL)
+18. Follicular Lymphoma (Non-Hodgkin)
+19. Hairy Cell Leukemia (Rare B-Cell Neoplasm)
+20. Mantle Cell Lymphoma
+21. Marginal Zone Lymphoma
+22. Myeloproliferative Neoplasm (MPN)
+23. Nodular Lymphocyte-Predominant Hodgkin Lymphoma (NLPHL)
+24. Primary CNS Lymphoma (DLBCL)
+25. Refractory Anemia (MDS)
+26. Refractory Cytopenia with Multilineage Dysplasia (RCMD)
 
 ## 🤝 Contribution
 
