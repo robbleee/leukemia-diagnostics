@@ -3,9 +3,6 @@ import bcrypt
 import json
 import graphviz
 from openai import OpenAI
-import jwt
-import datetime
-import os
 
 ##############################
 # OPENAI API CONFIG
@@ -27,59 +24,16 @@ if 'authenticated' not in st.session_state:
 ##############################
 # AUTHENTICATION
 ##############################
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "REALLY_SECURE_SECRET")
-
-def create_jwt(username: str) -> str:
-    """
-    Create a JWT token containing the username and an expiration of 7 days.
-    """
-    payload = {
-        "username": username,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)
-    }
-    token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
-    return token
-
-def verify_jwt(token: str) -> str:
-    """
-    Return the username if the token is valid; otherwise return None.
-    """
-    try:
-        decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        return decoded["username"]
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-        return None
-
-def set_cookie(name: str, value: str):
-    """
-    Store the token in st.session_state. For real-world usage, 
-    you'd want an actual secure HttpOnly cookie set via a reverse proxy or server.
-    """
-    st.session_state[f"COOKIE_{name}"] = value
-
-def get_cookie(name: str) -> str:
-    """
-    Retrieve the stored token (if any) from st.session_state.
-    """
-    return st.session_state.get(f"COOKIE_{name}", "")
-
-def clear_cookie(name: str):
-    """
-    Clear the stored token from st.session_state.
-    """
-    st.session_state[f"COOKIE_{name}"] = ""
-
 def verify_password(stored_password: str, provided_password: str) -> bool:
     """
-    Verify a provided password against the stored hashed password using bcrypt.
+    Verifies a provided password against the stored hashed password using bcrypt.
     """
     return bcrypt.checkpw(provided_password.encode('utf-8'), stored_password.encode('utf-8'))
 
 def authenticate_user(username: str, password: str) -> bool:
     """
-    Authenticate a user by comparing the provided password with the stored hashed password.
+    Authenticates a user by username and password.
     """
-    # Adjust based on how your secrets are structured
     users = st.secrets["auth"]["users"]
     for user in users:
         if user["username"] == username:
@@ -88,49 +42,26 @@ def authenticate_user(username: str, password: str) -> bool:
 
 def login_logout():
     """
-    Display login/logout controls in the sidebar. 
-    Includes a 'Remember Me' checkbox to set a JWT token for persistent login.
+    Displays login/logout controls in the sidebar.
     """
-    # 1. Check if we already have a valid JWT in the "auth" cookie (auto-login)
-    if not st.session_state.get("authenticated"):
-        token = get_cookie("auth")
-        if token:
-            valid_user = verify_jwt(token)
-            if valid_user:
-                st.session_state["authenticated"] = True
-                st.session_state["username"] = valid_user
-
-    # 2. If logged in (either from JWT or fresh login), show logout
-    if st.session_state.get("authenticated"):
+    if st.session_state['authenticated']:
         st.sidebar.markdown(f"### Logged in as **{st.session_state['username']}**")
         if st.sidebar.button("Logout"):
             st.session_state['authenticated'] = False
             st.session_state['username'] = ''
-            clear_cookie("auth")  # remove token
             st.sidebar.success("Logged out successfully!")
     else:
-        # 3. Otherwise, show login form
         st.sidebar.header("Login for AI Features")
         username = st.sidebar.text_input("Username")
         password = st.sidebar.text_input("Password", type="password")
-        remember_me = st.sidebar.checkbox("Remember me", value=False)
-
         if st.sidebar.button("Login"):
             if authenticate_user(username, password):
-                # Mark as authenticated for this session
                 st.session_state['authenticated'] = True
                 st.session_state['username'] = username
-
-                # If user wants to stay logged in, generate JWT and store in cookie
-                if remember_me:
-                    token = create_jwt(username)
-                    set_cookie("auth", token)
-
                 st.sidebar.success("Logged in successfully!")
             else:
                 st.sidebar.error("Invalid username or password")
 
-# Invoke the function once at the beginning of your app or in main
 login_logout()
 
 ##############################
