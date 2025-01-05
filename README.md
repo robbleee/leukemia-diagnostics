@@ -63,11 +63,13 @@ The **WHO Hematologic Classification Tool** is a web-based application designed 
 
 ### 🔧 Clone the Repository
 
-bash
+```bash
 git clone https://github.com/yourusername/hematologic-classification-tool.git
 cd hematologic-classification-tool
+```
 🐍 Create a Virtual Environment
 It's recommended to use a virtual environment to manage dependencies.
+
 
 bash
 Copy code
