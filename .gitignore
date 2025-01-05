@@ -4,5 +4,3 @@
 venv
 
 secrets.toml
-
-hash_passwords.py
