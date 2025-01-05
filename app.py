@@ -137,118 +137,141 @@ def show_explanation():
     detailing how classification logic is applied to arrive at each cancer type.
     Also provides a list of all cancer types that can be classified.
     """
-    st.title("📚 Haematologic Classification – Detailed Explanation & Help")
+    st.title("Haematologic Classification – Detailed Explanation & Help")
 
-    # Provide a button to hide the explanation (go back to main view)
-    if st.button("⬅️ Hide Explanation"):
+    # Provide a button to hide the explanation (go back to the main view)
+    if st.button("Hide Explanation"):
         st.session_state["show_explanation"] = False
         st.rerun()
 
     st.markdown("""
     <div style="background-color: #f0f8ff; padding: 20px; border-radius: 10px; border: 1px solid #add8e6;">
-    <h2 style="color: #003366;">Welcome to the Hematologic Classification Tool</h2>
-    <p>
-        This application assists in classifying hematologic malignancies based on user-provided data. Below is a detailed overview of how the classification logic operates and the types of cancers it can identify.
-    </p>
-    <p><em>Disclaimer:</em> This tool is intended for **educational purposes only** and should **not** be used as a substitute for professional medical advice or diagnosis.</p>
+      <h2 style="color: #003366;">Welcome to the Hematologic Classification Tool</h2>
+      <p>
+        This application assists in classifying hematologic malignancies based on user-provided data.
+        Below is an in-depth overview of how the classification logic operates, including each decision point
+        and the full range of cancer types it can identify.
+      </p>
+      <p><em>Disclaimer:</em> This tool is intended for <strong>educational purposes only</strong> and 
+      should <strong>not</strong> be used as a substitute for professional medical advice or diagnosis.</p>
     </div>
     """, unsafe_allow_html=True)
-    
+
     st.markdown("---")
-    
+
     st.markdown("""
-    ## 🔍 1. Key Decision Factors
+    ## 1. Key Decision Factors
 
-    The classification process is driven by the following key input categories:
+    The classification process is driven by several key inputs:
 
-    - **Blasts Percentage**: Determines if the neoplasm is acute (≥20%) or chronic (<20%).
-    - **Lineage**: Identifies whether the malignant cells are **Myeloid**, **Lymphoid**, or **Undetermined**.
-    - **Immunophenotype Markers & Special Flags**:
-        - **Markers**: Specific proteins (e.g., CD19, CD3) that help identify cell types.
-        - **Special Flags**: Additional characteristics (e.g., "Skin involvement", "CD7 loss") that provide nuanced information.
+    - **Blasts Percentage**:
+      - Determines whether a neoplasm is considered **acute** (≥20% blasts in marrow) or **chronic** (<20% blasts).
+    - **Lineage**:
+      - Identifies if cells appear **Myeloid**, **Lymphoid**, or **Undetermined**, guiding subsequent classification steps.
+    - **Immunophenotype & Special Flags**:
+      - **Markers** (e.g., CD19, CD3, CD138) indicate specific cell lineages or subtypes (B-cells, T-cells, plasma cells, etc.).
+      - **Special flags** (e.g., "Skin involvement", "CD7 loss") capture nuanced clinical/lab findings that can refine subtype.
     - **Cytogenetic Abnormalities & Molecular Mutations**:
-        - **Cytogenetic Abnormalities**: Chromosomal changes (e.g., t(8;21), inv(16)).
-        - **Molecular Mutations**: Genetic mutations (e.g., FLT3, NPM1).
-    - **Patient Age**: Differentiates between pediatric (<18 years) and adult cases, influencing certain classifications.
+      - **Chromosomal Translocations** (e.g., t(8;21), t(15;17)).
+      - **Gene Mutations** (e.g., FLT3, NPM1).
+    - **Patient Age**:
+      - Helps differentiate pediatric (<18 years) from adult presentations (≥18 years), especially relevant for ALL.
+    """)
 
-    ## 🧩 2. Step-by-Step Classification Logic
+    st.markdown("""
+    ## 2. Full Classification Logic
 
-    The tool follows a hierarchical decision-making process to classify hematologic malignancies:
+    This tool follows a hierarchical set of checks to arrive at the most specific possible diagnosis:
 
-    ### 2.1. Acute vs. Chronic Neoplasms
+    ### 2.1. Acute vs. Chronic
+    1. **Assess Blasts Percentage**:
+       - If **blasts ≥ 20%**, the case is treated as an **acute leukemia**.
+       - If **blasts < 20%**, the classification proceeds as **chronic** or **other** (e.g., lymphoma, myeloproliferative neoplasm).
 
-    1. **Blasts Percentage Check**:
-        - **≥20% Blasts**: Indicates an **acute leukemia**.
-        - **<20% Blasts**: Suggests a **chronic neoplasm** or **lymphoma**.
-
-    ### 2.2. Classification Based on Lineage
-
-    #### **A. Myeloid Lineage**
-
-    - **Acute Myeloid Leukemia (AML)**:
-        - **Subtypes**:
-            - **BPDCN**: Detected if **CD123**, **CD4**, and **CD56** are positive.
-            - **AML-M6 (Erythroid)**: Presence of "Erythroid precursors" or markers like **Glycophorin A**, **CD71**.
-            - **AML-M7 (Megakaryoblastic)**: Presence of "Megakaryoblasts" or markers like **CD41**, **CD42b**, **CD61**.
-            - **APL (Acute Promyelocytic Leukemia)**: Detectable if **t(15;17)** is present.
-            - **AML with t(8;21)**: Specific chromosomal translocation.
-            - **AML with inv(16)/t(16;16)**: Another chromosomal rearrangement.
-            - **AML with FLT3 Mutation**: Identified through molecular testing.
-            - **AML with NPM1 Mutation**: Another molecularly defined subtype.
-
-    - **Chronic Myeloid Leukemia (CML)**:
-        - Typically characterized by the **t(9;22) BCR-ABL1** translocation (Philadelphia chromosome).
-
-    - **Myeloproliferative Neoplasms (MPN)**:
-        - Identified if mutations in **JAK2**, **CALR**, or **MPL** are present.
-
-    - **Myelodysplastic Syndromes (MDS)**:
-        - **MDS with Excess Blasts**: Blasts between 5-19%.
-        - **MDS with Isolated del(5q)**: Specific deletion in chromosome 5q.
-        - **RCMD (Refractory Cytopenia with Multilineage Dysplasia)**: Multilineage dysplasia observed.
-        - **Refractory Anemia**: Specific subtype based on anemia characteristics.
-
-    #### **B. Lymphoid Lineage**
-
-    - **Acute Lymphoblastic Leukemia (ALL)**:
-        - **Pediatric ALL**: Patient age <18 years.
-        - **Adult ALL**: Patient age ≥18 years.
-
-    - **Hodgkin Lymphoma**:
-        - **Classical Hodgkin Lymphoma**: Positive for **CD15** and **CD30**.
-        - **NLPHL (Nodular Lymphocyte-Predominant Hodgkin Lymphoma)**: Positive for **CD20** only.
-        - **Unspecified Subtype**: Other combinations of markers.
-
-    - **Non-Hodgkin Lymphomas**:
-        - **B-Cell Lymphomas**:
-            - **Mantle Cell Lymphoma**: Presence of **Cyclin D1** or **t(11;14)** and **CD5+**.
-            - **Marginal Zone Lymphoma**: Positive for **CD20/CD79a**, negative for **CD5/CD10**.
-            - **Primary CNS Lymphoma (DLBCL)**: Positive for **BCL6**, **CD20**, and "CNS involvement".
-            - **Burkitt’s Lymphoma**: Presence of **MYC** or **t(8;14)** and **CD10**.
-            - **Follicular Lymphoma**: Positive for **CD10**.
-            - **Diffuse Large B-Cell Lymphoma (DLBCL)**: Default classification if other B-cell subtypes are not met.
-        - **T-Cell Lymphomas**:
-            - **ALCL (Anaplastic Large Cell Lymphoma)**: Positive for **CD30** and **ALK**.
-            - **AITL (Angioimmunoblastic T-Cell Lymphoma)**: Positive for **CD10** and markers like **PD-1**, **CXCL13**, or **BCL6**.
-            - **Mycosis Fungoides**: Positive for **CD4** with **CD7 loss** or "Skin involvement".
-            - **Peripheral T-Cell Lymphoma (PTCL)**: Positive for T-cell markers without other specific features.
-        - **Chronic Lymphocytic Leukemia (CLL)**: Default classification if other B-cell markers are not present.
-            - **Hairy Cell Leukemia**: Presence of "Hairy cells".
-
-    - **Other Chronic Hematologic Neoplasms**:
-        - Categories that do not fit neatly into the above classifications, possibly representing rare entities.
-
-    ### 2.3. Additional Flags
-
-    - **CD138**: Indicative of **Multiple Myeloma (Plasma Cell Neoplasm)**.
-    - **Mast Cell Involvement**: Suggests **Mastocytosis**.
-    - **Histiocytic Markers**: Points towards **Histiocytic/Dendritic Cell Neoplasms**.
+    ### 2.2. Myeloid vs. Lymphoid Lineage
+    - After determining acute vs. chronic, the tool examines **lineage**:
+      - **Myeloid** → Evaluate for AML, MDS, MPN, or CML.
+      - **Lymphoid** → Evaluate for ALL, Hodgkin, or Non-Hodgkin lymphoma.
+      - **Undetermined** → May end up as 'Acute Leukemia of Ambiguous Lineage' or 'Other Chronic Hematologic Neoplasm'.
 
     ---
-    
-    ## 📋 3. List of Classifiable Hematologic Malignancies
+    ### **A) Acute Myeloid Leukemia (≥20% blasts, Myeloid)**
+    1. **Initial AML Assignment**: If blasts ≥ 20% and lineage is myeloid, default is **Acute Myeloid Leukemia (AML)**.
+    2. **Further Subtyping** (checked in this order):
+       - **BPDCN (Blastic Plasmacytoid Dendritic Cell Neoplasm)**:
+         - Identified if the immunophenotype shows **CD123 + CD4 + CD56** (plasmacytoid dendritic phenotype).
+       - **AML-M6 (Erythroid)**:
+         - If morphological details mention “Erythroid precursors” or markers like **Glycophorin A** or **CD71** are present.
+       - **AML-M7 (Megakaryoblastic)**:
+         - If morphological details indicate “Megakaryoblasts” or markers **CD41**, **CD42b**, or **CD61** are found.
+       - **Acute Promyelocytic Leukemia (APL)**:
+         - If **t(15;17)** is present.
+       - **AML with t(8;21)**:
+         - If that specific translocation is observed.
+       - **AML with inv(16)/t(16;16)**:
+         - If those rearrangements appear in cytogenetics.
+       - **AML with FLT3**:
+         - If molecular testing detects a FLT3 mutation.
+       - **AML with NPM1**:
+         - If molecular testing detects an NPM1 mutation.
 
-    Below is an **alphabetical** list of all hematologic malignancies that our tool can currently classify:
+    ---
+    ### **B) Acute Lymphoblastic Leukemia (≥20% blasts, Lymphoid)**
+    - **Pediatric ALL**: If the patient is <18.
+    - **Adult ALL**: If the patient is ≥18.
+
+    ---
+    ### **C) Acute Leukemia of Ambiguous Lineage**
+    - If blasts ≥ 20% but lineage is undetermined or contradictory, it may result in a diagnosis of ambiguous or mixed phenotype.
+
+    ---
+    ### **D) Chronic (Blasts < 20%) Myeloid Entities**
+    1. **Check MPN Driver Mutations** (JAK2, CALR, MPL):
+       - If positive, classify as **Myeloproliferative Neoplasm (MPN)**.
+    2. **Evaluate for MDS** (Myelodysplastic Syndromes):
+       - **MDS with Excess Blasts**: 5–19% blasts.
+       - **MDS with Isolated del(5q)**: If a del(5q) abnormality is detected.
+       - **RCMD**: If “Multilineage dysplasia” is present.
+       - **Refractory Anemia**: Subtype under MDS with primarily anemic presentation.
+    3. **Chronic Myeloid Leukemia (CML)**:
+       - If none of the above criteria (MPN or MDS) are met, default to CML.
+
+    ---
+    ### **E) Chronic (Blasts < 20%) Lymphoid Entities**
+    - **Suspect Hodgkin Lymphoma**:
+      - If `hodgkin_markers = True`; refine using **CD15+ CD30+** → Classic HL, **CD20+ only** → NLPHL, or Unspecified.
+    - **Non-Hodgkin**:
+      1. **B-cell**:
+         - **Mantle Cell Lymphoma**: (Cyclin D1 or t(11;14)) + **CD5+**. Typically **CD23-**.
+         - **Marginal Zone Lymphoma**: Usually **CD20+** or **CD79a+**, but negative for CD5/CD10.
+         - **Primary CNS Lymphoma**: Subset of DLBCL with **BCL6, CD20** and “CNS involvement”.
+         - **Burkitt’s Lymphoma**: **MYC** or **t(8;14)** + **CD10+**.
+         - **Follicular Lymphoma**: If **CD10+** without MYC features.
+         - **Diffuse Large B-Cell Lymphoma (DLBCL)**: Default if no other B-cell category matches.
+      2. **T-cell**:
+         - **ALCL**: T-cell with **CD30+**; if cytogenetics show "ALK" → ALCL (ALK+), otherwise ALK–.
+         - **AITL**: T-cell with **CD10** plus **PD-1/CXCL13/BCL6**.
+         - **Mycosis Fungoides**: T-cell with “Skin involvement” or “CD7 loss” + **CD4**.
+         - **Peripheral T-Cell Lymphoma (PTCL)**: T-lymphoid neoplasm not fitting the above specific categories.
+      3. **Chronic Lymphocytic Leukemia (CLL)**:
+         - Default if the immunophenotype suggests mature B-cells without any of the lymphoma indicators above.
+         - If “Hairy cells” flag is triggered, → **Hairy Cell Leukemia**.
+
+    ---
+    ### **F) Other or Rare Entities**
+    - **Multiple Myeloma (Plasma Cell Neoplasm)**:
+      - If **CD138** is detected among markers.
+    - **Mast Cell Involvement**:
+      - Suggests possible **Mastocytosis** (Placeholder logic).
+    - **Histiocytic Marker**:
+      - Suggests **Histiocytic or Dendritic Cell Neoplasm** (Placeholder logic).
+    - **Undetermined**:
+      - If none of the above branches apply, classification defaults to “Undetermined Hematologic Neoplasm.”
+
+    ---
+    ## 3. All Recognized Hematologic Malignancies
+
+    The following is a comprehensive list (alphabetical) of the malignancies the tool can classify:
 
     | **Cancer Type**                                            | **Description**                                      |
     |------------------------------------------------------------|------------------------------------------------------|
@@ -262,57 +285,55 @@ def show_explanation():
     | AML with NPM1 Mutation                                      | AML subtype with NPM1 mutation.                      |
     | AML with t(8;21)                                            | AML subtype with t(8;21) translocation.              |
     | AML with inv(16)/t(16;16)                                   | AML subtype with inv(16) or t(16;16) translocation.  |
+    | Anaplastic Large Cell Lymphoma (ALCL, ALK+)                 | ALCL subtype positive for ALK.                       |
+    | Anaplastic Large Cell Lymphoma (ALCL, ALK–)                 | ALCL subtype negative for ALK.                       |
     | Angioimmunoblastic T-Cell Lymphoma (AITL)                   | T-cell lymphoma with angioimmunoblastic features.    |
-    | Anaplastic Large Cell Lymphoma (ALCL, ALK+)                  | ALCL subtype positive for ALK.                        |
-    | Anaplastic Large Cell Lymphoma (ALCL, ALK–)                  | ALCL subtype negative for ALK.                        |
-    | Blastic Plasmacytoid Dendritic Cell Neoplasm (BPDCN)         | Aggressive myeloid neoplasm with specific markers.    |
-    | Burkitt's Lymphoma (High-Grade B-Cell NHL)                   | Highly aggressive B-cell non-Hodgkin lymphoma.        |
-    | Chronic Lymphocytic Leukemia (CLL)                           | Chronic B-cell leukemia.                              |
-    | Chronic Myeloid Leukemia (CML)                               | Chronic leukemia with Philadelphia chromosome.        |
-    | Cutaneous T-Cell Lymphoma (Mycosis Fungoides)                | T-cell lymphoma affecting the skin.                   |
-    | Diffuse Large B-Cell Lymphoma (DLBCL)                        | Aggressive B-cell non-Hodgkin lymphoma.               |
-    | Follicular Lymphoma (Non-Hodgkin)                            | B-cell non-Hodgkin lymphoma with follicular features. |
-    | Hairy Cell Leukemia (Rare B-Cell Neoplasm)                   | Rare B-cell leukemia with characteristic "hairy" cells.|
-    | Histiocytic/Dendritic Cell Neoplasm                           | Neoplasm involving histiocytic or dendritic cells.    |
-    | Hodgkin Lymphoma (Unspecified Subtype)                       | Hodgkin lymphoma without specific marker profile.     |
-    | Mantle Cell Lymphoma                                         | B-cell lymphoma with mantle cell markers.             |
-    | Marginal Zone Lymphoma                                       | B-cell lymphoma with marginal zone characteristics.   |
-    | Multiple Myeloma (Plasma Cell Neoplasm)                       | Plasma cell malignancy.                               |
-    | Myelodysplastic Syndromes (MDS)                               | Disorders caused by poorly formed blood cells.         |
-    | Myeloproliferative Neoplasm (MPN)                             | Group of diseases that cause blood cells to grow abnormally.|
-    | Peripheral T-Cell Lymphoma (PTCL)                             | T-cell non-Hodgkin lymphoma.                          |
-    | Refractory Anemia (MDS)                                      | MDS subtype characterized by anemia.                  |
-    | Refractory Cytopenia with Multilineage Dysplasia (RCMD)       | MDS subtype with multiple blood cell line dysplasia.  |
-    | Primary CNS Lymphoma (DLBCL)                                  | DLBCL confined to the central nervous system.          |
-    | Undetermined Hematologic Neoplasm                             | Neoplasm that does not fit into specified categories.  |
-    </table>
+    | Blastic Plasmacytoid Dendritic Cell Neoplasm (BPDCN)        | Aggressive myeloid neoplasm with plasmacytoid dendritic phenotype. |
+    | Burkitt's Lymphoma (High-Grade B-Cell NHL)                  | Highly aggressive B-cell non-Hodgkin lymphoma.       |
+    | Chronic Lymphocytic Leukemia (CLL)                          | Chronic B-cell leukemia.                             |
+    | Chronic Myeloid Leukemia (CML)                              | Chronic leukemia with Philadelphia chromosome.       |
+    | Cutaneous T-Cell Lymphoma (Mycosis Fungoides)               | T-cell lymphoma affecting the skin.                  |
+    | Diffuse Large B-Cell Lymphoma (DLBCL)                       | Aggressive B-cell non-Hodgkin lymphoma.              |
+    | Follicular Lymphoma (Non-Hodgkin)                           | B-cell non-Hodgkin lymphoma with follicular features.|
+    | Hairy Cell Leukemia (Rare B-Cell Neoplasm)                  | Rare B-cell leukemia with characteristic “hairy” cells. |
+    | Histiocytic/Dendritic Cell Neoplasm                         | Placeholder logic for histiocytic marker positivity. |
+    | Hodgkin Lymphoma (Unspecified Subtype)                      | Hodgkin lymphoma without a specified marker profile. |
+    | Mantle Cell Lymphoma                                        | B-cell lymphoma with (Cyclin D1 or t(11;14)) + CD5+. |
+    | Marginal Zone Lymphoma                                      | B-cell lymphoma with marginal zone characteristics.  |
+    | Mastocytosis (Suspected)                                    | Basic placeholder if mast cell involvement is noted. |
+    | MDS (Refractory Anemia)                                     | MDS subtype primarily manifested as anemia.          |
+    | MDS with Excess Blasts                                      | Blasts 5–19% in a myeloid context.                   |
+    | MDS with Isolated del(5q)                                   | MDS subtype with 5q deletion.                        |
+    | Multiple Myeloma (Plasma Cell Neoplasm)                     | Plasma cell malignancy indicated by CD138.           |
+    | Myeloproliferative Neoplasm (MPN)                           | Chronic proliferation of myeloid lineages (JAK2/CALR/MPL). |
+    | Mycosis Fungoides (Cutaneous T-Cell Lymphoma)               | T-cell lymphoma often with skin lesions or CD7 loss. |
+    | Nodular Lymphocyte-Predominant HL (NLPHL)                   | Hodgkin variant with CD20 positivity and CD15/CD30 negativity. |
+    | Peripheral T-Cell Lymphoma (PTCL)                           | T-cell non-Hodgkin lymphoma not fitting other subtypes. |
+    | Primary CNS Lymphoma (DLBCL)                                | DLBCL confined to the central nervous system.        |
+    | Refractory Cytopenia with Multilineage Dysplasia (RCMD)     | MDS subtype with multiple dysplastic lineages.       |
+    | Undetermined Hematologic Neoplasm                           | Neoplasm that doesn’t meet specific classification.  |
 
     ---
-    
-    ## 🛠️ 4. How to Use the Classification Tool
 
-    1. **Data Entry**: Input all relevant data into the respective sections, ensuring accuracy for optimal classification results.
-    2. **Classification**: Click the **"Classify"** button to process the inputs and receive a cancer type classification.
-    3. **Results Interpretation**:
-        - **Classification Result**: Displays the identified hematologic malignancy.
-        - **Derivation**: Provides a step-by-step explanation of how the classification was determined.
-        - **AI Review & Clinical Next Steps**: (If authenticated) Offers additional insights and recommendations based on the classification.
-        - **Interactive Classification Flowchart**: Visual representation of the classification pathway taken.
-    4. **Further Assistance**: Utilize the **"Show Explanation"** and **"Hide Explanation"** buttons for detailed guidance.
+    ## 4. How to Use the Classification Tool
+
+    1. **Data Entry**: Provide accurate CBC values, immunophenotyping markers, cytogenetics, etc.
+    2. **Classification**: Click **“Classify”** to run the logic and obtain a classification result.
+    3. **Derivation**: Review the step-by-step explanation describing how each decision was made.
+    4. **AI Review & Flowchart** (if authenticated):
+       - Get additional insights or next-step recommendations from an AI summary.
+       - Explore an interactive flowchart illustrating how each branching point led to the final classification.
 
     ---
-    
-    ## ⚠️ Important Considerations
 
-    - **Accuracy of Input Data**: Ensure that all entered data is correct and comprehensive to receive an accurate classification.
-    - **Tool Limitations**: This tool employs a **simplified** classification logic based on the WHO guidelines and does **not** encompass the full complexity of real-world medical diagnostics.
-    - **Professional Consultation**: Always consult with a **qualified hematologist** or **oncologist** for definitive diagnosis and treatment planning.
+    ## Important Considerations
     
+    - **Data Quality**: All inputs must be **accurate** and **comprehensive** for an optimal match.
+    - **Placeholder Entities**: Some conditions (e.g., Mastocytosis, Histiocytic Neoplasm) are flagged but not deeply elaborated.
+    - **Clinical Correlation**: Always combine this tool’s results with full clinical evaluation, specialist consultation, and advanced diagnostics.
+    - **Disclaimer**: This logic is **simplified** and not a substitute for professional pathology or oncological expertise.
+
     ---
-    
-    <div style="border-top: 1px solid #ccc; margin-top: 20px; padding-top: 10px;">
-    <em>Disclaimer</em>: This classification logic is **simplified** and should **not** replace professional pathology review. Always seek expert medical advice for accurate diagnosis and treatment.
-    </div>
     """, unsafe_allow_html=True)
 
 
