@@ -557,22 +557,6 @@ def show_explanation():
     Also provides a list of all cancer types that can be classified.
     """
 
-    
-
-    st.markdown("""
-    <div style="background-color: #f0f8ff; padding: 20px; border-radius: 10px; border: 1px solid #add8e6;">
-      <h2 style="color: #003366;">Welcome to the Hematologic Classification Tool</h2>
-      <p>
-        This application assists in classifying hematologic malignancies based on user-provided data.
-        Below is an in-depth overview of how the classification logic operates, including each decision point
-        and the full range of cancer types it can identify.
-      </p>
-      <p><em>Disclaimer:</em> This tool is intended for <strong>educational purposes only</strong> and 
-      should <strong>not</strong> be used as a substitute for professional medical advice or diagnosis.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("---")
 
     st.markdown("""
     ## 1. Key Decision Factors
@@ -753,9 +737,6 @@ def show_explanation():
     """, unsafe_allow_html=True)
 
 
-##############################
-# MAIN APP
-##############################
 def app_main():
     """
     Primary Streamlit app function using the updated classification logic.
@@ -768,13 +749,13 @@ def app_main():
     toggle_button_label = "Hide Explanation" if st.session_state.get("show_explanation", False) else "Show Explanation"
     if st.sidebar.button(toggle_button_label):
         st.session_state["show_explanation"] = not st.session_state["show_explanation"]
-        st.rerun()
-    
+        st.experimental_rerun()
+
     # Show explanation if toggled
     if st.session_state.get("show_explanation", False):
         show_explanation()
         return
-    
+
     # Introduction Section
     st.markdown("""
     <div style="background-color: #e7f3fe; padding: 20px; border-radius: 10px;">
@@ -787,7 +768,7 @@ def app_main():
     """, unsafe_allow_html=True)
     
     st.markdown("---")
-    
+
     # ---------------------------
     # FREE-TEXT REPORT PARSER (Visible Only to Authenticated Users)
     # ---------------------------
@@ -796,20 +777,20 @@ def app_main():
             st.markdown("""
             Enter the **full** hematological report in the text box below. The AI will extract key fields, and classification will proceed based on the extracted data.
             """)
-    
+
             report_text = st.text_area("Paste the free-text hematological report here:", height=200, help="Paste the complete hematological report from laboratory results.")
-    
+
             if st.button("Parse & Classify from Free-Text"):
                 if report_text.strip():
                     with st.spinner("Extracting data and classifying..."):
                         # 1) Parse the report with GPT
                         parsed_fields = parse_hematology_report(report_text)
-    
+
                         if not parsed_fields:
                             st.warning("No data extracted or an error occurred during parsing.")
                         else:
                             st.success("Report parsed successfully! Attempting classification...")
-    
+
                             # 2) Extract fields with sensible defaults
                             blasts_percentage = parsed_fields.get("blasts_percentage", 0.0)
                             lineage = parsed_fields.get("lineage", "Undetermined")
@@ -834,7 +815,7 @@ def app_main():
                             cd30_positive = parsed_fields.get("cd30_positive", False)
                             cd20_positive = parsed_fields.get("cd20_positive", False)
                             cd45_negative = parsed_fields.get("cd45_negative", False)
-    
+
                             # 3) Validate Inputs
                             errors, warnings = validate_inputs(
                                 blasts_percentage=blasts_percentage,
@@ -853,16 +834,16 @@ def app_main():
                                 monocyte_count=monocyte_count,
                                 patient_age=patient_age
                             )
-    
+
                             if errors:
                                 for error in errors:
                                     st.error(f"⚠️ **Error:** {error}")
                                 st.stop()
-    
+
                             if warnings:
                                 for warning in warnings:
                                     st.warning(f"⚠️ **Warning:** {warning}")
-    
+
                             # 4) Classification
                             classification, derivation_string, decision_points = classify_blood_cancer(
                                 blasts_percentage=blasts_percentage,
@@ -889,7 +870,7 @@ def app_main():
                                 monocyte_count=monocyte_count,
                                 patient_age=patient_age
                             )
-    
+
                             # 5) Build user_inputs dict
                             user_inputs = {
                                 "blasts_percentage": blasts_percentage,
@@ -916,7 +897,7 @@ def app_main():
                                 "cd20_positive": cd20_positive,
                                 "cd45_negative": cd45_negative
                             }
-    
+
                             # 6) Display Classification Result
                             st.markdown(f"""
                             <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
@@ -924,10 +905,32 @@ def app_main():
                                 <p style='color: #0f5132; font-size: 1.2rem;'><strong>{classification}</strong></p>
                             </div>
                             """, unsafe_allow_html=True)
-    
-                            # 7) Display derivation
-                            display_derivation(derivation_string)
-    
+
+                            # 7) Display derivation and flowchart side by side
+                            if decision_points:
+                                # Create two columns: one for derivation, one for flowchart
+                                col_derivation, col_flowchart = st.columns([2, 1], gap="medium")
+
+                                with col_derivation:
+                                    # Display derivation with refined styling
+                                    st.markdown("### **How This Classification Was Derived**")
+                                    st.markdown(f"""
+                                        <div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px;'>
+                                            <p style='font-size: 1rem; line-height: 1.5; text-align: justify;'>
+                                                {derivation_string}
+                                            </p>
+                                        </div>
+                                    """, unsafe_allow_html=True)
+
+                                with col_flowchart:
+                                    # Display flowchart with increased visibility
+                                    flowchart_src = build_decision_flowchart(classification, decision_points)
+                                    st.markdown("  ")
+                                    st.graphviz_chart(flowchart_src, use_container_width=True)  # Removed 'height' parameter
+                            else:
+                                # If no decision points, just display derivation normally
+                                display_derivation(derivation_string)
+
                             # 8) AI Review and Clinical Next Steps
                             st.markdown("### **AI Review & Clinical Next Steps**")
                             if st.session_state['authenticated']:
@@ -937,19 +940,11 @@ def app_main():
                                         explanation=derivation_string,
                                         user_inputs=user_inputs
                                     )
-                                # Use st.info or st.success to render markdown correctly
+                                # Use st.info to render markdown correctly
                                 st.info(gpt4_review_result)
                             else:
                                 st.info("🔒 **Log in** to receive an AI-generated review and clinical recommendations.")
-    
-                            # 9) Interactive Classification Flowchart
-                            if decision_points:
-                                flowchart_src = build_decision_flowchart(classification, decision_points)
-                                st.markdown("### **Interactive Classification Flowchart**")
-                                st.graphviz_chart(flowchart_src)
-                            else:
-                                st.warning("⚠️ No decision points available to display in the flowchart.")
-    
+
                             # Final Disclaimer
                             st.markdown("""
                             ---
@@ -963,15 +958,15 @@ def app_main():
     else:
         # User not authenticated, show a message or keep it hidden
         st.info("🔒 **Log in** to use the free-text hematological report parsing.")
-    
+
     st.markdown("---")
-    
+
     # ---------------------------
     # MANUAL INPUT SECTIONS (ALWAYS VISIBLE)
     # ---------------------------
     st.subheader("Manual Data Entry")
     st.markdown("Use the fields below to classify a hematologic malignancy without AI-based text parsing.")
-    
+
     # 1) Complete Blood Count (CBC)
     with st.container():
         st.subheader("1. Complete Blood Count (CBC)")
@@ -984,16 +979,16 @@ def app_main():
             platelet_count = st.number_input("Platelet (x10^9/L)", min_value=0.0, value=250.0, step=10.0, help="Platelet Count")
         with col4:
             eosinophil_count = st.number_input("Eosinophils (x10^9/L)", min_value=0.0, value=0.2, step=0.1, help="Eosinophil Count")
-    
+
     st.markdown("---")
-    
+
     # 2) Bone Marrow Blasts (%)
     with st.container():
         st.subheader("2. Bone Marrow Blasts (%)")
         blasts_percentage = st.slider("Blasts in marrow (%)", 0, 100, 5, help="Percentage of Blasts in Bone Marrow")
-    
+
     st.markdown("---")
-    
+
     # 3) Morphological Details
     with st.container():
         st.subheader("3. Morphological Details")
@@ -1014,9 +1009,9 @@ def app_main():
             morphological_options, 
             help="Choose all that apply based on bone marrow examination."
         )
-    
+
     st.markdown("---")
-    
+
     # 4) Additional MDS/MPN Overlap
     with st.container():
         st.subheader("4. Additional Counts for MDS/MPN Overlap")
@@ -1025,9 +1020,9 @@ def app_main():
             monocyte_count = st.number_input("Monocyte count (x10^9/L)", min_value=0.0, value=0.5, step=0.1, help="Monocyte Count")
         with col6:
             patient_age = st.number_input("Patient age (years)", min_value=0, max_value=120, value=50, step=1, help="Age of the patient in years")
-    
+
     st.markdown("---")
-    
+
     # 5) Dominant Lineage
     with st.container():
         st.subheader("5. Dominant Lineage (User Assessment)")
@@ -1043,9 +1038,9 @@ def app_main():
                 is_t_cell = True
             elif subset == "NK-cell":
                 is_nk_cell = True
-    
+
     st.markdown("---")
-    
+
     # 6) Immunophenotyping Markers and 6a) Special Immunophenotype Flags
     with st.container():
         st.subheader("6. Immunophenotyping")
@@ -1081,9 +1076,9 @@ def app_main():
                 special_flags_options,
                 help="Select any special immunophenotypic features observed."
             )
-    
+
     st.markdown("---")
-    
+
     # 7) Cytogenetic Abnormalities and 7a) Molecular Mutations
     st.subheader("7. Cytogenetic & Molecular")
     col7_1, col7_2 = st.columns(2)
@@ -1116,9 +1111,9 @@ def app_main():
             mutation_samples,
             help="Choose all molecular mutations identified in the patient's cells."
         )
-    
+
     st.markdown("---")
-    
+
     # 8) Special Entities
     with st.container():
         st.subheader("8. Special Entities")
@@ -1132,9 +1127,9 @@ def app_main():
             cd30_positive = st.checkbox("CD30+ (Hodgkin)?", help="Check if CD30 marker is positive.")
             cd20_positive = st.checkbox("CD20+ (Hodgkin)?", help="Check if CD20 marker is positive.")
             cd45_negative = st.checkbox("CD45- (Hodgkin)?", help="Check if CD45 marker is negative.")
-    
+
     st.markdown("---")
-    
+
     # CLASSIFY button for manual inputs
     with st.container():
         if st.button("🔍 Classify"):
@@ -1156,16 +1151,16 @@ def app_main():
                 monocyte_count=monocyte_count,
                 patient_age=patient_age
             )
-    
+
             if errors:
                 for error in errors:
                     st.error(f"⚠️ **Error:** {error}")
                 st.stop()
-    
+
             if warnings:
                 for warning in warnings:
                     st.warning(f"⚠️ **Warning:** {warning}")
-    
+
             # 2) Classification
             classification, derivation_string, decision_points = classify_blood_cancer(
                 blasts_percentage=blasts_percentage,
@@ -1192,7 +1187,7 @@ def app_main():
                 monocyte_count=monocyte_count,
                 patient_age=patient_age
             )
-    
+
             # 3) Build user_inputs dict
             user_inputs = {
                 "blasts_percentage": blasts_percentage,
@@ -1219,7 +1214,7 @@ def app_main():
                 "cd20_positive": cd20_positive,
                 "cd45_negative": cd45_negative
             }
-    
+
             # 4) Display Classification Result
             st.markdown(f"""
             <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
@@ -1227,10 +1222,34 @@ def app_main():
                 <p style='color: #0f5132; font-size: 1.2rem;'><strong>{classification}</strong></p>
             </div>
             """, unsafe_allow_html=True)
-    
-            # 5) Display derivation
-            display_derivation(derivation_string)
-    
+
+            # 5) Display derivation and flowchart side by side
+            if decision_points:
+                # Create two columns: one for derivation, one for flowchart
+                st.markdown("### **How This Classification Was Derived**")
+                col_derivation, col_flowchart = st.columns([1.4, 1], gap="small")
+                
+
+                with col_derivation:
+                    # Display derivation with refined styling
+
+                    st.markdown(f"""
+                        <div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px;'>
+                            <p>
+                                {derivation_string}
+                            </p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                with col_flowchart:
+                    # Display flowchart with increased visibility
+                    flowchart_src = build_decision_flowchart(classification, decision_points)
+                    st.markdown("   ")
+                    st.graphviz_chart(flowchart_src, use_container_width=True)  # Removed 'height' parameter
+            else:
+                # If no decision points, just display derivation normally
+                display_derivation(derivation_string)
+
             # 6) AI Review and Clinical Next Steps
             st.markdown("### **AI Review & Clinical Next Steps**")
             if st.session_state['authenticated']:
@@ -1244,15 +1263,7 @@ def app_main():
                 st.info(gpt4_review_result)
             else:
                 st.info("🔒 **Log in** to receive an AI-generated review and clinical recommendations.")
-    
-            # 7) Interactive Classification Flowchart
-            if decision_points:
-                flowchart_src = build_decision_flowchart(classification, decision_points)
-                st.markdown("### **Interactive Classification Flowchart**")
-                st.graphviz_chart(flowchart_src)
-            else:
-                st.warning("⚠️ No decision points available to display in the flowchart.")
-    
+
             # Final Disclaimer
             st.markdown("""
             ---
@@ -1261,8 +1272,6 @@ def app_main():
                 for professional pathology review or real-world WHO classification.</p>
             </div>
             """, unsafe_allow_html=True)
-
-
 ##############################
 # MAIN FUNCTION
 ##############################
