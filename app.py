@@ -133,87 +133,189 @@ def build_decision_flowchart(classification: str, decision_points: list) -> str:
 ##############################
 def show_explanation():
     """
-    Displays a nicely formatted explanation/help page, 
-    with an option to hide it again.
+    Displays a comprehensive and visually appealing explanation/help page in Markdown,
+    detailing how classification logic is applied to arrive at each cancer type.
+    Also provides a list of all cancer types that can be classified.
     """
-    st.title("Hematologic Classification – Explanation & Help")
+    st.title("📚 Haematologic Classification – Detailed Explanation & Help")
 
     # Provide a button to hide the explanation (go back to main view)
-    if st.button("Hide Explanation"):
+    if st.button("⬅️ Hide Explanation"):
         st.session_state["show_explanation"] = False
         st.rerun()
 
     st.markdown("""
-    <div style="background-color: #f9f9f9; padding: 20px; border-radius: 5px;">
-    <h2 style="margin-top: 0;">Overview</h2>
+    <div style="background-color: #f0f8ff; padding: 20px; border-radius: 10px; border: 1px solid #add8e6;">
+    <h2 style="color: #003366;">Welcome to the Hematologic Classification Tool</h2>
     <p>
-      This application uses a simplified WHO-based logic to classify hematologic
-      malignancies. The classification hinges on:
-      <ul>
-        <li><strong>Blasts Percentage</strong> (acute vs. chronic threshold at 20%)</li>
-        <li><strong>Lineage</strong> (myeloid, lymphoid, or undetermined)</li>
-        <li><strong>Immunophenotype Markers &amp; Notes</strong></li>
-        <li><strong>Cytogenetic Abnormalities &amp; Molecular Mutations</strong></li>
-        <li><strong>Patient Age</strong> (for pediatric vs. adult logic)</li>
-        <li>Various <strong>special flags</strong> (Hodgkin, histiocytic, etc.)</li>
-      </ul>
+        This application assists in classifying hematologic malignancies based on user-provided data. Below is a detailed overview of how the classification logic operates and the types of cancers it can identify.
     </p>
-
-    <!-- Additional explanation content omitted for brevity -->
-
-    <div style="border-top: 1px solid #ccc; margin-top: 20px; padding-top: 10px;">
-    <em>Disclaimer</em>: This classification logic is <strong>simplified</strong> and
-    should not replace real-world pathology review. Consult a hematologist or oncologist 
-    for definitive diagnosis and treatment recommendations.
+    <p><em>Disclaimer:</em> This tool is intended for **educational purposes only** and should **not** be used as a substitute for professional medical advice or diagnosis.</p>
     </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    st.markdown("""
+    ## 🔍 1. Key Decision Factors
+
+    The classification process is driven by the following key input categories:
+
+    - **Blasts Percentage**: Determines if the neoplasm is acute (≥20%) or chronic (<20%).
+    - **Lineage**: Identifies whether the malignant cells are **Myeloid**, **Lymphoid**, or **Undetermined**.
+    - **Immunophenotype Markers & Special Flags**:
+        - **Markers**: Specific proteins (e.g., CD19, CD3) that help identify cell types.
+        - **Special Flags**: Additional characteristics (e.g., "Skin involvement", "CD7 loss") that provide nuanced information.
+    - **Cytogenetic Abnormalities & Molecular Mutations**:
+        - **Cytogenetic Abnormalities**: Chromosomal changes (e.g., t(8;21), inv(16)).
+        - **Molecular Mutations**: Genetic mutations (e.g., FLT3, NPM1).
+    - **Patient Age**: Differentiates between pediatric (<18 years) and adult cases, influencing certain classifications.
+
+    ## 🧩 2. Step-by-Step Classification Logic
+
+    The tool follows a hierarchical decision-making process to classify hematologic malignancies:
+
+    ### 2.1. Acute vs. Chronic Neoplasms
+
+    1. **Blasts Percentage Check**:
+        - **≥20% Blasts**: Indicates an **acute leukemia**.
+        - **<20% Blasts**: Suggests a **chronic neoplasm** or **lymphoma**.
+
+    ### 2.2. Classification Based on Lineage
+
+    #### **A. Myeloid Lineage**
+
+    - **Acute Myeloid Leukemia (AML)**:
+        - **Subtypes**:
+            - **BPDCN**: Detected if **CD123**, **CD4**, and **CD56** are positive.
+            - **AML-M6 (Erythroid)**: Presence of "Erythroid precursors" or markers like **Glycophorin A**, **CD71**.
+            - **AML-M7 (Megakaryoblastic)**: Presence of "Megakaryoblasts" or markers like **CD41**, **CD42b**, **CD61**.
+            - **APL (Acute Promyelocytic Leukemia)**: Detectable if **t(15;17)** is present.
+            - **AML with t(8;21)**: Specific chromosomal translocation.
+            - **AML with inv(16)/t(16;16)**: Another chromosomal rearrangement.
+            - **AML with FLT3 Mutation**: Identified through molecular testing.
+            - **AML with NPM1 Mutation**: Another molecularly defined subtype.
+
+    - **Chronic Myeloid Leukemia (CML)**:
+        - Typically characterized by the **t(9;22) BCR-ABL1** translocation (Philadelphia chromosome).
+
+    - **Myeloproliferative Neoplasms (MPN)**:
+        - Identified if mutations in **JAK2**, **CALR**, or **MPL** are present.
+
+    - **Myelodysplastic Syndromes (MDS)**:
+        - **MDS with Excess Blasts**: Blasts between 5-19%.
+        - **MDS with Isolated del(5q)**: Specific deletion in chromosome 5q.
+        - **RCMD (Refractory Cytopenia with Multilineage Dysplasia)**: Multilineage dysplasia observed.
+        - **Refractory Anemia**: Specific subtype based on anemia characteristics.
+
+    #### **B. Lymphoid Lineage**
+
+    - **Acute Lymphoblastic Leukemia (ALL)**:
+        - **Pediatric ALL**: Patient age <18 years.
+        - **Adult ALL**: Patient age ≥18 years.
+
+    - **Hodgkin Lymphoma**:
+        - **Classical Hodgkin Lymphoma**: Positive for **CD15** and **CD30**.
+        - **NLPHL (Nodular Lymphocyte-Predominant Hodgkin Lymphoma)**: Positive for **CD20** only.
+        - **Unspecified Subtype**: Other combinations of markers.
+
+    - **Non-Hodgkin Lymphomas**:
+        - **B-Cell Lymphomas**:
+            - **Mantle Cell Lymphoma**: Presence of **Cyclin D1** or **t(11;14)** and **CD5+**.
+            - **Marginal Zone Lymphoma**: Positive for **CD20/CD79a**, negative for **CD5/CD10**.
+            - **Primary CNS Lymphoma (DLBCL)**: Positive for **BCL6**, **CD20**, and "CNS involvement".
+            - **Burkitt’s Lymphoma**: Presence of **MYC** or **t(8;14)** and **CD10**.
+            - **Follicular Lymphoma**: Positive for **CD10**.
+            - **Diffuse Large B-Cell Lymphoma (DLBCL)**: Default classification if other B-cell subtypes are not met.
+        - **T-Cell Lymphomas**:
+            - **ALCL (Anaplastic Large Cell Lymphoma)**: Positive for **CD30** and **ALK**.
+            - **AITL (Angioimmunoblastic T-Cell Lymphoma)**: Positive for **CD10** and markers like **PD-1**, **CXCL13**, or **BCL6**.
+            - **Mycosis Fungoides**: Positive for **CD4** with **CD7 loss** or "Skin involvement".
+            - **Peripheral T-Cell Lymphoma (PTCL)**: Positive for T-cell markers without other specific features.
+        - **Chronic Lymphocytic Leukemia (CLL)**: Default classification if other B-cell markers are not present.
+            - **Hairy Cell Leukemia**: Presence of "Hairy cells".
+
+    - **Other Chronic Hematologic Neoplasms**:
+        - Categories that do not fit neatly into the above classifications, possibly representing rare entities.
+
+    ### 2.3. Additional Flags
+
+    - **CD138**: Indicative of **Multiple Myeloma (Plasma Cell Neoplasm)**.
+    - **Mast Cell Involvement**: Suggests **Mastocytosis**.
+    - **Histiocytic Markers**: Points towards **Histiocytic/Dendritic Cell Neoplasms**.
+
+    ---
+    
+    ## 📋 3. List of Classifiable Hematologic Malignancies
+
+    Below is an **alphabetical** list of all hematologic malignancies that our tool can currently classify:
+
+    | **Cancer Type**                                            | **Description**                                      |
+    |------------------------------------------------------------|------------------------------------------------------|
+    | Acute Erythroid Leukemia (AML-M6)                          | AML subtype with erythroid precursors.               |
+    | Acute Lymphoblastic Leukemia (ALL, Pediatric)              | ALL in patients younger than 18 years.               |
+    | Acute Lymphoblastic Leukemia (ALL, Adult)                  | ALL in patients 18 years and older.                  |
+    | Acute Megakaryoblastic Leukemia (AML-M7)                    | AML subtype with megakaryoblasts.                    |
+    | Acute Myeloid Leukemia (AML)                                | General AML classification.                           |
+    | Acute Promyelocytic Leukemia (APL)                          | AML subtype characterized by t(15;17).               |
+    | AML with FLT3 Mutation                                      | AML subtype with FLT3 mutation.                      |
+    | AML with NPM1 Mutation                                      | AML subtype with NPM1 mutation.                      |
+    | AML with t(8;21)                                            | AML subtype with t(8;21) translocation.              |
+    | AML with inv(16)/t(16;16)                                   | AML subtype with inv(16) or t(16;16) translocation.  |
+    | Angioimmunoblastic T-Cell Lymphoma (AITL)                   | T-cell lymphoma with angioimmunoblastic features.    |
+    | Anaplastic Large Cell Lymphoma (ALCL, ALK+)                  | ALCL subtype positive for ALK.                        |
+    | Anaplastic Large Cell Lymphoma (ALCL, ALK–)                  | ALCL subtype negative for ALK.                        |
+    | Blastic Plasmacytoid Dendritic Cell Neoplasm (BPDCN)         | Aggressive myeloid neoplasm with specific markers.    |
+    | Burkitt's Lymphoma (High-Grade B-Cell NHL)                   | Highly aggressive B-cell non-Hodgkin lymphoma.        |
+    | Chronic Lymphocytic Leukemia (CLL)                           | Chronic B-cell leukemia.                              |
+    | Chronic Myeloid Leukemia (CML)                               | Chronic leukemia with Philadelphia chromosome.        |
+    | Cutaneous T-Cell Lymphoma (Mycosis Fungoides)                | T-cell lymphoma affecting the skin.                   |
+    | Diffuse Large B-Cell Lymphoma (DLBCL)                        | Aggressive B-cell non-Hodgkin lymphoma.               |
+    | Follicular Lymphoma (Non-Hodgkin)                            | B-cell non-Hodgkin lymphoma with follicular features. |
+    | Hairy Cell Leukemia (Rare B-Cell Neoplasm)                   | Rare B-cell leukemia with characteristic "hairy" cells.|
+    | Histiocytic/Dendritic Cell Neoplasm                           | Neoplasm involving histiocytic or dendritic cells.    |
+    | Hodgkin Lymphoma (Unspecified Subtype)                       | Hodgkin lymphoma without specific marker profile.     |
+    | Mantle Cell Lymphoma                                         | B-cell lymphoma with mantle cell markers.             |
+    | Marginal Zone Lymphoma                                       | B-cell lymphoma with marginal zone characteristics.   |
+    | Multiple Myeloma (Plasma Cell Neoplasm)                       | Plasma cell malignancy.                               |
+    | Myelodysplastic Syndromes (MDS)                               | Disorders caused by poorly formed blood cells.         |
+    | Myeloproliferative Neoplasm (MPN)                             | Group of diseases that cause blood cells to grow abnormally.|
+    | Peripheral T-Cell Lymphoma (PTCL)                             | T-cell non-Hodgkin lymphoma.                          |
+    | Refractory Anemia (MDS)                                      | MDS subtype characterized by anemia.                  |
+    | Refractory Cytopenia with Multilineage Dysplasia (RCMD)       | MDS subtype with multiple blood cell line dysplasia.  |
+    | Primary CNS Lymphoma (DLBCL)                                  | DLBCL confined to the central nervous system.          |
+    | Undetermined Hematologic Neoplasm                             | Neoplasm that does not fit into specified categories.  |
+    </table>
+
+    ---
+    
+    ## 🛠️ 4. How to Use the Classification Tool
+
+    1. **Data Entry**: Input all relevant data into the respective sections, ensuring accuracy for optimal classification results.
+    2. **Classification**: Click the **"Classify"** button to process the inputs and receive a cancer type classification.
+    3. **Results Interpretation**:
+        - **Classification Result**: Displays the identified hematologic malignancy.
+        - **Derivation**: Provides a step-by-step explanation of how the classification was determined.
+        - **AI Review & Clinical Next Steps**: (If authenticated) Offers additional insights and recommendations based on the classification.
+        - **Interactive Classification Flowchart**: Visual representation of the classification pathway taken.
+    4. **Further Assistance**: Utilize the **"Show Explanation"** and **"Hide Explanation"** buttons for detailed guidance.
+
+    ---
+    
+    ## ⚠️ Important Considerations
+
+    - **Accuracy of Input Data**: Ensure that all entered data is correct and comprehensive to receive an accurate classification.
+    - **Tool Limitations**: This tool employs a **simplified** classification logic based on the WHO guidelines and does **not** encompass the full complexity of real-world medical diagnostics.
+    - **Professional Consultation**: Always consult with a **qualified hematologist** or **oncologist** for definitive diagnosis and treatment planning.
+    
+    ---
+    
+    <div style="border-top: 1px solid #ccc; margin-top: 20px; padding-top: 10px;">
+    <em>Disclaimer</em>: This classification logic is **simplified** and should **not** replace professional pathology review. Always seek expert medical advice for accurate diagnosis and treatment.
     </div>
     """, unsafe_allow_html=True)
 
-##############################
-# VALIDATION
-##############################
-def validate_inputs(
-    blasts_percentage: float,
-    lineage: str,
-    is_b_cell: bool,
-    is_t_cell: bool,
-    is_nk_cell: bool,
-    morphological_details: list,
-    immunophenotype_markers: list,
-    cytogenetic_abnormalities: list,
-    molecular_mutations: list,
-    wbc_count: float,
-    rbc_count: float,
-    platelet_count: float,
-    eosinophil_count: float,
-    monocyte_count: float,
-    patient_age: float
-) -> tuple:
-    errors = []
-    warnings = []
 
-    if not (0 <= blasts_percentage <= 100):
-        errors.append("Blasts percentage must be between 0 and 100.")
-
-    if not (0 <= wbc_count <= 200):
-        warnings.append("WBC count seems unusually high or low.")
-
-    if not (0 <= rbc_count <= 10):
-        warnings.append("RBC count seems unusually high or low.")
-
-    if not (0 <= platelet_count <= 1500):
-        warnings.append("Platelet count seems unusually high or low.")
-
-    if not (0 <= eosinophil_count <= 50):
-        warnings.append("Eosinophil count seems unusually high or low.")
-
-    if not (0 <= monocyte_count <= 50):
-        warnings.append("Monocyte count seems unusually high or low.")
-
-    if patient_age < 0 or patient_age > 120:
-        errors.append("Patient age must be between 0 and 120 years.")
-
-    return errors, warnings
 
 ##############################
 # CLASSIFICATION
@@ -459,6 +561,54 @@ def classify_blood_cancer(
     return classification, derivation, decision_points
 
 
+##############################
+# VALIDATION
+##############################
+def validate_inputs(
+    blasts_percentage: float,
+    lineage: str,
+    is_b_cell: bool,
+    is_t_cell: bool,
+    is_nk_cell: bool,
+    morphological_details: list,
+    immunophenotype_markers: list,
+    cytogenetic_abnormalities: list,
+    molecular_mutations: list,
+    wbc_count: float,
+    rbc_count: float,
+    platelet_count: float,
+    eosinophil_count: float,
+    monocyte_count: float,
+    patient_age: float
+) -> tuple:
+    errors = []
+    warnings = []
+
+    if not (0 <= blasts_percentage <= 100):
+        errors.append("Blasts percentage must be between 0 and 100.")
+
+    if not (0 <= wbc_count <= 200):
+        warnings.append("WBC count seems unusually high or low.")
+
+    if not (0 <= rbc_count <= 10):
+        warnings.append("RBC count seems unusually high or low.")
+
+    if not (0 <= platelet_count <= 1500):
+        warnings.append("Platelet count seems unusually high or low.")
+
+    if not (0 <= eosinophil_count <= 50):
+        warnings.append("Eosinophil count seems unusually high or low.")
+
+    if not (0 <= monocyte_count <= 50):
+        warnings.append("Monocyte count seems unusually high or low.")
+
+    if patient_age < 0 or patient_age > 120:
+        errors.append("Patient age must be between 0 and 120 years.")
+
+    return errors, warnings
+
+
+
 def get_gpt4_review(
     classification: str,
     explanation: str,
@@ -676,11 +826,13 @@ def app_main():
     st.markdown("---")
     
     # 7) Cytogenetic Abnormalities and 7a) Molecular Mutations
-    with st.container():
-        st.subheader("7. Cytogenetic Abnormalities")
+    st.subheader("7. Cytogenetic & Molecular")
+    col7_1, col7_2 = st.columns(2)
+    with col7_1:
+        st.markdown("**7.1. Cytogenetic Abnormalities**")
         cytogenetic_samples = [
             "t(15;17)", "t(8;21)", "inv(16)", "t(16;16)", "t(9;22) BCR-ABL1", 
-            "t(12;21)", "t(1;19)", "t(11;14) CCND1-IGH", # Mantle cell
+            "t(12;21)", "t(1;19)", "t(11;14) CCND1-IGH",  # Mantle cell
             "t(14;18) BCL2-IGH",  # Follicular
             "t(8;14) MYC-IGH",    # Burkitt's
             "ALK",                # ALCL
@@ -691,8 +843,8 @@ def app_main():
             cytogenetic_samples,
             help="Choose all cytogenetic abnormalities identified in the patient's cells."
         )
-    
-        st.markdown("**7a. Molecular Mutations**")
+    with col7_2:
+        st.markdown("**7.2. Molecular Mutations**")
         mutation_samples = [
             "FLT3", "NPM1", "CEBPA", "RUNX1", "JAK2", "CALR", "MPL", "BCR-ABL1",
             "KMT2A (MLL)", "ETV6-RUNX1", "TCF3-PBX1", "MYC", "BCL2", "BCL6", "CCND1",
@@ -705,7 +857,7 @@ def app_main():
             mutation_samples,
             help="Select all molecular mutations identified in the patient's cells."
         )
-    
+
     st.markdown("---")
     
     # 8) Special Entities
@@ -853,7 +1005,6 @@ def app_main():
                 for professional pathology review or real-world WHO classification.</p>
             </div>
             """, unsafe_allow_html=True)
-
 
 
 def main():
