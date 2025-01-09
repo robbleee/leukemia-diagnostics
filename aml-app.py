@@ -144,12 +144,11 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         parsed_data (dict): A dictionary containing extracted hematological report data.
 
     Returns:
-        tuple: A tuple containing (classification, derivation_string, decision_points).
+        tuple: A tuple containing (classification, derivation_string, follow_up_instructions).
     """
     classification = "AML, Not Otherwise Specified (NOS)"
     derivation = ""
-    decision_points = []
-    qualifiers_to_append = []
+    follow_up_instructions = ""
 
     # Retrieve blasts_percentage
     blasts_percentage = parsed_data.get("blasts_percentage", 0.0)
@@ -175,16 +174,11 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         if gene in ["CEBPA", "bZIP", "BCR::ABL1"]:
             if aml_def_genetic.get(gene, False) and blasts_percentage >= 20.0:
                 classification = classif
-                decision_points.append(f"Detected '{gene}' with blasts_percentage >= 20% => {classif}.")
-                break  # Specific classification found
-            elif aml_def_genetic.get(gene, False):
-                # Detected the gene but blasts_percentage < 20%
-                decision_points.append(f"Detected '{gene}' but blasts_percentage < 20% => Classification not applied.")
+                break
         else:
             if aml_def_genetic.get(gene, False):
                 classification = classif
-                decision_points.append(f"Detected '{gene}' => {classif}.")
-                break  # Specific classification found
+                break
 
     # Step 2: Check MDS-related mutations
     if classification == "AML, Not Otherwise Specified (NOS)":
@@ -193,7 +187,6 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         for gene in mds_mutations_list:
             if mds_related_mutations.get(gene, False):
                 classification = "AML, myelodysplasia related (WHO 2022)"
-                decision_points.append(f"Detected '{gene}' mutation => {classification}.")
                 break
 
     # Step 3: Check MDS-related cytogenetics
@@ -210,45 +203,43 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         for cytogenetic in mrd_cytogenetics + acute_cytogenetics:
             if mds_related_cytogenetics.get(cytogenetic, False):
                 classification = "AML, myelodysplasia related (WHO 2022)"
-                decision_points.append(f"Detected '{cytogenetic}' => {classification}.")
                 break
 
     # Step 4: Add qualifiers to classification
     qualifiers = parsed_data.get("qualifiers", {})
-
-    # Initialize a list to hold qualifier descriptions
     qualifier_descriptions = []
 
     # Handle Previous Cytotoxic Therapy
     if qualifiers.get("previous_cytotoxic_therapy", False):
         qualifier_descriptions.append("post cytotoxic therapy")
-        decision_points.append("Detected previous cytotoxic therapy => Classification adjusted.")
 
     # Handle Predisposing Germline Variant (only if not "None")
     germline_variant = qualifiers.get("predisposing_germline_variant", "None")
     if germline_variant and germline_variant.lower() != "none":
         qualifier_descriptions.append(f"associated with germline {germline_variant}")
-        decision_points.append(f"Detected predisposing germline variant ({germline_variant}) => Classification adjusted.")
 
     # Append qualifiers to classification if any
     if qualifier_descriptions:
-        # Join qualifiers with commas
-        qualifiers_str = ", ".join(qualifier_descriptions)
-        # Append qualifiers and "(WHO 2022)" once at the end
-        classification += f", {qualifiers_str} (WHO 2022)"
-    else:
-        # If no qualifiers, just append "(WHO 2022)"
-        classification += " (WHO 2022)"
+        classification += f", {', '.join(qualifier_descriptions)}"
 
-    # Step 5: Default Classification
-    if not decision_points:
-        decision_points.append("No specific genetic, therapy-related, or morphological features matched => AML, Not Otherwise Specified (NOS).")
-        classification = "AML, Not Otherwise Specified (NOS) (WHO 2022)"
+    # Append "(WHO 2022)" at the end
+    classification += " (WHO 2022)"
 
-    # Build derivation string
-    derivation = " ➡️ ".join(decision_points)
+    # Step 5: Determine follow-up instructions based on classification
+    if "NPM1" in classification:
+        follow_up_instructions = "Monitor MRD regularly via qPCR, and consider stem cell transplant if MRD persists."
+    elif "RUNX1" in classification:
+        follow_up_instructions = "Evaluate for stem cell transplant and consider clinical trial enrollment for novel therapies."
+    elif "KMT2A" in classification:
+        follow_up_instructions = "Assess for relapse using imaging and MRD testing, and consider menin inhibitors or clinical trials."
+    elif "BCR::ABL1" in classification:
+        follow_up_instructions = "Initiate and monitor tyrosine kinase inhibitor therapy with regular molecular testing for resistance."
 
-    return classification, derivation, decision_points
+    # Default follow-up instructions
+    if not follow_up_instructions:
+        follow_up_instructions = "Standard AML follow-up with regular molecular testing and imaging to detect relapse."
+
+    return classification, follow_up_instructions
 
 
 ##############################
@@ -262,12 +253,11 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         parsed_data (dict): A dictionary containing extracted hematological report data.
 
     Returns:
-        tuple: A tuple containing (classification, derivation_string, decision_points).
+        tuple: A tuple containing (classification, follow_up_instructions).
     """
     classification = "AML, Not Otherwise Specified (NOS)"
+    follow_up_instructions = ""
     derivation = ""
-    decision_points = []
-    qualifiers_to_append = []
 
     # Retrieve necessary fields
     blasts_percentage = parsed_data.get("blasts_percentage", 0.0)
@@ -297,28 +287,24 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
                        "RBM15::MRTFA", "KMT2A", "MECOM", "NUP98", "bZIP", "BCR::ABL1"]:
                 if blasts_percentage >= 10.0:
                     classification = classif
-                    decision_points.append(f"Detected '{gene}' with blasts_percentage >= 10% => {classif}.")
                     break  # Specific classification found
                 else:
                     # Detected the gene but blasts_percentage < 10%
-                    decision_points.append(f"Detected '{gene}' but blasts_percentage < 10% => Classification not applied.")
+                    # Classification remains NOS, no follow-up instructions for non-applied classification
+                    pass
             else:
                 # If there are other genes that do not require blasts_percentage condition
                 classification = classif
-                decision_points.append(f"Detected '{gene}' => {classif}.")
                 break  # Specific classification found
 
     # Step 2: Check Biallelic TP53 mutations
     if classification == "AML, Not Otherwise Specified (NOS)":
         if biallelic_tp53.get("2_x_TP53_mutations", False):
             classification = "AML with mutated TP53"
-            decision_points.append("Detected '2 x TP53 mutations' => AML with mutated TP53.")
         elif biallelic_tp53.get("1_x_TP53_mutation_del_17p", False):
             classification = "AML with mutated TP53"
-            decision_points.append("Detected '1 x TP53 mutation + del(17p)' => AML with mutated TP53.")
         elif biallelic_tp53.get("1_x_TP53_mutation_LOH", False):
             classification = "AML with mutated TP53"
-            decision_points.append("Detected '1 x TP53 mutation + LOH' => AML with mutated TP53.")
 
     # Step 3: Check MDS-related mutations
     if classification == "AML, Not Otherwise Specified (NOS)":
@@ -326,7 +312,6 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         for gene in mds_mutations_list:
             if mds_related_mutations.get(gene, False):
                 classification = "AML with myelodysplasia related gene mutation"
-                decision_points.append(f"Detected '{gene}' mutation => {classification}.")
                 break
 
     # Step 4: Check MDS-related cytogenetics
@@ -335,9 +320,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         mrd_cytogenetics = [
             "Complex_karyotype",
             "del_5q", "t_5q", "add_5q", "-7", "del_7q",
-            "+8", "del_11q", "del_12p", "t_12p",
-            "add_12p", "-13", "i_17q", "-17",
-            "add_17p", "del_17p", "del_20q", "idic_X_q13"
+            "del_12p", "t_12p", "add_12p", "i_17q", "idic_X_q13"
         ]
         nos_cytogenetics = [
             "5q", "+8", "del_11q", "12p", "-13",
@@ -350,15 +333,12 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
                                    "del_12p", "t_12p", "add_12p", "-13", "i_17q",
                                    "-17", "add_17p", "del_17p", "del_20q", "idic_X_q13"]:
                     classification = "AML with myelodysplasia related cytogenetic abnormality"
-                    decision_points.append(f"Detected '{cytogenetic}' => {classification}.")
                 elif cytogenetic in ["5q", "+8", "del_11q", "12p", "-13",
                                      "-17", "add_17p", "del_20q"]:
                     classification = "AML, NOS"
-                    decision_points.append(f"Detected '{cytogenetic}' => {classification}.")
                 break  # Prioritize and stop after first match
 
     # Step 5: Add qualifiers to classification
-    # Initialize a list to hold qualifier descriptions
     qualifier_descriptions = []
 
     # Handle Previous MDS or MDS/MPN diagnosed >3 months ago
@@ -367,24 +347,19 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     if previous_mds or previous_mds_mpn:
         if previous_mds and previous_mds_mpn:
             qualifier_descriptions.append("post MDS/MDS/MPN")
-            decision_points.append("Detected previous MDS and MDS/MPN diagnosed over 3 months ago => Classification adjusted.")
         elif previous_mds:
             qualifier_descriptions.append("post MDS")
-            decision_points.append("Detected previous MDS diagnosed over 3 months ago => Classification adjusted.")
         elif previous_mds_mpn:
             qualifier_descriptions.append("post MDS/MPN")
-            decision_points.append("Detected previous MDS/MPN diagnosed over 3 months ago => Classification adjusted.")
 
     # Handle Previous cytotoxic therapy
     if qualifiers.get("previous_cytotoxic_therapy", False):
         qualifier_descriptions.append("therapy related")
-        decision_points.append("Detected previous cytotoxic therapy => Classification adjusted.")
 
     # Handle Predisposing Germline Variant (only if not "None")
     germline_variant = qualifiers.get("predisposing_germline_variant", "None")
     if germline_variant and germline_variant.lower() != "none":
         qualifier_descriptions.append(f"associated with germline {germline_variant}")
-        decision_points.append(f"Detected predisposing germline variant ({germline_variant}) => Classification adjusted.")
 
     # Append qualifiers to classification if any
     if qualifier_descriptions:
@@ -396,15 +371,18 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         # If no qualifiers, just append "(ICC 2022)"
         classification += " (ICC 2022)"
 
-    # Step 6: Default Classification
-    if not decision_points:
-        decision_points.append("No specific genetic, therapy-related, or morphological features matched => AML, Not Otherwise Specified (NOS).")
-        classification = "AML, Not Otherwise Specified (NOS) (ICC 2022)"
+    # Step 5: Determine follow-up instructions based on classification
+    if "NPM1" in classification:
+        follow_up_instructions = "Monitor MRD regularly via qPCR, and consider stem cell transplant if MRD persists."
+    elif "RUNX1" in classification:
+        follow_up_instructions = "Evaluate for stem cell transplant and consider clinical trial enrollment for novel therapies."
+    elif "KMT2A" in classification:
+        follow_up_instructions = "Assess for relapse using imaging and MRD testing, and consider menin inhibitors or clinical trials."
+    elif "BCR::ABL1" in classification:
+        follow_up_instructions = "Initiate and monitor tyrosine kinase inhibitor therapy with regular molecular testing for resistance."
 
-    # Build derivation string
-    derivation = " ➡️ ".join(decision_points)
 
-    return classification, derivation, decision_points
+    return classification, follow_up_instructions
 
 
 ##############################
@@ -849,9 +827,10 @@ def show_explanation():
     ---
     """, unsafe_allow_html=True)
 
-# ---------------------------
-# STREAMLIT APPLICATION
-# ---------------------------
+
+##############################
+# APP MAIN
+##############################
 def app_main():
     st.title("Acute Myeloid Leukemia (AML) Classification Tool")
     st.write("""
@@ -885,20 +864,19 @@ def app_main():
                     if not parsed_fields:
                         st.warning("No data extracted or an error occurred during parsing.")
                     else:
+                        st.success("Report parsed successfully! Attempting classification...")
 
                         # 2) Run both WHO and ICC classifications
-                        classification_who, derivation_who, _ = classify_AML_WHO2022(parsed_fields)
-                        classification_icc, derivation_icc, _ = classify_AML_ICC2022(parsed_fields)
+                        classification_who, follow_up_who = classify_AML_WHO2022(parsed_fields)
+                        classification_icc, follow_up_icc = classify_AML_ICC2022(parsed_fields)
 
                         # 3) Log the parsed data and classification results to stdout
                         print("Parsed Hematology Report JSON:")
                         print(json.dumps(parsed_fields, indent=2))
                         print("WHO 2022 Classification Result:")
                         print(f"Classification: {classification_who}")
-                        print(f"Derivation: {derivation_who}")
                         print("ICC 2022 Classification Result:")
                         print(f"Classification: {classification_icc}")
-                        print(f"Derivation: {derivation_icc}")
 
                         # 4) Display Classification Results
                         st.markdown("""
@@ -908,27 +886,54 @@ def app_main():
                         """, unsafe_allow_html=True)
 
                         classification_tabs = st.tabs(["WHO 2022", "ICC 2022"])
+                        
+                        # Extract Qualifiers
+                        qualifiers = parsed_fields.get("qualifiers", {})
+
+                        # Format qualifiers for WHO 2022
+                        formatted_qualifiers_who = []
+                        if qualifiers.get("previous_cytotoxic_therapy", False):
+                            formatted_qualifiers_who.append("post cytotoxic therapy")
+                        germline_variant_who = qualifiers.get("predisposing_germline_variant", "None")
+                        if germline_variant_who and germline_variant_who.lower() != "none":
+                            formatted_qualifiers_who.append(f"associated with germline {germline_variant_who}")
+
+                        formatted_qualifiers_who_display = ", ".join(formatted_qualifiers_who) if formatted_qualifiers_who else "None"
+
+                        # Format qualifiers for ICC 2022
+                        formatted_qualifiers_icc = []
+                        previous_mds = qualifiers.get("previous_MDS_diagnosed_over_3_months_ago", False)
+                        previous_mds_mpn = qualifiers.get("previous_MDS/MPN_diagnosed_over_3_months_ago", False)
+                        if previous_mds or previous_mds_mpn:
+                            if previous_mds and previous_mds_mpn:
+                                formatted_qualifiers_icc.append("post MDS/MDS/MPN")
+                            elif previous_mds:
+                                formatted_qualifiers_icc.append("post MDS")
+                            elif previous_mds_mpn:
+                                formatted_qualifiers_icc.append("post MDS/MPN")
+                        if qualifiers.get("previous_cytotoxic_therapy", False):
+                            formatted_qualifiers_icc.append("therapy related")
+                        germline_variant_icc = qualifiers.get("predisposing_germline_variant", "None")
+                        if germline_variant_icc and germline_variant_icc.lower() != "none":
+                            formatted_qualifiers_icc.append(f"associated with germline {germline_variant_icc}")
+
+                        formatted_qualifiers_icc_display = ", ".join(formatted_qualifiers_icc) if formatted_qualifiers_icc else "None"
+
                         with classification_tabs[0]:
                             st.markdown(f"### {classification_who}")
-                            with st.expander("Derivation (WHO 2022)", expanded=False):
-                                st.markdown(f"""
-                                <div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px;'>
-                                    <p style='font-size: 1rem; line-height: 1.6;'>
-                                    {derivation_who.replace("->", "➡️").replace("|", "<br>")}
-                                    </p>
-                                </div>
-                                """, unsafe_allow_html=True)
+                            
+
+                            # Display Follow-Up Instructions in a bubble
+                            if follow_up_who:
+                                st.info(f"**Follow-Up Instructions:** {follow_up_who}")
 
                         with classification_tabs[1]:
                             st.markdown(f"### {classification_icc}")
-                            with st.expander("Derivation (ICC 2022)", expanded=False):
-                                st.markdown(f"""
-                                <div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px;'>
-                                    <p style='font-size: 1rem; line-height: 1.6;'>
-                                    {derivation_icc.replace("->", "➡️").replace("|", "<br>")}
-                                    </p>
-                                </div>
-                                """, unsafe_allow_html=True)
+                            
+
+                            # Display Follow-Up Instructions in a bubble
+                            if follow_up_icc:
+                                st.info(f"**Follow-Up Instructions:** {follow_up_icc}")
 
                         # 5) AI Review and Clinical Next Steps (Optional)
                         st.markdown("### **AI Review & Clinical Next Steps**")
@@ -938,11 +943,11 @@ def app_main():
                                 combined_classifications = {
                                     "WHO 2022": {
                                         "Classification": classification_who,
-                                        "Derivation": derivation_who
+                                        "Follow-Up": follow_up_who
                                     },
                                     "ICC 2022": {
                                         "Classification": classification_icc,
-                                        "Derivation": derivation_icc
+                                        "Follow-Up": follow_up_icc
                                     }
                                 }
                                 # Generate a single AI review based on the combined classifications
@@ -971,8 +976,6 @@ def app_main():
 
     st.markdown("---")
 
-
-   
 
 ##############################
 # MAIN FUNCTION
