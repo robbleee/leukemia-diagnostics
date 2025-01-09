@@ -1,3 +1,5 @@
+---------- who ----------
+
 if  any of these AML-defining recurrent genetic abnormalities (true):
         NPM1 -> AML with NPM1 mutation (WHO 2022)
         RUNX1::RUNX1T1 -> AML with RUNX1::RUNX1T1 fusion (WHO 2022)
@@ -56,12 +58,6 @@ else if MDS-related cytogenetics (true):
     del(20q) -> Acute myeloid leukaemia, [define by differentiation] (WHO 2022)
 
 
-
-    "qualifiers": {
-        "previous_MDS_or_MDS/MPN_diagnosed_over_3_months_ago": true,
-        "previous_cytotoxic_therapy": false,
-        "predisposing_germline_variant": "DDX41"
-      }
 
 qualifiers (true/false):
     Previous cytotoxic therapy?

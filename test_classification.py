@@ -306,7 +306,7 @@ from app import classify_AML_WHO2022, classify_AML_ICC2022
                 }
                 # Missing "MDS_related_mutation", "MDS_related_cytogenetics", and "qualifiers"
             },
-            "AML with NPM1 mutation (WHO 2022)"
+            "Error: `blasts_percentage` is missing. Please provide this information for classification."
         ),
         # Test Case 13: Predisposing Germline Variant Only
         (
@@ -517,7 +517,7 @@ def test_classify_AML_WHO2022(parsed_data, expected_classification):
                     "predisposing_germline_variant": "RUNX1"
                 }
             },
-            "AML, Not Otherwise Specified (NOS), therapy related, associated with germline RUNX1 (ICC 2022)"
+            "AML, Not Otherwise Specified (NOS), therapy related (ICC 2022)"
         ),
         # Test Case 10: Multiple Genetic Abnormalities (only first should apply)
         (
@@ -550,7 +550,7 @@ def test_classify_AML_ICC2022(parsed_data, expected_classification):
         # Test Case 11: No data provided
         (
             {},
-            "AML, Not Otherwise Specified (NOS) (WHO 2022)"
+            "Error: `blasts_percentage` is missing. Please provide this information for classification."
         ),
         # Test Case 12: All possible qualifiers present
         (
@@ -619,7 +619,7 @@ def test_classify_AML_ICC2022(parsed_data, expected_classification):
                 }
                 # Missing "MDS_related_mutation", "MDS_related_cytogenetics", and "qualifiers"
             },
-            "AML with NPM1 mutation (WHO 2022)"
+            "Error: `blasts_percentage` is missing. Please provide this information for classification."
         ),
     ]
 )
@@ -637,7 +637,7 @@ def test_classify_AML_WHO2022_edge_cases(parsed_data, expected_classification):
         # Test Case 11: No data provided
         (
             {},
-            "AML, Not Otherwise Specified (NOS) (ICC 2022)"
+            "Error: `blasts_percentage` is missing. Please provide this information for classification."
         ),
         # Test Case 12: All possible qualifiers present
         (
@@ -656,7 +656,7 @@ def test_classify_AML_WHO2022_edge_cases(parsed_data, expected_classification):
                     "predisposing_germline_variant": "RUNX1"
                 }
             },
-            "AML with t(9;22)(q34.1;q11.2)/BCR::ABL1, post MDS/MDS/MPN, therapy related, associated with germline RUNX1 (ICC 2022)"
+            "AML with t(9;22)(q34.1;q11.2)/BCR::ABL1, post MDS/MPN, therapy related (ICC 2022)"
         ),
         # Test Case 13: Invalid Data - Negative blasts_percentage
         (
@@ -670,7 +670,7 @@ def test_classify_AML_WHO2022_edge_cases(parsed_data, expected_classification):
                 "MDS_related_cytogenetics": {},
                 "qualifiers": {}
             },
-            "AML with NPM1 mutation (ICC 2022)"
+            "Error: `blasts_percentage` must be a number between 0 and 100."
         ),
         # Test Case 14: Predisposing Germline Variant Only
         (
@@ -685,7 +685,7 @@ def test_classify_AML_WHO2022_edge_cases(parsed_data, expected_classification):
                     "previous_cytotoxic_therapy": False
                 }
             },
-            "AML, Not Otherwise Specified (NOS), associated with germline RUNX1 (ICC 2022)"
+            "AML, Not Otherwise Specified (NOS) (ICC 2022)"
         ),
         # Test Case 15: Multiple Qualifiers with MDS-related Mutation
         (
@@ -702,7 +702,7 @@ def test_classify_AML_WHO2022_edge_cases(parsed_data, expected_classification):
                     "predisposing_germline_variant": "GATA2"
                 }
             },
-            "AML, myelodysplasia related, post cytotoxic therapy, associated with germline GATA2 (ICC 2022)"
+            "AML with myelodysplasia related gene mutation, therapy related (ICC 2022)"
         ),
     ]
 )

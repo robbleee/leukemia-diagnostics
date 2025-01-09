@@ -4,12 +4,10 @@ import json
 import graphviz
 from openai import OpenAI
 
-
 ##############################
 # OPENAI API CONFIG
 ##############################
 client = OpenAI(api_key=st.secrets["openai"]["api_key"])
-
 
 ##############################
 # SET PAGE CONFIGURATION FIRST
@@ -22,7 +20,6 @@ if "show_explanation" not in st.session_state:
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
     st.session_state['username'] = ''
-
 
 ##############################
 # AUTHENTICATION
@@ -132,7 +129,6 @@ def build_decision_flowchart(classification: str, decision_points: list) -> str:
 
     return dot.source
 
-
 ##############################
 # CLASSIFY AML WHO 2022
 ##############################
@@ -144,14 +140,19 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         parsed_data (dict): A dictionary containing extracted hematological report data.
 
     Returns:
-        tuple: A tuple containing (classification, derivation_string, follow_up_instructions).
+        tuple: A tuple containing (classification, follow_up_instructions).
     """
-    classification = "AML, Not Otherwise Specified (NOS)"
-    derivation = ""
-    follow_up_instructions = ""
-
     # Retrieve blasts_percentage
-    blasts_percentage = parsed_data.get("blasts_percentage", 0.0)
+    blasts_percentage = parsed_data.get("blasts_percentage")
+
+    # Check if blasts_percentage is present and valid
+    if blasts_percentage is None:
+        return "Error: `blasts_percentage` is missing. Please provide this information for classification.", ""
+    if not isinstance(blasts_percentage, (int, float)) or not (0.0 <= blasts_percentage <= 100.0):
+        return "Error: `blasts_percentage` must be a number between 0 and 100.", ""
+    
+    classification = "AML, Not Otherwise Specified (NOS)"
+    follow_up_instructions = ""
 
     # Step 1: Check AML-defining recurrent genetic abnormalities
     aml_genetic_abnormalities = {
@@ -186,7 +187,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         mds_mutations_list = ["ASXL1", "BCOR", "EZH2", "RUNX1", "SF3B1", "SRSF2", "STAG2", "U2AF1", "ZRSR2"]
         for gene in mds_mutations_list:
             if mds_related_mutations.get(gene, False):
-                classification = "AML, myelodysplasia related (WHO 2022)"
+                classification = "AML, myelodysplasia related"
                 break
 
     # Step 3: Check MDS-related cytogenetics
@@ -202,7 +203,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
 
         for cytogenetic in mrd_cytogenetics + acute_cytogenetics:
             if mds_related_cytogenetics.get(cytogenetic, False):
-                classification = "AML, myelodysplasia related (WHO 2022)"
+                classification = "AML, myelodysplasia related"
                 break
 
     # Step 4: Add qualifiers to classification
@@ -255,12 +256,19 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     Returns:
         tuple: A tuple containing (classification, follow_up_instructions).
     """
+    # Retrieve blasts_percentage
+    blasts_percentage = parsed_data.get("blasts_percentage")
+
+    # Check if blasts_percentage is present and valid
+    if blasts_percentage is None:
+        return "Error: `blasts_percentage` is missing. Please provide this information for classification.", ""
+    if not isinstance(blasts_percentage, (int, float)) or not (0.0 <= blasts_percentage <= 100.0):
+        return "Error: `blasts_percentage` must be a number between 0 and 100.", ""
+
     classification = "AML, Not Otherwise Specified (NOS)"
     follow_up_instructions = ""
-    derivation = ""
 
     # Retrieve necessary fields
-    blasts_percentage = parsed_data.get("blasts_percentage", 0.0)
     aml_def_genetic = parsed_data.get("AML_defining_recurrent_genetic_abnormalities", {})
     biallelic_tp53 = parsed_data.get("Biallelic_TP53_mutation", {})
     mds_related_mutations = parsed_data.get("MDS_related_mutation", {})
@@ -290,8 +298,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
                     break  # Specific classification found
                 else:
                     # Detected the gene but blasts_percentage < 10%
-                    # Classification remains NOS, no follow-up instructions for non-applied classification
-                    pass
+                    classification = "AML, Not Otherwise Specified (NOS)"
             else:
                 # If there are other genes that do not require blasts_percentage condition
                 classification = classif
@@ -299,11 +306,9 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
 
     # Step 2: Check Biallelic TP53 mutations
     if classification == "AML, Not Otherwise Specified (NOS)":
-        if biallelic_tp53.get("2_x_TP53_mutations", False):
-            classification = "AML with mutated TP53"
-        elif biallelic_tp53.get("1_x_TP53_mutation_del_17p", False):
-            classification = "AML with mutated TP53"
-        elif biallelic_tp53.get("1_x_TP53_mutation_LOH", False):
+        if biallelic_tp53.get("2_x_TP53_mutations", False) or \
+           biallelic_tp53.get("1_x_TP53_mutation_del_17p", False) or \
+           biallelic_tp53.get("1_x_TP53_mutation_LOH", False):
             classification = "AML with mutated TP53"
 
     # Step 3: Check MDS-related mutations
@@ -345,21 +350,15 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     previous_mds = qualifiers.get("previous_MDS_diagnosed_over_3_months_ago", False)
     previous_mds_mpn = qualifiers.get("previous_MDS/MPN_diagnosed_over_3_months_ago", False)
     if previous_mds or previous_mds_mpn:
-        if previous_mds and previous_mds_mpn:
-            qualifier_descriptions.append("post MDS/MDS/MPN")
+        if previous_mds_mpn:
+            qualifier_descriptions.append("post MDS/MPN")
         elif previous_mds:
             qualifier_descriptions.append("post MDS")
-        elif previous_mds_mpn:
-            qualifier_descriptions.append("post MDS/MPN")
 
     # Handle Previous cytotoxic therapy
     if qualifiers.get("previous_cytotoxic_therapy", False):
         qualifier_descriptions.append("therapy related")
 
-    # Handle Predisposing Germline Variant (only if not "None")
-    germline_variant = qualifiers.get("predisposing_germline_variant", "None")
-    if germline_variant and germline_variant.lower() != "none":
-        qualifier_descriptions.append(f"associated with germline {germline_variant}")
 
     # Append qualifiers to classification if any
     if qualifier_descriptions:
@@ -371,7 +370,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         # If no qualifiers, just append "(ICC 2022)"
         classification += " (ICC 2022)"
 
-    # Step 5: Determine follow-up instructions based on classification
+    # Step 6: Determine follow-up instructions based on classification
     if "NPM1" in classification:
         follow_up_instructions = "Monitor MRD regularly via qPCR, and consider stem cell transplant if MRD persists."
     elif "RUNX1" in classification:
@@ -381,9 +380,11 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     elif "BCR::ABL1" in classification:
         follow_up_instructions = "Initiate and monitor tyrosine kinase inhibitor therapy with regular molecular testing for resistance."
 
+    # Default follow-up instructions
+    if not follow_up_instructions:
+        follow_up_instructions = "Standard AML follow-up with regular molecular testing and imaging to detect relapse."
 
     return classification, follow_up_instructions
-
 
 ##############################
 # AI REVIEW
@@ -419,7 +420,7 @@ def get_gpt4_review(
     # Send to AI
     try:
         response = client.chat.completions.create(
-            model="gpt-4",  # Ensure your environment supports this model
+            model="gpt-4o",  # Ensure your environment supports this model
             messages=[
                 {"role": "system", "content": "You are a knowledgeable hematologist."},
                 {"role": "user", "content": prompt}
@@ -436,7 +437,7 @@ def get_gpt4_review(
 
 
 ##############################
-# PARSE INPUT
+# PARSE HAEMATOLOGY 
 ##############################
 def parse_hematology_report(report_text: str) -> dict:
     """
@@ -453,7 +454,7 @@ def parse_hematology_report(report_text: str) -> dict:
     
     # Define the fields to extract
     required_json_structure = {
-        "blasts_percentage": 0.0,
+        "blasts_percentage": None,  # Changed from 0.0 to None
         "AML_defining_recurrent_genetic_abnormalities": {
             "NPM1": False,
             "RUNX1::RUNX1T1": False,
@@ -518,18 +519,18 @@ def parse_hematology_report(report_text: str) -> dict:
     For boolean fields, use true/false. For numerical fields, provide the value. If a field is not found or unclear, set it to false or a default value.
     
     Try to consider if the user may have used some sort of short hand and translate where necessary. If you see 2x before 
-
+    
     For example:
-
+    
     1. 2_x_TP53_mutations: Extract if the report mentions phrases like "2 TP53 mutations," "biallelic TP53 mutations," or similar.
     2. 1_x_TP53_mutation_del_17p: Look for terms like "TP53 mutation and 17p deletion" or "TP53 mutation with del(17p)."
     3. 1_x_TP53_mutation_LOH: Identify phrases such as "TP53 mutation and LOH," "TP53 mutation with Loss of Heterozygosity," or equivalent.
-
+    
     For predisposing_germline_variant, leave as "None" if there is none otherwise record the variant specified.
-
+    
     **Required JSON structure:**
     {{
-        "blasts_percentage": 0.0,
+        "blasts_percentage": null,  # Changed from 0.0 to null
         "AML_defining_recurrent_genetic_abnormalities": {{
             "NPM1": false,
             "RUNX1::RUNX1T1": false,
@@ -580,12 +581,38 @@ def parse_hematology_report(report_text: str) -> dict:
             "idic_X_q13": false
         }},
         "qualifiers": {{
-            "previous_MDS_diagnosed_over_3_months_ago": False,
-            "previous_MDS/MPN_diagnosed_over_3_months_ago": False,
+            "previous_MDS_diagnosed_over_3_months_ago": false,
+            "previous_MDS/MPN_diagnosed_over_3_months_ago": false,
             "previous_cytotoxic_therapy": false,
             "predisposing_germline_variant": "None"
         }}
     }}
+
+
+    Examples of predisposing germline variants:
+        Germline predisposition
+            • Germline CEBPA variant
+            • Germline DDX41 variant
+            • Germline TP53 variant
+        Germline predisposition and pre-existing platelet disorder:
+            • Germline RUNX1
+            • Germline ANKRD26
+            • Germline ETV6 variant
+        Germline predisposition and potential organ dysfunction:
+            • Germline GATA2 variant
+            • Bone marrow failure syndromes
+                ◦ Severe congenital neutropenia (SCN)
+                ◦ Shwachman-Diamond syndrome (SDS)
+                ◦ Fanconi anaemia (FA)
+                ◦ Diamond Blackfan anaemia
+            • Telomere biology disorders including DKC
+            • RASopathies (Neurofibromatosis type 1, CBL syndrome, Noonan syndrome or
+        Noonan syndrome-like disorders):
+            • Down syndrome
+            • Germline SAMD9 variant (MIRAGE Syndrome)
+            • Germline SAMD9L variant (SAMD9L-related Ataxia Pancytopenia Syndrome)
+            • Biallelic germline BLM variant (Bloom syndrome)
+
     
     **Instructions:**
     1. Return **valid JSON only** with no extra text or commentary.
@@ -621,6 +648,13 @@ def parse_hematology_report(report_text: str) -> dict:
                 for sub_key, sub_value in value.items():
                     if sub_key not in parsed_data[key]:
                         parsed_data[key][sub_key] = sub_value
+        
+        # Validate blasts_percentage
+        blasts = parsed_data.get("blasts_percentage")
+        if blasts is not None:
+            if not isinstance(blasts, (int, float)) or not (0.0 <= blasts <= 100.0):
+                st.error("❌ Invalid `blasts_percentage` value. It must be a number between 0 and 100.")
+                return {}
         
         # Print the parsed JSON object to stdout
         print("Parsed Hematology Report JSON:")
@@ -667,7 +701,7 @@ def show_explanation():
     - **Patient Age**:
       - Helps differentiate pediatric (<18 years) from adult presentations (≥18 years), especially relevant for ALL.
     """)
-
+    
     st.markdown("""
     ## 2. Full Classification Logic
 
@@ -827,7 +861,6 @@ def show_explanation():
     ---
     """, unsafe_allow_html=True)
 
-
 ##############################
 # APP MAIN
 ##############################
@@ -839,136 +872,150 @@ def app_main():
     # ---------------------------
     if st.session_state.get("authenticated", False):
         st.markdown("""
-        Enter the **full** hematological report in the text box below. The AI will extract key fields, and classification will proceed based on the extracted data.
+        Enter the **full** hematological and cytogenetics reports in the text boxes below. The AI will extract key fields, and classification will proceed based on the extracted data.
         """)
 
-        report_text = st.text_area(
-            "Paste the free-text hematological report here:", 
+        # **Split Input Section into Two Text Boxes**
+        hematology_report = st.text_area(
+            "Hematology Report:", 
             height=200, 
-            help="Paste the complete hematological report from laboratory results."
+            help="Paste the complete hematology report from laboratory results."
+        )
+
+        cytogenetics_report = st.text_area(
+            "Cytogenetics Report:", 
+            height=200, 
+            help="Paste the complete cytogenetics report from laboratory results."
         )
 
         if st.button("Parse & Classify from Free-Text"):
-            if report_text.strip():
+            # **Concatenate the Two Reports**
+            combined_report = f"{hematology_report}\n\n{cytogenetics_report}"
+
+            if combined_report.strip():
                 with st.spinner("Extracting data and classifying..."):
                     # 1) Parse the report with GPT
-                    parsed_fields = parse_hematology_report(report_text)
+                    parsed_fields = parse_hematology_report(combined_report)
 
                     if not parsed_fields:
                         st.warning("No data extracted or an error occurred during parsing.")
                     else:
-                        st.success("Report parsed successfully! Attempting classification...")
-
-                        # 2) Run both WHO and ICC classifications
+                        # Check if an error message is returned
                         classification_who, follow_up_who = classify_AML_WHO2022(parsed_fields)
                         classification_icc, follow_up_icc = classify_AML_ICC2022(parsed_fields)
 
-                        # 3) Log the parsed data and classification results to stdout
-                        print("Parsed Hematology Report JSON:")
-                        print(json.dumps(parsed_fields, indent=2))
-                        print("WHO 2022 Classification Result:")
-                        print(f"Classification: {classification_who}")
-                        print("ICC 2022 Classification Result:")
-                        print(f"Classification: {classification_icc}")
-
-                        # 4) Display Classification Results
-                        st.markdown("""
-                        <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
-                            <h3 style='color: #0f5132;'>Classification Results</h3>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        classification_tabs = st.tabs(["WHO 2022", "ICC 2022"])
-                        
-                        # Extract Qualifiers
-                        qualifiers = parsed_fields.get("qualifiers", {})
-
-                        # Format qualifiers for WHO 2022
-                        formatted_qualifiers_who = []
-                        if qualifiers.get("previous_cytotoxic_therapy", False):
-                            formatted_qualifiers_who.append("post cytotoxic therapy")
-                        germline_variant_who = qualifiers.get("predisposing_germline_variant", "None")
-                        if germline_variant_who and germline_variant_who.lower() != "none":
-                            formatted_qualifiers_who.append(f"associated with germline {germline_variant_who}")
-
-                        formatted_qualifiers_who_display = ", ".join(formatted_qualifiers_who) if formatted_qualifiers_who else "None"
-
-                        # Format qualifiers for ICC 2022
-                        formatted_qualifiers_icc = []
-                        previous_mds = qualifiers.get("previous_MDS_diagnosed_over_3_months_ago", False)
-                        previous_mds_mpn = qualifiers.get("previous_MDS/MPN_diagnosed_over_3_months_ago", False)
-                        if previous_mds or previous_mds_mpn:
-                            if previous_mds and previous_mds_mpn:
-                                formatted_qualifiers_icc.append("post MDS/MDS/MPN")
-                            elif previous_mds:
-                                formatted_qualifiers_icc.append("post MDS")
-                            elif previous_mds_mpn:
-                                formatted_qualifiers_icc.append("post MDS/MPN")
-                        if qualifiers.get("previous_cytotoxic_therapy", False):
-                            formatted_qualifiers_icc.append("therapy related")
-                        germline_variant_icc = qualifiers.get("predisposing_germline_variant", "None")
-                        if germline_variant_icc and germline_variant_icc.lower() != "none":
-                            formatted_qualifiers_icc.append(f"associated with germline {germline_variant_icc}")
-
-                        formatted_qualifiers_icc_display = ", ".join(formatted_qualifiers_icc) if formatted_qualifiers_icc else "None"
-
-                        with classification_tabs[0]:
-                            st.markdown(f"### {classification_who}")
-                            
-
-                            # Display Follow-Up Instructions in a bubble
-                            if follow_up_who:
-                                st.info(f"**Follow-Up Instructions:** {follow_up_who}")
-
-                        with classification_tabs[1]:
-                            st.markdown(f"### {classification_icc}")
-                            
-
-                            # Display Follow-Up Instructions in a bubble
-                            if follow_up_icc:
-                                st.info(f"**Follow-Up Instructions:** {follow_up_icc}")
-
-                        # 5) AI Review and Clinical Next Steps (Optional)
-                        st.markdown("### **AI Review & Clinical Next Steps**")
-                        if st.session_state.get('authenticated', False):
-                            with st.spinner("Generating AI review and clinical next steps..."):
-                                # Combine WHO and ICC classification results into a single review
-                                combined_classifications = {
-                                    "WHO 2022": {
-                                        "Classification": classification_who,
-                                        "Follow-Up": follow_up_who
-                                    },
-                                    "ICC 2022": {
-                                        "Classification": classification_icc,
-                                        "Follow-Up": follow_up_icc
-                                    }
-                                }
-                                # Generate a single AI review based on the combined classifications
-                                gpt4_review_result = get_gpt4_review(
-                                    classification=combined_classifications,
-                                    user_inputs=parsed_fields
-                                )
-                            # Display the AI review
-                            st.info(gpt4_review_result)
+                        # Check for error classifications
+                        if classification_who.startswith("Error:"):
+                            st.error(classification_who)
                         else:
-                            st.info("🔒 **Log in** to receive an AI-generated review and clinical recommendations.")
+                            # Proceed with displaying classifications
+                            st.success("Report parsed successfully! Attempting classification...")
 
-                        # Final Disclaimer
-                        st.markdown("""
-                        ---
-                        <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
-                            <p><strong>Disclaimer:</strong> This app is a simplified demonstration and <strong>not</strong> a replacement 
-                            for professional pathology review or real-world WHO/ICC classification.</p>
-                        </div>
-                        """, unsafe_allow_html=True)
+                            # 3) Log the parsed data and classification results to stdout
+                            print("Parsed Hematology Report JSON:")
+                            print(json.dumps(parsed_fields, indent=2))
+                            print("WHO 2022 Classification Result:")
+                            print(f"Classification: {classification_who}")
+                            print("ICC 2022 Classification Result:")
+                            print(f"Classification: {classification_icc}")
+
+                            # 4) Display Classification Results
+                            st.markdown("""
+                            <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
+                                <h3 style='color: #0f5132;'>Classification Results</h3>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                            classification_tabs = st.tabs(["WHO 2022", "ICC 2022"])
+                            
+                            # Extract Qualifiers
+                            qualifiers = parsed_fields.get("qualifiers", {})
+
+                            # Format qualifiers for WHO 2022
+                            formatted_qualifiers_who = []
+                            if qualifiers.get("previous_cytotoxic_therapy", False):
+                                formatted_qualifiers_who.append("post cytotoxic therapy")
+                            germline_variant_who = qualifiers.get("predisposing_germline_variant", "None")
+                            if germline_variant_who and germline_variant_who.lower() != "none":
+                                formatted_qualifiers_who.append(f"associated with germline {germline_variant_who}")
+
+                            formatted_qualifiers_who_display = ", ".join(formatted_qualifiers_who) if formatted_qualifiers_who else "None"
+
+                            # Format qualifiers for ICC 2022
+                            formatted_qualifiers_icc = []
+                            previous_mds = qualifiers.get("previous_MDS_diagnosed_over_3_months_ago", False)
+                            previous_mds_mpn = qualifiers.get("previous_MDS/MPN_diagnosed_over_3_months_ago", False)
+                            if previous_mds or previous_mds_mpn:
+                                if previous_mds and previous_mds_mpn:
+                                    formatted_qualifiers_icc.append("post MDS/MDS/MPN")
+                                elif previous_mds:
+                                    formatted_qualifiers_icc.append("post MDS")
+                                elif previous_mds_mpn:
+                                    formatted_qualifiers_icc.append("post MDS/MPN")
+                            if qualifiers.get("previous_cytotoxic_therapy", False):
+                                formatted_qualifiers_icc.append("therapy related")
+                            germline_variant_icc = qualifiers.get("predisposing_germline_variant", "None")
+                            if germline_variant_icc and germline_variant_icc.lower() != "none":
+                                formatted_qualifiers_icc.append(f"associated with germline {germline_variant_icc}")
+
+                            formatted_qualifiers_icc_display = ", ".join(formatted_qualifiers_icc) if formatted_qualifiers_icc else "None"
+
+                            with classification_tabs[0]:
+                                st.markdown(f"### {classification_who}")
+
+
+                                # Display Follow-Up Instructions in a bubble
+                                if follow_up_who:
+                                    st.info(f"**Follow-Up Instructions:** {follow_up_who}")
+
+                            with classification_tabs[1]:
+                                st.markdown(f"### {classification_icc}")
+
+
+                                # Display Follow-Up Instructions in a bubble
+                                if follow_up_icc:
+                                    st.info(f"**Follow-Up Instructions:** {follow_up_icc}")
+
+                            # 5) AI Review and Clinical Next Steps (Optional)
+                            st.markdown("### **AI Review & Clinical Next Steps**")
+                            if st.session_state.get('authenticated', False):
+                                with st.spinner("Generating AI review and clinical next steps..."):
+                                    # Combine WHO and ICC classification results into a single review
+                                    combined_classifications = {
+                                        "WHO 2022": {
+                                            "Classification": classification_who,
+                                            "Follow-Up": follow_up_who
+                                        },
+                                        "ICC 2022": {
+                                            "Classification": classification_icc,
+                                            "Follow-Up": follow_up_icc
+                                        }
+                                    }
+                                    # Generate a single AI review based on the combined classifications
+                                    gpt4_review_result = get_gpt4_review(
+                                        classification=combined_classifications,
+                                        user_inputs=parsed_fields
+                                    )
+                                # Display the AI review
+                                st.info(gpt4_review_result)
+                            else:
+                                st.info("🔒 **Log in** to receive an AI-generated review and clinical recommendations.")
+
+                            # Final Disclaimer
+                            st.markdown("""
+                            ---
+                            <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+                                <p><strong>Disclaimer:</strong> This app is a simplified demonstration and <strong>not</strong> a replacement 
+                                for professional pathology review or real-world WHO/ICC classification.</p>
+                            </div>
+                            """, unsafe_allow_html=True)
             else:
-                st.error("Please paste a valid hematological report.")
+                st.error("Please provide at least one of the hematology or cytogenetics reports.")
     else:
         # User not authenticated, show a message or keep it hidden
         st.info("🔒 **Log in** to use the free-text hematological report parsing.")
 
     st.markdown("---")
-
 
 ##############################
 # MAIN FUNCTION
