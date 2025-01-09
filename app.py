@@ -67,7 +67,6 @@ def login_logout():
 
 login_logout()
 
-
 ##############################
 # HELPER FUNCTIONS
 ##############################
@@ -135,305 +134,255 @@ def build_decision_flowchart(classification: str, decision_points: list) -> str:
 
 
 ##############################
-# CLASSIFICATION
+# CLASSIFY AML WHO 2022
 ##############################
-def classify_blood_cancer(
-    blasts_percentage: float,
-    lineage: str,
-    is_b_cell: bool,
-    is_t_cell: bool,
-    is_nk_cell: bool,
-    morphological_details: list,
-    immunophenotype_markers: list,
-    immunophenotype_special: list,  # e.g., ["Skin involvement", "CD7 loss", "Hairy cells"]
-    cytogenetic_abnormalities: list,
-    molecular_mutations: list,
-    wbc_count: float,
-    rbc_count: float,
-    platelet_count: float,
-    eosinophil_count: float,
-    mast_cell_involvement: bool,
-    histiocytic_marker: bool,
-    hodgkin_markers: bool,
-    cd15_positive: bool,
-    cd30_positive: bool,
-    cd20_positive: bool,
-    cd45_negative: bool,
-    monocyte_count: float,
-    patient_age: float
-) -> tuple:
+def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     """
-    Returns a tuple of (classification, derivation_string, decision_points).
-    Includes logic for:
-      - Rare B-Cell Lymphomas (Mantle Cell, Marginal Zone, Primary CNS)
-      - Aggressive Myeloid Cancers (BPDCN, AML-M6, AML-M7)
-      - ALK for ALCL
-      - immunophenotype_special for T-cell notes (e.g., CD7 loss, Skin involvement, Hairy cells)
+    Classifies AML subtypes based on the WHO 2022 criteria, including qualifiers.
+
+    Args:
+        parsed_data (dict): A dictionary containing extracted hematological report data.
+
+    Returns:
+        tuple: A tuple containing (classification, derivation_string, follow_up_instructions).
     """
+    classification = "AML, Not Otherwise Specified (NOS)"
+    derivation = ""
+    follow_up_instructions = ""
 
-    decision_points = []
-    additional_info = []
-    classification = "Unspecified Hematologic Neoplasm"
+    # Retrieve blasts_percentage
+    blasts_percentage = parsed_data.get("blasts_percentage", 0.0)
 
-    # Pediatric check
-    pediatric_case = (patient_age < 18)
-    if pediatric_case:
-        additional_info.append("Patient is pediatric (<18), applying pediatric considerations.")
+    # Step 1: Check AML-defining recurrent genetic abnormalities
+    aml_genetic_abnormalities = {
+        "NPM1": "AML with NPM1 mutation",
+        "RUNX1::RUNX1T1": "AML with RUNX1::RUNX1T1 fusion",
+        "CBFB::MYH11": "AML with CBFB::MYH11 fusion",
+        "DEK::NUP214": "AML with DEK::NUP214 fusion",
+        "RBM15::MRTFA": "AML with RBM15::MRTFA fusion",
+        "KMT2A": "AML with KMT2A rearrangement",
+        "MECOM": "AML with MECOM rearrangement",
+        "NUP98": "AML with NUP98 rearrangement",
+        "CEBPA": "AML with CEBPA mutation",
+        "bZIP": "AML with CEBPA mutation",
+        "BCR::ABL1": "AML with BCR::ABL1 fusion"
+    }
 
-    # (1) Check for Multiple Myeloma
-    if "CD138" in immunophenotype_markers:
-        decision_points.append("Detected 'CD138' => Possible Multiple Myeloma.")
-        classification = "Multiple Myeloma (Plasma Cell Neoplasm)"
-    else:
-        # (2) ACUTE vs CHRONIC
-        if blasts_percentage >= 20:
-            decision_points.append("Blasts >= 20% => Likely acute leukemia.")
-            if lineage == "Myeloid":
-                classification = "Acute Myeloid Leukemia (AML)"
-                decision_points.append("Lineage: Myeloid => AML classification.")
-
-                # AML Subtypes
-                # -- Check for BPDCN first if we see CD123, CD4, CD56
-                if all(m in immunophenotype_markers for m in ["CD123", "CD4", "CD56"]):
-                    classification = "Blastic Plasmacytoid Dendritic Cell Neoplasm (BPDCN)"
-                    decision_points.append("Detected CD123/CD4/CD56 => BPDCN (aggressive myeloid).")
-                # -- AML-M6 (Erythroid)
-                elif "Erythroid precursors" in morphological_details or any(m in immunophenotype_markers for m in ["Glycophorin A", "CD71"]):
-                    classification = "Acute Erythroid Leukemia (AML-M6)"
-                    decision_points.append("Erythroid lineage => AML-M6 subtype.")
-                # -- AML-M7 (Megakaryoblastic)
-                elif "Megakaryoblasts" in morphological_details or any(m in immunophenotype_markers for m in ["CD41", "CD42b", "CD61"]):
-                    classification = "Acute Megakaryoblastic Leukemia (AML-M7)"
-                    decision_points.append("Megakaryocyte markers => AML-M7 subtype.")
-                # -- APL check
-                elif "t(15;17)" in cytogenetic_abnormalities:
-                    classification = "Acute Promyelocytic Leukemia (APL)"
-                    decision_points.append("Detected t(15;17) => APL subtype.")
-                # -- AML with t(8;21)
-                elif "t(8;21)" in cytogenetic_abnormalities:
-                    classification = "AML with t(8;21)"
-                    decision_points.append("Detected t(8;21) => AML subtype.")
-                # -- AML with inv(16)
-                elif any(x in cytogenetic_abnormalities for x in ["inv(16)", "t(16;16)"]):
-                    classification = "AML with inv(16)/t(16;16)"
-                    decision_points.append("Detected inv(16)/t(16;16) => AML subtype.")
-                else:
-                    # Basic AML with FLT3 or NPM1
-                    if "FLT3" in molecular_mutations:
-                        classification = "AML with FLT3 Mutation"
-                        decision_points.append("Detected FLT3 => AML with FLT3 mutation.")
-                    elif "NPM1" in molecular_mutations:
-                        classification = "AML with NPM1 Mutation"
-                        decision_points.append("Detected NPM1 => AML with NPM1.")
-            elif lineage == "Lymphoid":
-                if pediatric_case:
-                    classification = "Acute Lymphoblastic Leukemia (ALL, Pediatric)"
-                    decision_points.append("Lymphoid + Pediatric => ALL (Pediatric).")
-                else:
-                    classification = "Acute Lymphoblastic Leukemia (ALL, Adult)"
-                    decision_points.append("Lymphoid + Adult => ALL (Adult).")
-            else:
-                classification = "Acute Leukemia of Ambiguous Lineage"
-                decision_points.append("Lineage undetermined => Possibly mixed phenotype.")
+    aml_def_genetic = parsed_data.get("AML_defining_recurrent_genetic_abnormalities", {})
+    for gene, classif in aml_genetic_abnormalities.items():
+        # For CEBPA, bZIP, and BCR::ABL1, require blasts_percentage >= 20%
+        if gene in ["CEBPA", "bZIP", "BCR::ABL1"]:
+            if aml_def_genetic.get(gene, False) and blasts_percentage >= 20.0:
+                classification = classif
+                break
         else:
-            decision_points.append("Blasts < 20% => Chronic or other non-acute neoplasm.")
-            if lineage == "Myeloid":
-                # Check for MPN driver
-                mpn_drivers = {"JAK2", "CALR", "MPL"}
-                if mpn_drivers.intersection(set(molecular_mutations)):
-                    classification = "Myeloproliferative Neoplasm (MPN)"
-                    decision_points.append("Detected MPN driver => MPN classification.")
-                else:
-                    # MDS checks with prioritized specific conditions
-                    has_del5q = any("del(5q)" in ab.lower() for ab in cytogenetic_abnormalities)
-                    dysplasia_count = sum(
-                        x in morphological_details
-                        for x in [
-                            "Dyserythropoiesis",
-                            "Dysgranulopoiesis",
-                            "Dysmegakaryopoiesis",
-                            "Multilineage dysplasia"
-                        ]
-                    )
-                    if has_del5q:
-                        classification = "MDS with Isolated del(5q)"
-                        decision_points.append("Detected del(5q) => MDS with Isolated del(5q).")
-                    elif "Multilineage dysplasia" in morphological_details or dysplasia_count > 1:
-                        classification = "Refractory Cytopenia with Multilineage Dysplasia (RCMD)"
-                        decision_points.append("Detected multilineage dysplasia => RCMD.")
-                    elif "Refractory Anemia" in morphological_details:
-                        classification = "Refractory Anemia (MDS)"
-                        decision_points.append("Detected 'Refractory Anemia' => MDS subtype.")
-                    elif 5 <= blasts_percentage < 20:
-                        # Check for CML-specific abnormalities
-                        has_cml_abnormalities = any(
-                            ab in cytogenetic_abnormalities for ab in ["t(9;22)", "BCR-ABL1"]
-                        ) or "BCR-ABL1" in molecular_mutations
-                        if has_cml_abnormalities:
-                            if blasts_percentage < 10:
-                                classification = "Chronic Myeloid Leukemia (CML), Chronic Phase"
-                                decision_points.append("Detected CML abnormalities and blasts <10% => CML, Chronic Phase.")
-                            elif 10 <= blasts_percentage < 20:
-                                classification = "Chronic Myeloid Leukemia (CML), Accelerated Phase"
-                                decision_points.append("Detected CML abnormalities and 10-19% blasts => CML, Accelerated Phase.")
-                        else:
-                            # **Change Here:** Default to CML even without CML-specific abnormalities
-                            classification = "Chronic Myeloid Leukemia (CML)"
-                            decision_points.append("No CML or MDS specific abnormalities => CML classification.")
-                    else:
-                        classification = "Chronic Myeloid Leukemia (CML)"
-                        decision_points.append("Defaulting to CML classification.")
+            if aml_def_genetic.get(gene, False):
+                classification = classif
+                break
 
-                if "Ring sideroblasts" in morphological_details:
-                    additional_info.append("Ring sideroblasts => Possibly MDS w/ ring sideroblasts or overlap.")
+    # Step 2: Check MDS-related mutations
+    if classification == "AML, Not Otherwise Specified (NOS)":
+        mds_related_mutations = parsed_data.get("MDS_related_mutation", {})
+        mds_mutations_list = ["ASXL1", "BCOR", "EZH2", "RUNX1", "SF3B1", "SRSF2", "STAG2", "U2AF1", "ZRSR2"]
+        for gene in mds_mutations_list:
+            if mds_related_mutations.get(gene, False):
+                classification = "AML, myelodysplasia related (WHO 2022)"
+                break
 
-            elif lineage == "Lymphoid":
-                # Hodgkin check and other Lymphoid classifications remain unchanged
-                if hodgkin_markers:
-                    decision_points.append("Suspect Hodgkin => Checking markers.")
-                    if cd15_positive and cd30_positive:
-                        classification = "Classical Hodgkin Lymphoma"
-                        decision_points.append("CD15+ and CD30+ => Classical Hodgkin.")
-                    else:
-                        if cd20_positive and not cd30_positive and not cd15_positive:
-                            classification = "Nodular Lymphocyte-Predominant Hodgkin Lymphoma (NLPHL)"
-                            decision_points.append("CD20+ only => NLPHL (Hodgkin).")
-                        else:
-                            classification = "Hodgkin Lymphoma (Unspecified Subtype)"
-                            decision_points.append("Hodgkin markers => Unspecified subtype.")
-                else:
-                    # Non-Hodgkin T vs B
-                    if is_b_cell:
-                        # FIRST: Rare B-Cell expansions
-                        # 1) Mantle Cell
-                        if any("t(11;14) CCND1-IGH" in ab for ab in cytogenetic_abnormalities) or "Cyclin D1" in immunophenotype_markers:
-                            if "CD5" in immunophenotype_markers and "CD23" not in immunophenotype_markers:
-                                classification = "Mantle Cell Lymphoma"
-                                decision_points.append("Detected t(11;14)/Cyclin D1 + CD5+ => Mantle Cell.")
-                        # 2) Primary CNS Lymphoma should be checked before Marginal Zone
-                        elif "BCL6" in immunophenotype_markers and "CD20" in immunophenotype_markers and "CNS involvement" in immunophenotype_special:
-                            classification = "Primary CNS Lymphoma (DLBCL)"
-                            decision_points.append("CD20/BCL6 + CNS involvement => Primary CNS Lymphoma.")
-                        # 3) Marginal Zone
-                        elif ("CD20" in immunophenotype_markers or "CD79a" in immunophenotype_markers) \
-                             and "CD5" not in immunophenotype_markers \
-                             and "CD10" not in immunophenotype_markers:
-                            classification = "Marginal Zone Lymphoma"
-                            decision_points.append("CD20/CD79a, no CD5/CD10 => Marginal Zone Lymphoma.")
-                        # 4) Check for Burkitt’s
-                        else:
-                            has_myc = ("MYC" in molecular_mutations) or any("t(8;14)" in ab for ab in cytogenetic_abnormalities)
-                            if has_myc and "CD10" in immunophenotype_markers:
-                                classification = "Burkitt's Lymphoma (High-Grade B-Cell NHL)"
-                                decision_points.append("Detected MYC/t(8;14) + CD10 => Burkitt's Lymphoma.")
-                            else:
-                                # Follicular
-                                if "CD10" in immunophenotype_markers:
-                                    classification = "Follicular Lymphoma (Non-Hodgkin)"
-                                    decision_points.append("CD10 => Follicular Lymphoma.")
-                                else:
-                                    classification = "Diffuse Large B-Cell Lymphoma (DLBCL)"
-                                    decision_points.append("B-cell => DLBCL (default).")
+    # Step 3: Check MDS-related cytogenetics
+    if classification == "AML, Not Otherwise Specified (NOS)":
+        mds_related_cytogenetics = parsed_data.get("MDS_related_cytogenetics", {})
+        mrd_cytogenetics = [
+            "Complex_karyotype", "del_5q", "t_5q", "add_5q", "-7", "del_7q",
+            "del_12p", "t_12p", "add_12p", "i_17q", "idic_X_q13"
+        ]
+        acute_cytogenetics = [
+            "5q", "+8", "del_11q", "12p", "-13", "-17", "add_17p", "del_20q"
+        ]
 
-                    elif is_t_cell:
-                        # ALCL: CD30+ T-cell + ALK in cytogenetics
-                        if cd30_positive:
-                            if "ALK" in cytogenetic_abnormalities:
-                                classification = "Anaplastic Large Cell Lymphoma (ALCL, ALK+)"
-                                decision_points.append("T-cell + CD30+ + ALK => ALCL (ALK+).")
-                            else:
-                                classification = "Anaplastic Large Cell Lymphoma (ALCL, ALK–)"
-                                decision_points.append("T-cell + CD30+ => ALCL (ALK–).")
-                        # AITL => CD10 + (PD-1 or CXCL13 or BCL6)
-                        elif ("CD10" in immunophenotype_markers) and (
-                            any(x in immunophenotype_markers for x in ["PD-1", "CXCL13"]) 
-                            or "BCL6" in molecular_mutations
-                        ):
-                            classification = "Angioimmunoblastic T-Cell Lymphoma (AITL)"
-                            decision_points.append("T-cell + CD10 + PD-1/CXCL13/BCL6 => AITL.")
-                        # Mycosis Fungoides => "CD4" + "CD7 loss" or "Skin involvement"
-                        elif ("CD4" in immunophenotype_markers and "CD7 loss" in immunophenotype_special) or \
-                             ("Skin involvement" in immunophenotype_special):
-                            classification = "Cutaneous T-Cell Lymphoma (Mycosis Fungoides)"
-                            decision_points.append("T-cell + CD4 + CD7 loss or Skin => Mycosis Fungoides.")
-                        else:
-                            classification = "Peripheral T-Cell Lymphoma (Non-Hodgkin)"
-                            decision_points.append("Detected T-cell => PTCL (NHL).")
-                    else:
-                        classification = "Chronic Lymphocytic Leukemia (CLL)"
-                        decision_points.append("Defaulting to CLL (lymphoid).")
-                        # Check if "Hairy cells" in special flags
-                        if "Hairy cells" in immunophenotype_special:
-                            classification = "Hairy Cell Leukemia (Rare B-Cell Neoplasm)"
-                            decision_points.append("Detected 'Hairy cells' => Hairy Cell Leukemia.")
-            elif lineage == "Unknown":
-                classification = "Other Chronic Hematologic Neoplasm"
-                decision_points.append("Lineage undetermined => Possibly rare entity.")
+        for cytogenetic in mrd_cytogenetics + acute_cytogenetics:
+            if mds_related_cytogenetics.get(cytogenetic, False):
+                classification = "AML, myelodysplasia related (WHO 2022)"
+                break
 
-    # Collect additional info
-    if immunophenotype_special:
-        additional_info.append(f"Special immunophenotype flags: {', '.join(immunophenotype_special)}.")
-    if cytogenetic_abnormalities:
-        additional_info.append(f"Cytogenetic abnormalities: {', '.join(cytogenetic_abnormalities)}.")
-    if molecular_mutations:
-        additional_info.append(f"Molecular mutations: {', '.join(molecular_mutations)}.")
+    # Step 4: Add qualifiers to classification
+    qualifiers = parsed_data.get("qualifiers", {})
+    qualifier_descriptions = []
 
-    # Build the derivation string
-    derivation = log_derivation(
-        blasts=blasts_percentage,
-        lineage=lineage,
-        decision_points=decision_points,
-        additional_info=additional_info
-    )
+    # Handle Previous Cytotoxic Therapy
+    if qualifiers.get("previous_cytotoxic_therapy", False):
+        qualifier_descriptions.append("post cytotoxic therapy")
 
-    return classification, derivation, decision_points
+    # Handle Predisposing Germline Variant (only if not "None")
+    germline_variant = qualifiers.get("predisposing_germline_variant", "None")
+    if germline_variant and germline_variant.lower() != "none":
+        qualifier_descriptions.append(f"associated with germline {germline_variant}")
+
+    # Append qualifiers to classification if any
+    if qualifier_descriptions:
+        classification += f", {', '.join(qualifier_descriptions)}"
+
+    # Append "(WHO 2022)" at the end
+    classification += " (WHO 2022)"
+
+    # Step 5: Determine follow-up instructions based on classification
+    if "NPM1" in classification:
+        follow_up_instructions = "Monitor MRD regularly via qPCR, and consider stem cell transplant if MRD persists."
+    elif "RUNX1" in classification:
+        follow_up_instructions = "Evaluate for stem cell transplant and consider clinical trial enrollment for novel therapies."
+    elif "KMT2A" in classification:
+        follow_up_instructions = "Assess for relapse using imaging and MRD testing, and consider menin inhibitors or clinical trials."
+    elif "BCR::ABL1" in classification:
+        follow_up_instructions = "Initiate and monitor tyrosine kinase inhibitor therapy with regular molecular testing for resistance."
+
+    # Default follow-up instructions
+    if not follow_up_instructions:
+        follow_up_instructions = "Standard AML follow-up with regular molecular testing and imaging to detect relapse."
+
+    return classification, follow_up_instructions
 
 
 ##############################
-# VALIDATION
+# CLASSIFY AML ICC 2022
 ##############################
-def validate_inputs(
-    blasts_percentage: float,
-    lineage: str,
-    is_b_cell: bool,
-    is_t_cell: bool,
-    is_nk_cell: bool,
-    morphological_details: list,
-    immunophenotype_markers: list,
-    cytogenetic_abnormalities: list,
-    molecular_mutations: list,
-    wbc_count: float,
-    rbc_count: float,
-    platelet_count: float,
-    eosinophil_count: float,
-    monocyte_count: float,
-    patient_age: float
-) -> tuple:
-    errors = []
-    warnings = []
+def classify_AML_ICC2022(parsed_data: dict) -> tuple:
+    """
+    Classifies AML subtypes based on the ICC 2022 criteria, including qualifiers.
 
-    if not (0 <= blasts_percentage <= 100):
-        errors.append("Blasts percentage must be between 0 and 100.")
+    Args:
+        parsed_data (dict): A dictionary containing extracted hematological report data.
 
-    if not (0 <= wbc_count <= 200):
-        warnings.append("WBC count seems unusually high or low.")
+    Returns:
+        tuple: A tuple containing (classification, follow_up_instructions).
+    """
+    classification = "AML, Not Otherwise Specified (NOS)"
+    follow_up_instructions = ""
+    derivation = ""
 
-    if not (0 <= rbc_count <= 10):
-        warnings.append("RBC count seems unusually high or low.")
+    # Retrieve necessary fields
+    blasts_percentage = parsed_data.get("blasts_percentage", 0.0)
+    aml_def_genetic = parsed_data.get("AML_defining_recurrent_genetic_abnormalities", {})
+    biallelic_tp53 = parsed_data.get("Biallelic_TP53_mutation", {})
+    mds_related_mutations = parsed_data.get("MDS_related_mutation", {})
+    mds_related_cytogenetics = parsed_data.get("MDS_related_cytogenetics", {})
+    qualifiers = parsed_data.get("qualifiers", {})
 
-    if not (0 <= platelet_count <= 1500):
-        warnings.append("Platelet count seems unusually high or low.")
+    # Step 1: Check AML-defining recurrent genetic abnormalities with blasts_percentage >= 10%
+    aml_genetic_abnormalities = {
+        "NPM1": "AML with mutated NPM1",
+        "RUNX1::RUNX1T1": "AML with t(8;21)(q22;q22.1)/RUNX1::RUNX1T1",
+        "CBFB::MYH11": "AML with inv(16)(p13.1q22) or t(16;16)(p13.1;q22)/CBFB::MYH11",
+        "DEK::NUP214": "AML with t(6;9)(p22.3;q34.1)/DEK::NUP214",
+        "RBM15::MRTFA": "AML (megakaryoblastic) with t(1;22)(p13.3;q13.1)/RBM15::MRTF1",
+        "KMT2A": "AML with other KMT2A rearrangements",
+        "MECOM": "AML with other MECOM rearrangements",
+        "NUP98": "AML with NUP98 and other partners",
+        "bZIP": "AML with in-frame bZIP CEBPA mutations",
+        "BCR::ABL1": "AML with t(9;22)(q34.1;q11.2)/BCR::ABL1"
+    }
 
-    if not (0 <= eosinophil_count <= 50):
-        warnings.append("Eosinophil count seems unusually high or low.")
+    for gene, classif in aml_genetic_abnormalities.items():
+        if aml_def_genetic.get(gene, False):
+            if gene in ["NPM1", "RUNX1::RUNX1T1", "CBFB::MYH11", "DEK::NUP214",
+                       "RBM15::MRTFA", "KMT2A", "MECOM", "NUP98", "bZIP", "BCR::ABL1"]:
+                if blasts_percentage >= 10.0:
+                    classification = classif
+                    break  # Specific classification found
+                else:
+                    # Detected the gene but blasts_percentage < 10%
+                    # Classification remains NOS, no follow-up instructions for non-applied classification
+                    pass
+            else:
+                # If there are other genes that do not require blasts_percentage condition
+                classification = classif
+                break  # Specific classification found
 
-    if not (0 <= monocyte_count <= 50):
-        warnings.append("Monocyte count seems unusually high or low.")
+    # Step 2: Check Biallelic TP53 mutations
+    if classification == "AML, Not Otherwise Specified (NOS)":
+        if biallelic_tp53.get("2_x_TP53_mutations", False):
+            classification = "AML with mutated TP53"
+        elif biallelic_tp53.get("1_x_TP53_mutation_del_17p", False):
+            classification = "AML with mutated TP53"
+        elif biallelic_tp53.get("1_x_TP53_mutation_LOH", False):
+            classification = "AML with mutated TP53"
 
-    if patient_age < 0 or patient_age > 120:
-        errors.append("Patient age must be between 0 and 120 years.")
+    # Step 3: Check MDS-related mutations
+    if classification == "AML, Not Otherwise Specified (NOS)":
+        mds_mutations_list = ["ASXL1", "BCOR", "EZH2", "RUNX1", "SF3B1", "SRSF2", "STAG2", "U2AF1", "ZRSR2"]
+        for gene in mds_mutations_list:
+            if mds_related_mutations.get(gene, False):
+                classification = "AML with myelodysplasia related gene mutation"
+                break
 
-    return errors, warnings
+    # Step 4: Check MDS-related cytogenetics
+    if classification == "AML, Not Otherwise Specified (NOS)":
+        # Define cytogenetic abnormalities mapping
+        mrd_cytogenetics = [
+            "Complex_karyotype",
+            "del_5q", "t_5q", "add_5q", "-7", "del_7q",
+            "del_12p", "t_12p", "add_12p", "i_17q", "idic_X_q13"
+        ]
+        nos_cytogenetics = [
+            "5q", "+8", "del_11q", "12p", "-13",
+            "-17", "add_17p", "del_20q"
+        ]
+
+        for cytogenetic in mrd_cytogenetics + nos_cytogenetics:
+            if mds_related_cytogenetics.get(cytogenetic, False):
+                if cytogenetic in ["del_5q", "t_5q", "add_5q", "-7", "del_7q",
+                                   "del_12p", "t_12p", "add_12p", "-13", "i_17q",
+                                   "-17", "add_17p", "del_17p", "del_20q", "idic_X_q13"]:
+                    classification = "AML with myelodysplasia related cytogenetic abnormality"
+                elif cytogenetic in ["5q", "+8", "del_11q", "12p", "-13",
+                                     "-17", "add_17p", "del_20q"]:
+                    classification = "AML, NOS"
+                break  # Prioritize and stop after first match
+
+    # Step 5: Add qualifiers to classification
+    qualifier_descriptions = []
+
+    # Handle Previous MDS or MDS/MPN diagnosed >3 months ago
+    previous_mds = qualifiers.get("previous_MDS_diagnosed_over_3_months_ago", False)
+    previous_mds_mpn = qualifiers.get("previous_MDS/MPN_diagnosed_over_3_months_ago", False)
+    if previous_mds or previous_mds_mpn:
+        if previous_mds and previous_mds_mpn:
+            qualifier_descriptions.append("post MDS/MDS/MPN")
+        elif previous_mds:
+            qualifier_descriptions.append("post MDS")
+        elif previous_mds_mpn:
+            qualifier_descriptions.append("post MDS/MPN")
+
+    # Handle Previous cytotoxic therapy
+    if qualifiers.get("previous_cytotoxic_therapy", False):
+        qualifier_descriptions.append("therapy related")
+
+    # Handle Predisposing Germline Variant (only if not "None")
+    germline_variant = qualifiers.get("predisposing_germline_variant", "None")
+    if germline_variant and germline_variant.lower() != "none":
+        qualifier_descriptions.append(f"associated with germline {germline_variant}")
+
+    # Append qualifiers to classification if any
+    if qualifier_descriptions:
+        # Join qualifiers with commas
+        qualifiers_str = ", ".join(qualifier_descriptions)
+        # Append qualifiers and "(ICC 2022)" once at the end
+        classification += f", {qualifiers_str} (ICC 2022)"
+    else:
+        # If no qualifiers, just append "(ICC 2022)"
+        classification += " (ICC 2022)"
+
+    # Step 5: Determine follow-up instructions based on classification
+    if "NPM1" in classification:
+        follow_up_instructions = "Monitor MRD regularly via qPCR, and consider stem cell transplant if MRD persists."
+    elif "RUNX1" in classification:
+        follow_up_instructions = "Evaluate for stem cell transplant and consider clinical trial enrollment for novel therapies."
+    elif "KMT2A" in classification:
+        follow_up_instructions = "Assess for relapse using imaging and MRD testing, and consider menin inhibitors or clinical trials."
+    elif "BCR::ABL1" in classification:
+        follow_up_instructions = "Initiate and monitor tyrosine kinase inhibitor therapy with regular molecular testing for resistance."
+
+
+    return classification, follow_up_instructions
 
 
 ##############################
@@ -441,7 +390,6 @@ def validate_inputs(
 ##############################
 def get_gpt4_review(
     classification: str,
-    explanation: str,
     user_inputs: dict
 ) -> str:
     """
@@ -460,9 +408,6 @@ def get_gpt4_review(
     {input_data_str}
 
     **Classification Result**: {classification}
-
-    **Derivation**:
-    {explanation}
 
     **Task**:
     1. Provide a quick review of the classification result, highlighting any potential concerns or inconsistencies.
@@ -491,79 +436,205 @@ def get_gpt4_review(
 
 
 ##############################
-# FREE-TEXT REPORT PARSER
+# PARSE INPUT
 ##############################
 def parse_hematology_report(report_text: str) -> dict:
     """
     Sends the free-text hematological report to OpenAI and requests a structured JSON
     with all fields needed for classification.
+    
+    Returns:
+        dict: A dictionary containing the extracted fields. Returns an empty dict if parsing fails.
     """
     # Safety check: if the user didn’t type anything, return an empty dict
     if not report_text.strip():
+        st.warning("Empty report text received.")
         return {}
-
+    
+    # Define the fields to extract
+    required_json_structure = {
+        "blasts_percentage": 0.0,
+        "AML_defining_recurrent_genetic_abnormalities": {
+            "NPM1": False,
+            "RUNX1::RUNX1T1": False,
+            "CBFB::MYH11": False,
+            "DEK::NUP214": False,
+            "RBM15::MRTFA": False,
+            "KMT2A": False,
+            "MECOM": False,
+            "NUP98": False,
+            "CEBPA": False,
+            "bZIP": False,  
+            "BCR::ABL1": False
+        },
+        "Biallelic_TP53_mutation": {
+            "2_x_TP53_mutations": False,
+            "1_x_TP53_mutation_del_17p": False,
+            "1_x_TP53_mutation_LOH": False
+        },
+        "MDS_related_mutation": {
+            "ASXL1": False,
+            "BCOR": False,
+            "EZH2": False,
+            "RUNX1": False,
+            "SF3B1": False,
+            "SRSF2": False,
+            "STAG2": False,
+            "U2AF1": False,
+            "ZRSR2": False
+        },
+        "MDS_related_cytogenetics": {
+            "Complex_karyotype": False,
+            "del_5q": False,
+            "t_5q": False,
+            "add_5q": False,
+            "-7": False,
+            "del_7q": False,
+            "+8": False,
+            "del_11q": False,
+            "del_12p": False,
+            "t_12p": False,
+            "add_12p": False,
+            "-13": False,
+            "i_17q": False,
+            "-17": False,
+            "add_17p": False,
+            "del_17p": False,
+            "del_20q": False,
+            "idic_X_q13": False
+        },
+        "qualifiers": {
+            "previous_MDS_diagnosed_over_3_months_ago": False,
+            "previous_MDS/MPN_diagnosed_over_3_months_ago": False,
+            "previous_cytotoxic_therapy": False,
+            "predisposing_germline_variant": "None"
+        }
+    }
+    
+    # Construct the prompt with detailed instructions
     prompt = f"""
-    You are a specialized medical AI. The user has pasted a free-text hematological report. 
-    Please extract the following fields from the text (if not found, set them to a best-guess, null, or a default):
+    You are a specialized medical AI and a knowledgeable hematologist. The user has pasted a free-text hematological report. 
+    Please extract the following fields from the text and format them into a valid JSON object exactly as specified below. 
+    For boolean fields, use true/false. For numerical fields, provide the value. If a field is not found or unclear, set it to false or a default value.
+    
+    Try to consider if the user may have used some sort of short hand and translate where necessary. If you see 2x before 
 
-    Required JSON structure:
+    For example:
 
+    1. 2_x_TP53_mutations: Extract if the report mentions phrases like "2 TP53 mutations," "biallelic TP53 mutations," or similar.
+    2. 1_x_TP53_mutation_del_17p: Look for terms like "TP53 mutation and 17p deletion" or "TP53 mutation with del(17p)."
+    3. 1_x_TP53_mutation_LOH: Identify phrases such as "TP53 mutation and LOH," "TP53 mutation with Loss of Heterozygosity," or equivalent.
+
+    For predisposing_germline_variant, leave as "None" if there is none otherwise record the variant specified.
+
+    **Required JSON structure:**
     {{
-      "blasts_percentage": 0.0,
-      "lineage": "Myeloid | Lymphoid | Undetermined",
-      "is_b_cell": false,
-      "is_t_cell": false,
-      "is_nk_cell": false,
-      "morphological_details": ["list", "of", "strings"],
-      "immunophenotype_markers": ["list", "of", "markers"],
-      "immunophenotype_special": ["list", "of", "flags, e.g. 'Skin involvement', 'CD7 loss'"],
-      "cytogenetic_abnormalities": ["list", "of", "strings"],
-      "molecular_mutations": ["list", "of", "strings"],
-      "wbc_count": 0.0,
-      "rbc_count": 0.0,
-      "platelet_count": 0.0,
-      "eosinophil_count": 0.0,
-      "mast_cell_involvement": false,
-      "histiocytic_marker": false,
-      "hodgkin_markers": false,
-      "cd15_positive": false,
-      "cd30_positive": false,
-      "cd20_positive": false,
-      "cd45_negative": false,
-      "monocyte_count": 0.0,
-      "patient_age": 0.0
+        "blasts_percentage": 0.0,
+        "AML_defining_recurrent_genetic_abnormalities": {{
+            "NPM1": false,
+            "RUNX1::RUNX1T1": false,
+            "CBFB::MYH11": false,
+            "DEK::NUP214": false,
+            "RBM15::MRTFA": false,
+            "KMT2A": false,
+            "MECOM": false,
+            "NUP98": false,
+            "CEBPA": false,
+            "bZIP": false,
+            "BCR::ABL1": false
+        }},
+        "Biallelic_TP53_mutation": {{
+            "2_x_TP53_mutations": false,
+            "1_x_TP53_mutation_del_17p": false,
+            "1_x_TP53_mutation_LOH": false
+        }},
+        "MDS_related_mutation": {{
+            "ASXL1": false,
+            "BCOR": false,
+            "EZH2": false,
+            "RUNX1": false,
+            "SF3B1": false,
+            "SRSF2": false,
+            "STAG2": false,
+            "U2AF1": false,
+            "ZRSR2": false
+        }},
+        "MDS_related_cytogenetics": {{
+            "Complex_karyotype": false,
+            "del_5q": false,
+            "t_5q": false,
+            "add_5q": false,
+            "-7": false,
+            "del_7q": false,
+            "+8": false,
+            "del_11q": false,
+            "del_12p": false,
+            "t_12p": false,
+            "add_12p": false,
+            "-13": false,
+            "i_17q": false,
+            "-17": false,
+            "add_17p": false,
+            "del_17p": false,
+            "del_20q": false,
+            "idic_X_q13": false
+        }},
+        "qualifiers": {{
+            "previous_MDS_diagnosed_over_3_months_ago": False,
+            "previous_MDS/MPN_diagnosed_over_3_months_ago": False,
+            "previous_cytotoxic_therapy": false,
+            "predisposing_germline_variant": "None"
+        }}
     }}
-
-    **Important**: 
-    1. Return **valid JSON only** (no extra text or commentary). 
-    2. If uncertain about a specific field, provide your best-guess or keep it at a default/null. 
-    3. Do not wrap the JSON in Markdown.
-
-    Here is the free-text report to parse:
+    
+    **Instructions:**
+    1. Return **valid JSON only** with no extra text or commentary.
+    2. Ensure all fields are present as specified.
+    3. Use true/false for boolean values.
+    4. If a field is not applicable or not mentioned, set it to false or null as appropriate.
+    5. Do not wrap the JSON in Markdown or any other formatting.
+    
+    **Here is the free-text hematological report to parse:**
     {report_text}
     """
-
+    
     try:
         response = client.chat.completions.create(
-            model="gpt-4",  # Ensure your environment supports this model
+            model="gpt-4",  # Corrected model name
             messages=[
                 {"role": "system", "content": "You are a knowledgeable hematologist who formats output strictly in JSON."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=800,
-            temperature=0.0
+            max_tokens=1500,  # Increased max_tokens to accommodate detailed JSON
+            temperature=0.0  # Deterministic output
         )
         raw_content = response.choices[0].message.content.strip()
-
+        
         # Attempt to parse the JSON
         parsed_data = json.loads(raw_content)
+        
+        # Ensure all required fields are present; fill missing fields with defaults
+        for key, value in required_json_structure.items():
+            if key not in parsed_data:
+                parsed_data[key] = value
+            elif isinstance(value, dict):
+                for sub_key, sub_value in value.items():
+                    if sub_key not in parsed_data[key]:
+                        parsed_data[key][sub_key] = sub_value
+        
+        # Print the parsed JSON object to stdout
+        print("Parsed Hematology Report JSON:")
+        print(json.dumps(parsed_data, indent=2))
+        
         return parsed_data
-
+    
     except json.JSONDecodeError:
         st.error("❌ Failed to parse the AI response into JSON. Please ensure the report is well-formatted.")
+        print("❌ JSONDecodeError: Failed to parse AI response.")
         return {}
     except Exception as e:
         st.error(f"❌ Error communicating with OpenAI: {str(e)}")
+        print(f"❌ Exception: {str(e)}")
         return {}
 
 
@@ -756,620 +827,154 @@ def show_explanation():
     ---
     """, unsafe_allow_html=True)
 
+
+##############################
+# APP MAIN
+##############################
 def app_main():
-    """
-    Primary Streamlit app function using the updated classification logic.
-    Shows free-text hematological report parsing only to logged-in users
-    within a collapsed expander, while manual input remains available for all.
-    """
-
-    # Sidebar for Explanation and Authentication
-    st.sidebar.header("Navigation")
-    toggle_button_label = "Hide Explanation" if st.session_state.get("show_explanation", False) else "Show Explanation"
-    if st.sidebar.button(toggle_button_label):
-        st.session_state["show_explanation"] = not st.session_state["show_explanation"]
-        st.rerun()
-
-    # Show explanation if toggled
-    if st.session_state.get("show_explanation", False):
-        show_explanation()
-        return
-
-    # Introduction Section
-    st.markdown("""
-    <div style="background-color: #e7f3fe; padding: 20px; border-radius: 10px;">
-    <h2 style="color: #31708f;">WHO Hematologic Classification Tool</h2>
-    <p>
-        This app classifies hematologic malignancies based on user inputs. 
-    </p>
-    <p><em>Disclaimer:</em> This tool is for <strong>educational demonstration</strong> only and is not a clinical or diagnostic tool.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
+    st.title("Acute Myeloid Leukemia (AML) Classification Tool")
+    st.write("""
+        This application classifies Acute Myeloid Leukemia (AML) subtypes based on **WHO 2016**, **WHO 2022**, 
+        and **International Consensus Classification (ICC) 2022** criteria. Enter the patient's clinical and 
+        laboratory data in the sections below and click the **🔍 Classify** button to obtain the classification 
+        results.
+    """)
 
     # ---------------------------
     # FREE-TEXT REPORT PARSER (Visible Only to Authenticated Users)
     # ---------------------------
     if st.session_state.get("authenticated", False):
-        with st.expander("Free-Text Hematology Report Parsing (Beta)", expanded=False):
-            st.markdown("""
-            Enter the **full** hematological report in the text box below. The AI will extract key fields, and classification will proceed based on the extracted data.
-            """)
+        st.markdown("""
+        ### Free-Text Hematology Report Parsing (Beta)
+        Enter the **full** hematological report in the text box below. The AI will extract key fields, and classification will proceed based on the extracted data.
+        """)
 
-            report_text = st.text_area(
-                "Paste the free-text hematological report here:", 
-                height=200, 
-                help="Paste the complete hematological report from laboratory results."
-            )
+        report_text = st.text_area(
+            "Paste the free-text hematological report here:", 
+            height=200, 
+            help="Paste the complete hematological report from laboratory results."
+        )
 
-            if st.button("Parse & Classify from Free-Text"):
-                if report_text.strip():
-                    with st.spinner("Extracting data and classifying..."):
-                        # 1) Parse the report with GPT
-                        parsed_fields = parse_hematology_report(report_text)
+        if st.button("Parse & Classify from Free-Text"):
+            if report_text.strip():
+                with st.spinner("Extracting data and classifying..."):
+                    # 1) Parse the report with GPT
+                    parsed_fields = parse_hematology_report(report_text)
 
-                        if not parsed_fields:
-                            st.warning("No data extracted or an error occurred during parsing.")
+                    if not parsed_fields:
+                        st.warning("No data extracted or an error occurred during parsing.")
+                    else:
+                        st.success("Report parsed successfully! Attempting classification...")
+
+                        # 2) Run both WHO and ICC classifications
+                        classification_who, follow_up_who = classify_AML_WHO2022(parsed_fields)
+                        classification_icc, follow_up_icc = classify_AML_ICC2022(parsed_fields)
+
+                        # 3) Log the parsed data and classification results to stdout
+                        print("Parsed Hematology Report JSON:")
+                        print(json.dumps(parsed_fields, indent=2))
+                        print("WHO 2022 Classification Result:")
+                        print(f"Classification: {classification_who}")
+                        print("ICC 2022 Classification Result:")
+                        print(f"Classification: {classification_icc}")
+
+                        # 4) Display Classification Results
+                        st.markdown("""
+                        <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
+                            <h3 style='color: #0f5132;'>Classification Results</h3>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        classification_tabs = st.tabs(["WHO 2022", "ICC 2022"])
+                        
+                        # Extract Qualifiers
+                        qualifiers = parsed_fields.get("qualifiers", {})
+
+                        # Format qualifiers for WHO 2022
+                        formatted_qualifiers_who = []
+                        if qualifiers.get("previous_cytotoxic_therapy", False):
+                            formatted_qualifiers_who.append("post cytotoxic therapy")
+                        germline_variant_who = qualifiers.get("predisposing_germline_variant", "None")
+                        if germline_variant_who and germline_variant_who.lower() != "none":
+                            formatted_qualifiers_who.append(f"associated with germline {germline_variant_who}")
+
+                        formatted_qualifiers_who_display = ", ".join(formatted_qualifiers_who) if formatted_qualifiers_who else "None"
+
+                        # Format qualifiers for ICC 2022
+                        formatted_qualifiers_icc = []
+                        previous_mds = qualifiers.get("previous_MDS_diagnosed_over_3_months_ago", False)
+                        previous_mds_mpn = qualifiers.get("previous_MDS/MPN_diagnosed_over_3_months_ago", False)
+                        if previous_mds or previous_mds_mpn:
+                            if previous_mds and previous_mds_mpn:
+                                formatted_qualifiers_icc.append("post MDS/MDS/MPN")
+                            elif previous_mds:
+                                formatted_qualifiers_icc.append("post MDS")
+                            elif previous_mds_mpn:
+                                formatted_qualifiers_icc.append("post MDS/MPN")
+                        if qualifiers.get("previous_cytotoxic_therapy", False):
+                            formatted_qualifiers_icc.append("therapy related")
+                        germline_variant_icc = qualifiers.get("predisposing_germline_variant", "None")
+                        if germline_variant_icc and germline_variant_icc.lower() != "none":
+                            formatted_qualifiers_icc.append(f"associated with germline {germline_variant_icc}")
+
+                        formatted_qualifiers_icc_display = ", ".join(formatted_qualifiers_icc) if formatted_qualifiers_icc else "None"
+
+                        with classification_tabs[0]:
+                            st.markdown(f"### {classification_who}")
+                            
+
+                            # Display Follow-Up Instructions in a bubble
+                            if follow_up_who:
+                                st.info(f"**Follow-Up Instructions:** {follow_up_who}")
+
+                        with classification_tabs[1]:
+                            st.markdown(f"### {classification_icc}")
+                            
+
+                            # Display Follow-Up Instructions in a bubble
+                            if follow_up_icc:
+                                st.info(f"**Follow-Up Instructions:** {follow_up_icc}")
+
+                        # 5) AI Review and Clinical Next Steps (Optional)
+                        st.markdown("### **AI Review & Clinical Next Steps**")
+                        if st.session_state.get('authenticated', False):
+                            with st.spinner("Generating AI review and clinical next steps..."):
+                                # Combine WHO and ICC classification results into a single review
+                                combined_classifications = {
+                                    "WHO 2022": {
+                                        "Classification": classification_who,
+                                        "Follow-Up": follow_up_who
+                                    },
+                                    "ICC 2022": {
+                                        "Classification": classification_icc,
+                                        "Follow-Up": follow_up_icc
+                                    }
+                                }
+                                # Generate a single AI review based on the combined classifications
+                                gpt4_review_result = get_gpt4_review(
+                                    classification=combined_classifications,
+                                    user_inputs=parsed_fields
+                                )
+                            # Display the AI review
+                            st.info(gpt4_review_result)
                         else:
-                            st.success("Report parsed successfully! Attempting classification...")
+                            st.info("🔒 **Log in** to receive an AI-generated review and clinical recommendations.")
 
-                            # 2) Extract fields with sensible defaults
-                            blasts_percentage = parsed_fields.get("blasts_percentage", 0.0)
-                            lineage = parsed_fields.get("lineage", "Undetermined")
-                            is_b_cell = parsed_fields.get("is_b_cell", False)
-                            is_t_cell = parsed_fields.get("is_t_cell", False)
-                            is_nk_cell = parsed_fields.get("is_nk_cell", False)
-                            morphological_details = parsed_fields.get("morphological_details", [])
-                            immunophenotype_markers = parsed_fields.get("immunophenotype_markers", [])
-                            immunophenotype_special = parsed_fields.get("immunophenotype_special", [])
-                            cytogenetic_abnormalities = parsed_fields.get("cytogenetic_abnormalities", [])
-                            molecular_mutations = parsed_fields.get("molecular_mutations", [])
-                            wbc_count = parsed_fields.get("wbc_count", 0.0)
-                            rbc_count = parsed_fields.get("rbc_count", 0.0)
-                            platelet_count = parsed_fields.get("platelet_count", 0.0)
-                            eosinophil_count = parsed_fields.get("eosinophil_count", 0.0)
-                            monocyte_count = parsed_fields.get("monocyte_count", 0.0)
-                            patient_age = parsed_fields.get("patient_age", 50.0)
-                            mast_cell_involvement = parsed_fields.get("mast_cell_involvement", False)
-                            histiocytic_marker = parsed_fields.get("histiocytic_marker", False)
-                            hodgkin_markers = parsed_fields.get("hodgkin_markers", False)
-                            cd15_positive = parsed_fields.get("cd15_positive", False)
-                            cd30_positive = parsed_fields.get("cd30_positive", False)
-                            cd20_positive = parsed_fields.get("cd20_positive", False)
-                            cd45_negative = parsed_fields.get("cd45_negative", False)
-
-                            # 3) Validate Inputs
-                            errors, warnings = validate_inputs(
-                                blasts_percentage=blasts_percentage,
-                                lineage=lineage,
-                                is_b_cell=is_b_cell,
-                                is_t_cell=is_t_cell,
-                                is_nk_cell=is_nk_cell,
-                                morphological_details=morphological_details,
-                                immunophenotype_markers=immunophenotype_markers,
-                                cytogenetic_abnormalities=cytogenetic_abnormalities,
-                                molecular_mutations=molecular_mutations,
-                                wbc_count=wbc_count,
-                                rbc_count=rbc_count,
-                                platelet_count=platelet_count,
-                                eosinophil_count=eosinophil_count,
-                                monocyte_count=monocyte_count,
-                                patient_age=patient_age
-                            )
-
-                            if errors:
-                                for error in errors:
-                                    st.error(f"⚠️ **Error:** {error}")
-                                st.stop()
-
-                            if warnings:
-                                for warning in warnings:
-                                    st.warning(f"⚠️ **Warning:** {warning}")
-
-                            # 4) Classification
-                            classification_who2016, derivation_who2016, decision_points_who2016 = classify_AML_WHO2016(
-                                blasts_percentage=blasts_percentage,
-                                lineage=lineage,
-                                is_b_cell=is_b_cell,
-                                is_t_cell=is_t_cell,
-                                is_nk_cell=is_nk_cell,
-                                morphological_details=morphological_details,
-                                immunophenotype_markers=immunophenotype_markers,
-                                immunophenotype_special=immunophenotype_special,
-                                cytogenetic_abnormalities=cytogenetic_abnormalities,
-                                molecular_mutations=molecular_mutations,
-                                wbc_count=wbc_count,
-                                rbc_count=rbc_count,
-                                platelet_count=platelet_count,
-                                eosinophil_count=eosinophil_count,
-                                mast_cell_involvement=mast_cell_involvement,
-                                histiocytic_marker=histiocytic_marker,
-                                hodgkin_markers=hodgkin_markers,
-                                cd15_positive=cd15_positive,
-                                cd30_positive=cd30_positive,
-                                cd20_positive=cd20_positive,
-                                cd45_negative=cd45_negative,
-                                monocyte_count=monocyte_count,
-                                patient_age=patient_age
-                            )
-
-                            classification_who2022, derivation_who2022, decision_points_who2022 = classify_AML_WHO2022(
-                                blasts_percentage=blasts_percentage,
-                                lineage=lineage,
-                                is_b_cell=is_b_cell,
-                                is_t_cell=is_t_cell,
-                                is_nk_cell=is_nk_cell,
-                                morphological_details=morphological_details,
-                                immunophenotype_markers=immunophenotype_markers,
-                                immunophenotype_special=immunophenotype_special,
-                                cytogenetic_abnormalities=cytogenetic_abnormalities,
-                                molecular_mutations=molecular_mutations,
-                                wbc_count=wbc_count,
-                                rbc_count=rbc_count,
-                                platelet_count=platelet_count,
-                                eosinophil_count=eosinophil_count,
-                                mast_cell_involvement=mast_cell_involvement,
-                                histiocytic_marker=histiocytic_marker,
-                                hodgkin_markers=hodgkin_markers,
-                                cd15_positive=cd15_positive,
-                                cd30_positive=cd30_positive,
-                                cd20_positive=cd20_positive,
-                                cd45_negative=cd45_negative,
-                                monocyte_count=monocyte_count,
-                                patient_age=patient_age
-                            )
-
-                            classification_icc, derivation_icc, decision_points_icc = classify_AML_ICC(
-                                blasts_percentage=blasts_percentage,
-                                lineage=lineage,
-                                is_b_cell=is_b_cell,
-                                is_t_cell=is_t_cell,
-                                is_nk_cell=is_nk_cell,
-                                morphological_details=morphological_details,
-                                immunophenotype_markers=immunophenotype_markers,
-                                immunophenotype_special=immunophenotype_special,
-                                cytogenetic_abnormalities=cytogenetic_abnormalities,
-                                molecular_mutations=molecular_mutations,
-                                wbc_count=wbc_count,
-                                rbc_count=rbc_count,
-                                platelet_count=platelet_count,
-                                eosinophil_count=eosinophil_count,
-                                mast_cell_involvement=mast_cell_involvement,
-                                histiocytic_marker=histiocytic_marker,
-                                hodgkin_markers=hodgkin_markers,
-                                cd15_positive=cd15_positive,
-                                cd30_positive=cd30_positive,
-                                cd20_positive=cd20_positive,
-                                cd45_negative=cd45_negative,
-                                monocyte_count=monocyte_count,
-                                patient_age=patient_age
-                            )
-
-                            # 5) Build user_inputs dict
-                            user_inputs = {
-                                "blasts_percentage": blasts_percentage,
-                                "lineage": lineage,
-                                "is_b_cell": is_b_cell,
-                                "is_t_cell": is_t_cell,
-                                "is_nk_cell": is_nk_cell,
-                                "morphological_details": morphological_details,
-                                "immunophenotype_markers": immunophenotype_markers,
-                                "immunophenotype_special": immunophenotype_special,
-                                "cytogenetic_abnormalities": cytogenetic_abnormalities,
-                                "molecular_mutations": molecular_mutations,
-                                "wbc_count": wbc_count,
-                                "rbc_count": rbc_count,
-                                "platelet_count": platelet_count,
-                                "eosinophil_count": eosinophil_count,
-                                "monocyte_count": monocyte_count,
-                                "patient_age": patient_age,
-                                "mast_cell_involvement": mast_cell_involvement,
-                                "histiocytic_marker": histiocytic_marker,
-                                "hodgkin_markers": hodgkin_markers,
-                                "cd15_positive": cd15_positive,
-                                "cd30_positive": cd30_positive,
-                                "cd20_positive": cd20_positive,
-                                "cd45_negative": cd45_negative
-                            }
-
-                            # 6) Display Classification Results
-                            st.markdown(f"""
-                            <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
-                                <h3 style='color: #0f5132;'>Classification Results</h3>
-                            </div>
-                            """, unsafe_allow_html=True)
-
-                            # Create tabs for each classification system
-                            classification_tabs = st.tabs(["WHO 2016", "WHO 2022", "ICC 2022"])
-
-                            with classification_tabs[0]:
-                                st.markdown(f"### **WHO 2016 Classification**")
-                                st.markdown(f"**Classification:** {classification_who2016}")
-                                st.markdown(f"**Derivation:** {derivation_who2016}")
-                                st.markdown(f"**Decision Points:** {decision_points_who2016}")
-
-                                if decision_points_who2016:
-                                    # Display flowchart if available
-                                    flowchart_src_who2016 = build_decision_flowchart(classification_who2016, decision_points_who2016)
-                                    st.graphviz_chart(flowchart_src_who2016, use_container_width=True)
-
-                            with classification_tabs[1]:
-                                st.markdown(f"### **WHO 2022 Classification**")
-                                st.markdown(f"**Classification:** {classification_who2022}")
-                                st.markdown(f"**Derivation:** {derivation_who2022}")
-                                st.markdown(f"**Decision Points:** {decision_points_who2022}")
-
-                                if decision_points_who2022:
-                                    # Display flowchart if available
-                                    flowchart_src_who2022 = build_decision_flowchart(classification_who2022, decision_points_who2022)
-                                    st.graphviz_chart(flowchart_src_who2022, use_container_width=True)
-
-                            with classification_tabs[2]:
-                                st.markdown(f"### **ICC 2022 Classification**")
-                                st.markdown(f"**Classification:** {classification_icc}")
-                                st.markdown(f"**Derivation:** {derivation_icc}")
-                                st.markdown(f"**Decision Points:** {decision_points_icc}")
-
-                                if decision_points_icc:
-                                    # Display flowchart if available
-                                    flowchart_src_icc = build_decision_flowchart(classification_icc, decision_points_icc)
-                                    st.graphviz_chart(flowchart_src_icc, use_container_width=True)
-
-                            # 8) AI Review and Clinical Next Steps
-                            st.markdown("### **AI Review & Clinical Next Steps**")
-                            if st.session_state.get('authenticated', False):
-                                with st.spinner("Generating AI review and clinical next steps..."):
-                                    # Combine all classification results into a single dictionary
-                                    combined_classifications = {
-                                        "WHO 2016": classification_who2016,
-                                        "WHO 2022": classification_who2022,
-                                        "ICC 2022": classification_icc
-                                    }
-                                    combined_derivations = {
-                                        "WHO 2016": derivation_who2016,
-                                        "WHO 2022": derivation_who2022,
-                                        "ICC 2022": derivation_icc
-                                    }
-                                    # Generate a single AI review
-                                    gpt4_review_result = get_gpt4_review(
-                                        classification=combined_classifications,
-                                        explanation=combined_derivations,
-                                        user_inputs=user_inputs
-                                    )
-                                # Display the single AI review
-                                st.info(gpt4_review_result)
-                            else:
-                                st.info("🔒 **Log in** to receive an AI-generated review and clinical recommendations.")
-
-                            # Final Disclaimer
-                            st.markdown("""
-                            ---
-                            <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
-                                <p><strong>Disclaimer:</strong> This app is a simplified demonstration and <strong>not</strong> a replacement 
-                                for professional pathology review or real-world WHO classification.</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                else:
-                    st.error("Please paste a valid hematological report.")
+                        # Final Disclaimer
+                        st.markdown("""
+                        ---
+                        <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+                            <p><strong>Disclaimer:</strong> This app is a simplified demonstration and <strong>not</strong> a replacement 
+                            for professional pathology review or real-world WHO/ICC classification.</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+            else:
+                st.error("Please paste a valid hematological report.")
     else:
         # User not authenticated, show a message or keep it hidden
         st.info("🔒 **Log in** to use the free-text hematological report parsing.")
 
     st.markdown("---")
-
-
-    # ---------------------------
-    # MANUAL INPUT SECTIONS (ALWAYS VISIBLE)
-    # ---------------------------
-    st.subheader("Manual Data Entry")
-    st.markdown("Use the fields below to classify a hematologic malignancy without AI-based text parsing.")
-
-    # 1) Complete Blood Count (CBC)
-    with st.container():
-        st.subheader("1. Complete Blood Count (CBC)")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            wbc_count = st.number_input("WBC (x10^9/L)", min_value=0.0, value=7.5, step=0.1, help="White Blood Cell Count")
-        with col2:
-            rbc_count = st.number_input("RBC (x10^12/L)", min_value=0.0, value=4.5, step=0.1, help="Red Blood Cell Count")
-        with col3:
-            platelet_count = st.number_input("Platelet (x10^9/L)", min_value=0.0, value=250.0, step=10.0, help="Platelet Count")
-        with col4:
-            eosinophil_count = st.number_input("Eosinophils (x10^9/L)", min_value=0.0, value=0.2, step=0.1, help="Eosinophil Count")
-
-    st.markdown("---")
-
-    # 2) Bone Marrow Blasts (%)
-    with st.container():
-        st.subheader("2. Bone Marrow Blasts (%)")
-        blasts_percentage = st.slider("Blasts in marrow (%)", 0, 100, 5, help="Percentage of Blasts in Bone Marrow")
-
-    st.markdown("---")
-
-    # 3) Morphological Details
-    with st.container():
-        st.subheader("3. Morphological Details")
-        morphological_options = [
-            "Auer rods",
-            "Granular promyelocytes",
-            "Ring sideroblasts",
-            "Dyserythropoiesis",
-            "Dysgranulopoiesis",
-            "Dysmegakaryopoiesis",
-            "Micromegakaryocytes",
-            "Starry sky pattern",    # e.g., Burkitt's
-            "Erythroid precursors", # e.g., AML-M6
-            "Megakaryoblasts"       # e.g., AML-M7
-        ]
-        morphological_details = st.multiselect(
-            "Select observed morphological features:", 
-            morphological_options, 
-            help="Choose all that apply based on bone marrow examination."
-        )
-
-    st.markdown("---")
-
-    # 4) Additional MDS/MPN Overlap
-    with st.container():
-        st.subheader("4. Additional Counts for MDS/MPN Overlap")
-        col5, col6 = st.columns(2)
-        with col5:
-            monocyte_count = st.number_input("Monocyte count (x10^9/L)", min_value=0.0, value=0.5, step=0.1, help="Monocyte Count")
-        with col6:
-            patient_age = st.number_input("Patient age (years)", min_value=0, max_value=120, value=50, step=1, help="Age of the patient in years")
-
-    st.markdown("---")
-
-    # 5) Dominant Lineage
-    with st.container():
-        st.subheader("5. Dominant Lineage (User Assessment)")
-        lineage = st.radio("Predominant lineage:", ["Myeloid", "Lymphoid", "Undetermined"], index=1, help="Select the predominant cell lineage based on clinical assessment.")
-        is_b_cell = False
-        is_t_cell = False
-        is_nk_cell = False
-        if lineage == "Lymphoid":
-            subset = st.selectbox("Lymphoid subset (if known):", ["Unknown", "B-cell", "T-cell", "NK-cell"], index=0, help="Select the specific lymphoid subset if identified.")
-            if subset == "B-cell":
-                is_b_cell = True
-            elif subset == "T-cell":
-                is_t_cell = True
-            elif subset == "NK-cell":
-                is_nk_cell = True
-
-    st.markdown("---")
-
-    # 6) Immunophenotyping Markers and 6a) Special Immunophenotype Flags
-    with st.container():
-        st.subheader("6. Immunophenotyping")
-        col6a_1, col6a_2 = st.columns(2)
-        with col6a_1:
-            st.markdown("**6.1. Immunophenotyping Markers**")
-            marker_choices = [
-                # T and NK
-                "CD2", "CD3", "CD4", "CD5", "CD7", "CD8", "CD10", "CD14", "CD15", "CD19", "CD20",
-                "CD23", "CD30", "CD34", "CD45", "CD56", "CD79a", "CD123", 
-                "Myeloperoxidase (MPO)", 
-                # Additional for B-cells
-                "Cyclin D1",  # Mantle Cell
-                "BCL6",       # e.g., CNS lymphoma, DLBCL
-                "CD71",       # AML-M6
-                "CD41", "CD42b", "CD61"  # AML-M7
-            ]
-            immunophenotype_markers = st.multiselect(
-                "Select Positive Markers:", 
-                marker_choices, 
-                help="Choose all immunophenotypic markers that are positive in the patient's cells."
-            )
-        with col6a_2:
-            st.markdown("**6.2. Special Immunophenotype Flags**")
-            special_flags_options = [
-                "Skin involvement", 
-                "CD7 loss",
-                "Hairy cells",
-                "CNS involvement"  # Added for Primary CNS Lymphoma
-            ]
-            immunophenotype_special = st.multiselect(
-                "Select any special flags that apply:", 
-                special_flags_options,
-                help="Select any special immunophenotypic features observed."
-            )
-
-    st.markdown("---")
-
-    # 7) Cytogenetic Abnormalities and 7a) Molecular Mutations
-    st.subheader("7. Cytogenetic & Molecular")
-    col7_1, col7_2 = st.columns(2)
-    with col7_1:
-        st.markdown("**7.1. Cytogenetic Abnormalities**")
-        cytogenetic_samples = [
-            "t(15;17)", "t(8;21)", "inv(16)", "t(16;16)", "t(9;22) BCR-ABL1", 
-            "t(12;21)", "t(1;19)", "t(11;14) CCND1-IGH",  # Mantle cell
-            "t(14;18) BCL2-IGH",  # Follicular
-            "t(8;14) MYC-IGH",    # Burkitt's
-            "ALK",                # ALCL
-            "Other"
-        ]
-        cytogenetic_abnormalities = st.multiselect(
-            "Select Cytogenetic Abnormalities:", 
-            cytogenetic_samples,
-            help="Choose all cytogenetic abnormalities identified in the patient's cells."
-        )
-    with col7_2:
-        st.markdown("**7.2. Molecular Mutations**")
-        mutation_samples = [
-            "FLT3", "NPM1", "CEBPA", "RUNX1", "JAK2", "CALR", "MPL", "BCR-ABL1",
-            "KMT2A (MLL)", "ETV6-RUNX1", "TCF3-PBX1", "MYC", "BCL2", "BCL6", "CCND1",
-            "TET2", "SRSF2", "SF3B1", "IDH1", "IDH2", "ASXL1", "HTLV-1", 
-            "HYPERDIPLOID", "HYPODIPLOID",
-            "Other"
-        ]
-        molecular_mutations = st.multiselect(
-            "Select Molecular Mutations:", 
-            mutation_samples,
-            help="Choose all molecular mutations identified in the patient's cells."
-        )
-
-    st.markdown("---")
-
-    # 8) Special Entities
-    with st.container():
-        st.subheader("8. Special Entities")
-        col8_1, col8_2 = st.columns(2)
-        with col8_1:
-            mast_cell_involvement = st.checkbox("Suspect Mastocytosis?", help="Check if mast cell neoplasm is suspected.")
-            histiocytic_marker = st.checkbox("Suspect Histiocytic/Dendritic Cell Neoplasm?", help="Check if histiocytic or dendritic cell neoplasm is suspected.")
-        with col8_2:
-            hodgkin_markers = st.checkbox("Suspect Hodgkin Lymphoma?", help="Check if Hodgkin Lymphoma is suspected.")
-            cd15_positive = st.checkbox("CD15+ (Hodgkin)?", help="Check if CD15 marker is positive.")
-            cd30_positive = st.checkbox("CD30+ (Hodgkin)?", help="Check if CD30 marker is positive.")
-            cd20_positive = st.checkbox("CD20+ (Hodgkin)?", help="Check if CD20 marker is positive.")
-            cd45_negative = st.checkbox("CD45- (Hodgkin)?", help="Check if CD45 marker is negative.")
-
-    st.markdown("---")
-
-    # CLASSIFY button for manual inputs
-    with st.container():
-        if st.button("🔍 Classify"):
-            # 1) Validate Inputs
-            errors, warnings = validate_inputs(
-                blasts_percentage=blasts_percentage,
-                lineage=lineage,
-                is_b_cell=is_b_cell,
-                is_t_cell=is_t_cell,
-                is_nk_cell=is_nk_cell,
-                morphological_details=morphological_details,
-                immunophenotype_markers=immunophenotype_markers,
-                cytogenetic_abnormalities=cytogenetic_abnormalities,
-                molecular_mutations=molecular_mutations,
-                wbc_count=wbc_count,
-                rbc_count=rbc_count,
-                platelet_count=platelet_count,
-                eosinophil_count=eosinophil_count,
-                monocyte_count=monocyte_count,
-                patient_age=patient_age
-            )
-
-            if errors:
-                for error in errors:
-                    st.error(f"⚠️ **Error:** {error}")
-                st.stop()
-
-            if warnings:
-                for warning in warnings:
-                    st.warning(f"⚠️ **Warning:** {warning}")
-
-            # 2) Classification
-            classification, derivation_string, decision_points = classify_blood_cancer(
-                blasts_percentage=blasts_percentage,
-                lineage=lineage,
-                is_b_cell=is_b_cell,
-                is_t_cell=is_t_cell,
-                is_nk_cell=is_nk_cell,
-                morphological_details=morphological_details,
-                immunophenotype_markers=immunophenotype_markers,
-                immunophenotype_special=immunophenotype_special,
-                cytogenetic_abnormalities=cytogenetic_abnormalities,
-                molecular_mutations=molecular_mutations,
-                wbc_count=wbc_count,
-                rbc_count=rbc_count,
-                platelet_count=platelet_count,
-                eosinophil_count=eosinophil_count,
-                mast_cell_involvement=mast_cell_involvement,
-                histiocytic_marker=histiocytic_marker,
-                hodgkin_markers=hodgkin_markers,
-                cd15_positive=cd15_positive,
-                cd30_positive=cd30_positive,
-                cd20_positive=cd20_positive,
-                cd45_negative=cd45_negative,
-                monocyte_count=monocyte_count,
-                patient_age=patient_age
-            )
-
-            # 3) Build user_inputs dict
-            user_inputs = {
-                "blasts_percentage": blasts_percentage,
-                "lineage": lineage,
-                "is_b_cell": is_b_cell,
-                "is_t_cell": is_t_cell,
-                "is_nk_cell": is_nk_cell,
-                "morphological_details": morphological_details,
-                "immunophenotype_markers": immunophenotype_markers,
-                "immunophenotype_special": immunophenotype_special,
-                "cytogenetic_abnormalities": cytogenetic_abnormalities,
-                "molecular_mutations": molecular_mutations,
-                "wbc_count": wbc_count,
-                "rbc_count": rbc_count,
-                "platelet_count": platelet_count,
-                "eosinophil_count": eosinophil_count,
-                "monocyte_count": monocyte_count,
-                "patient_age": patient_age,
-                "mast_cell_involvement": mast_cell_involvement,
-                "histiocytic_marker": histiocytic_marker,
-                "hodgkin_markers": hodgkin_markers,
-                "cd15_positive": cd15_positive,
-                "cd30_positive": cd30_positive,
-                "cd20_positive": cd20_positive,
-                "cd45_negative": cd45_negative
-            }
-
-            # 4) Display Classification Result
-            st.markdown(f"""
-            <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
-                <h3 style='color: #0f5132;'>Classification Result</h3>
-                <p style='color: #0f5132; font-size: 1.2rem;'><strong>{classification}</strong></p>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # 5) Display derivation and flowchart side by side
-            if decision_points:
-                # Create two columns: one for derivation, one for flowchart
-                st.markdown("### **How This Classification Was Derived**")
-                col_derivation, col_flowchart = st.columns([1.4, 1], gap="small")
-                
-
-                with col_derivation:
-                    # Display derivation with refined styling
-
-                    st.markdown(f"""
-                        <div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px;'>
-                            <p>
-                                {derivation_string}
-                            </p>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                with col_flowchart:
-                    # Display flowchart with increased visibility
-                    flowchart_src = build_decision_flowchart(classification, decision_points)
-                    st.markdown("   ")
-                    st.graphviz_chart(flowchart_src, use_container_width=True)  # Removed 'height' parameter
-            else:
-                # If no decision points, just display derivation normally
-                display_derivation(derivation_string)
-
-            # 6) AI Review and Clinical Next Steps
-            st.markdown("### **AI Review & Clinical Next Steps**")
-            if st.session_state['authenticated']:
-                with st.spinner("Generating AI review and clinical next steps..."):
-                    gpt4_review_result = get_gpt4_review(
-                        classification=classification,
-                        explanation=derivation_string,
-                        user_inputs=user_inputs
-                    )
-                # Use st.info to render markdown correctly
-                st.info(gpt4_review_result)
-            else:
-                st.info("🔒 **Log in** to receive an AI-generated review and clinical recommendations.")
-
-            # Final Disclaimer
-            st.markdown("""
-            ---
-            <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
-                <p><strong>Disclaimer:</strong> This app is a simplified demonstration and <strong>not</strong> a replacement 
-                for professional pathology review or real-world WHO classification.</p>
-            </div>
-            """, unsafe_allow_html=True)
 
 
 ##############################
