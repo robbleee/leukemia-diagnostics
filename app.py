@@ -144,9 +144,10 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         parsed_data (dict): A dictionary containing extracted hematological report data.
 
     Returns:
-        tuple: A tuple containing (classification, follow_up_instructions).
+        tuple: A tuple containing (classification, derivation_string, follow_up_instructions).
     """
     classification = "AML, Not Otherwise Specified (NOS)"
+    derivation = ""
     follow_up_instructions = ""
 
     # Retrieve blasts_percentage
@@ -185,7 +186,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         mds_mutations_list = ["ASXL1", "BCOR", "EZH2", "RUNX1", "SF3B1", "SRSF2", "STAG2", "U2AF1", "ZRSR2"]
         for gene in mds_mutations_list:
             if mds_related_mutations.get(gene, False):
-                classification = "AML, myelodysplasia related"
+                classification = "AML, myelodysplasia related (WHO 2022)"
                 break
 
     # Step 3: Check MDS-related cytogenetics
@@ -201,7 +202,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
 
         for cytogenetic in mrd_cytogenetics + acute_cytogenetics:
             if mds_related_cytogenetics.get(cytogenetic, False):
-                classification = "AML, myelodysplasia related"
+                classification = "AML, myelodysplasia related (WHO 2022)"
                 break
 
     # Step 4: Add qualifiers to classification
@@ -221,9 +222,8 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     if qualifier_descriptions:
         classification += f", {', '.join(qualifier_descriptions)}"
 
-    # Ensure "(WHO 2022)" is appended only once
-    if "(WHO 2022)" not in classification:
-        classification += " (WHO 2022)"
+    # Append "(WHO 2022)" at the end
+    classification += " (WHO 2022)"
 
     # Step 5: Determine follow-up instructions based on classification
     if "NPM1" in classification:
@@ -833,19 +833,12 @@ def show_explanation():
 ##############################
 def app_main():
     st.title("Acute Myeloid Leukemia (AML) Classification Tool")
-    st.write("""
-        This application classifies Acute Myeloid Leukemia (AML) subtypes based on **WHO 2016**, **WHO 2022**, 
-        and **International Consensus Classification (ICC) 2022** criteria. Enter the patient's clinical and 
-        laboratory data in the sections below and click the **🔍 Classify** button to obtain the classification 
-        results.
-    """)
 
     # ---------------------------
     # FREE-TEXT REPORT PARSER (Visible Only to Authenticated Users)
     # ---------------------------
     if st.session_state.get("authenticated", False):
         st.markdown("""
-        ### Free-Text Hematology Report Parsing (Beta)
         Enter the **full** hematological report in the text box below. The AI will extract key fields, and classification will proceed based on the extracted data.
         """)
 
