@@ -144,10 +144,9 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         parsed_data (dict): A dictionary containing extracted hematological report data.
 
     Returns:
-        tuple: A tuple containing (classification, derivation_string, follow_up_instructions).
+        tuple: A tuple containing (classification, follow_up_instructions).
     """
     classification = "AML, Not Otherwise Specified (NOS)"
-    derivation = ""
     follow_up_instructions = ""
 
     # Retrieve blasts_percentage
@@ -186,7 +185,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         mds_mutations_list = ["ASXL1", "BCOR", "EZH2", "RUNX1", "SF3B1", "SRSF2", "STAG2", "U2AF1", "ZRSR2"]
         for gene in mds_mutations_list:
             if mds_related_mutations.get(gene, False):
-                classification = "AML, myelodysplasia related (WHO 2022)"
+                classification = "AML, myelodysplasia related"
                 break
 
     # Step 3: Check MDS-related cytogenetics
@@ -202,7 +201,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
 
         for cytogenetic in mrd_cytogenetics + acute_cytogenetics:
             if mds_related_cytogenetics.get(cytogenetic, False):
-                classification = "AML, myelodysplasia related (WHO 2022)"
+                classification = "AML, myelodysplasia related"
                 break
 
     # Step 4: Add qualifiers to classification
@@ -222,8 +221,9 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     if qualifier_descriptions:
         classification += f", {', '.join(qualifier_descriptions)}"
 
-    # Append "(WHO 2022)" at the end
-    classification += " (WHO 2022)"
+    # Ensure "(WHO 2022)" is appended only once
+    if "(WHO 2022)" not in classification:
+        classification += " (WHO 2022)"
 
     # Step 5: Determine follow-up instructions based on classification
     if "NPM1" in classification:
