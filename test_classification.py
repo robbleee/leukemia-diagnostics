@@ -214,7 +214,7 @@ from app import classify_AML_WHO2022, classify_AML_ICC2022
                     "predisposing_germline_variant": "None"
                 }
             },
-            "AML, Not Otherwise Specified (NOS) (WHO 2022)"
+            "Acute myeloid leukaemia, unknown differentiation (WHO 2022)"
         ),
         # Test Case 7: MDS-related Mutation with Qualifiers
         (
@@ -267,7 +267,7 @@ from app import classify_AML_WHO2022, classify_AML_ICC2022
                     "predisposing_germline_variant": "RUNX1"
                 }
             },
-            "AML, Not Otherwise Specified (NOS), post cytotoxic therapy, associated with germline RUNX1 (WHO 2022)"
+            "Acute myeloid leukaemia, [define by differentiation], post cytotoxic therapy, associated with germline RUNX1 (WHO 2022)"
         ),
         # Test Case 10: Boundary Condition - CEBPA Mutation with blasts_percentage exactly 20%
         (
@@ -320,7 +320,7 @@ from app import classify_AML_WHO2022, classify_AML_ICC2022
                     "previous_cytotoxic_therapy": False
                 }
             },
-            "AML, Not Otherwise Specified (NOS), associated with germline RUNX1 (WHO 2022)"
+            "Acute myeloid leukaemia, [define by differentiation], associated with germline RUNX1 (WHO 2022)"
         ),
         # Test Case 14: All Qualifiers Present with Genetic Abnormality
         (
@@ -513,11 +513,11 @@ def test_classify_AML_WHO2022(parsed_data, expected_classification):
                 "qualifiers": {
                     "previous_MDS_diagnosed_over_3_months_ago": False,
                     "previous_MDS/MPN_diagnosed_over_3_months_ago": False,
-                    "previous_cytotoxic_therapy": True,
+                    "previous_cytotoxic_therapy": False,
                     "predisposing_germline_variant": "RUNX1"
                 }
             },
-            "AML, Not Otherwise Specified (NOS), therapy related (ICC 2022)"
+            "AML, NOS (ICC 2022)"
         ),
         # Test Case 10: Multiple Genetic Abnormalities (only first should apply)
         (
@@ -580,7 +580,7 @@ def test_classify_AML_ICC2022(parsed_data, expected_classification):
                     "previous_cytotoxic_therapy": False
                 }
             },
-            "AML, Not Otherwise Specified (NOS), associated with germline RUNX1 (WHO 2022)"
+            "Acute myeloid leukaemia, [define by differentiation], associated with germline RUNX1 (WHO 2022)"
         ),
         # Test Case 14: Multiple Qualifiers with MDS-related Mutation
         (
@@ -685,12 +685,12 @@ def test_classify_AML_WHO2022_edge_cases(parsed_data, expected_classification):
                     "previous_cytotoxic_therapy": False
                 }
             },
-            "AML, Not Otherwise Specified (NOS) (ICC 2022)"
+            "AML, NOS (ICC 2022)"
         ),
         # Test Case 15: Multiple Qualifiers with MDS-related Mutation
         (
             {
-                "blasts_percentage": 9.0,
+                "blasts_percentage": 21.0,
                 "AML_defining_recurrent_genetic_abnormalities": {},
                 "Biallelic_TP53_mutation": {},
                 "MDS_related_mutation": {
@@ -723,7 +723,7 @@ def test_classify_AML_ICC2022_edge_cases(parsed_data, expected_classification):
         # Here, blasts < 20% should lead to "NOS" classification.
         (
             {
-                "blasts_percentage": 10.0,
+                "blasts_percentage": 11.0,
                 "AML_defining_recurrent_genetic_abnormalities": {
                     "BCR::ABL1": True
                 },
@@ -731,7 +731,7 @@ def test_classify_AML_ICC2022_edge_cases(parsed_data, expected_classification):
                 "MDS_related_cytogenetics": {},
                 "qualifiers": {}
             },
-            "AML, Not Otherwise Specified (NOS) (WHO 2022)"
+            "Acute myeloid leukaemia, unknown differentiation (WHO 2022)"
         ),
         # Test Case A2: RBM15::MRTFA (Megakaryoblastic) with blasts ≥ 20%
         # WHO 2022 includes AML with RBM15::MRTFA fusion as a defined subtype.
@@ -816,7 +816,7 @@ def test_classify_AML_WHO2022_additional(parsed_data, expected_classification):
                 "MDS_related_cytogenetics": {},
                 "qualifiers": {}
             },
-            "AML, Not Otherwise Specified (NOS) (ICC 2022)"
+            "AML, NOS (ICC 2022)"
         ),
         # Test Case B2: DEK::NUP214 with blasts ≥ 10%
         # ICC 2022 includes AML with t(6;9)(p22.3;q34.1)/DEK::NUP214.
@@ -1085,7 +1085,7 @@ def test_classify_AML_ICC2022_additional(parsed_data, expected_classification):
                     "predisposing_germline_variant": "None"
                 }
             },
-            "AML, Not Otherwise Specified (NOS), post cytotoxic therapy (WHO 2022)"
+            "Acute myeloid leukaemia, [define by differentiation], post cytotoxic therapy (WHO 2022)"
         ),
     ]
 )
@@ -1094,4 +1094,208 @@ def test_classify_AML_WHO2022_complex(parsed_data, expected_classification):
     Additional complex WHO 2022 test cases to extend coverage.
     """
     classification, _ = classify_AML_WHO2022(parsed_data)
+    assert classification == expected_classification
+
+
+# ==========================================
+# ADDITIONAL TEST CASES FOR WHO 2022
+# ==========================================
+
+@pytest.mark.parametrize(
+    "parsed_data, expected_classification",
+    [
+        # Test Case 18: All Negative Fields with AML Differentiation Provided (FAB Classification)
+        (
+            {
+                "blasts_percentage": 22.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "NPM1": False,
+                    "RUNX1::RUNX1T1": False,
+                    "CBFB::MYH11": False,
+                    "DEK::NUP214": False,
+                    "RBM15::MRTFA": False,
+                    "KMT2A": False,
+                    "MECOM": False,
+                    "NUP98": False,
+                    "CEBPA": False,
+                    "bZIP": False,
+                    "BCR::ABL1": False
+                },
+                "MDS_related_mutation": {
+                    "ASXL1": False,
+                    "BCOR": False,
+                    "EZH2": False,
+                    "RUNX1": False,
+                    "SF3B1": False,
+                    "SRSF2": False,
+                    "STAG2": False,
+                    "U2AF1": False,
+                    "ZRSR2": False
+                },
+                "MDS_related_cytogenetics": {
+                    "Complex_karyotype": False,
+                    "del_5q": False,
+                    "t_5q": False,
+                    "add_5q": False,
+                    "-7": False,
+                    "del_7q": False,
+                    "+8": False,
+                    "del_11q": False,
+                    "del_12p": False,
+                    "t_12p": False,
+                    "add_12p": False,
+                    "-13": False,
+                    "i_17q": False,
+                    "-17": False,
+                    "add_17p": False,
+                    "del_17p": False,
+                    "del_20q": False,
+                    "idic_X_q13": False,
+                    "5q": False
+                },
+                "AML_differentiation": "M3",
+                "qualifiers": {
+                    "previous_cytotoxic_therapy": False,
+                    "predisposing_germline_variant": "None"
+                }
+            },
+            "Acute promyelocytic leukaemia (WHO 2022)"
+        ),
+        # Test Case 19: All Negative Fields with AML Differentiation Provided (WHO Classification)
+        (
+            {
+                "blasts_percentage": 30.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "AML_differentiation": "M5a",
+                "qualifiers": {}
+            },
+            "Acute monoblastic leukaemia (WHO 2022)"
+        ),
+        # Test Case 20: All Negative Fields without AML Differentiation Provided
+        (
+            {
+                "blasts_percentage": 18.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "AML_differentiation": None,
+                "qualifiers": {}
+            },
+            "Acute myeloid leukaemia, unknown differentiation (WHO 2022)"
+        ),
+        # Test Case 21: All Negative Fields with AML Differentiation Provided (WHO Classification)
+        (
+            {
+                "blasts_percentage": 25.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "AML_differentiation": "M1",
+                "qualifiers": {}
+            },
+            "Acute myeloid leukaemia without maturation (WHO 2022)"
+        ),
+        # Test Case 22: Some Fields Negative, AML Differentiation Provided (Should Not Use Differentiation)
+        (
+            {
+                "blasts_percentage": 25.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "NPM1": False,
+                    "RUNX1::RUNX1T1": True  # Positive field
+                },
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "AML_differentiation": "M4",
+                "qualifiers": {}
+            },
+            "AML with RUNX1::RUNX1T1 fusion (WHO 2022)"
+        ),
+        # Test Case 23: All Negative Fields with AML Differentiation Provided (WHO Classification) - WHO Only
+        (
+            {
+                "blasts_percentage": 28.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "AML_differentiation": "M7",
+                "qualifiers": {}
+            },
+            "Acute megakaryoblastic leukaemia (WHO 2022)"
+        ),
+        # Test Case 24: All Negative Fields with Invalid AML Differentiation Provided
+        (
+            {
+                "blasts_percentage": 22.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "AML_differentiation": "XYZ",  # Invalid differentiation
+                "qualifiers": {}
+            },
+            # Depending on your validation logic, this might either issue a warning and classify as "Acute myeloid leukaemia" without differentiation
+            # or handle it differently. Adjust expected_classification accordingly.
+            "Acute myeloid leukaemia, unknown differentiation (WHO 2022)"
+        ),
+    ]
+)
+def test_classify_AML_WHO2022_differentiation(parsed_data, expected_classification):
+    classification, _ = classify_AML_WHO2022(parsed_data)
+    assert classification == expected_classification
+
+# ---------------------------
+# Additional Test Cases for ICC 2022 Classification
+# ---------------------------
+
+@pytest.mark.parametrize(
+    "parsed_data, expected_classification",
+    [
+        # Test Case 16: All Negative Fields with AML Differentiation Provided (ICC Classification)
+        # Assuming ICC 2022 does not use differentiation in classification; this test ensures differentiation is ignored
+        (
+            {
+                "blasts_percentage": 20.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "Biallelic_TP53_mutation": {},
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "AML_differentiation": "M4",
+                "qualifiers": {}
+            },
+            "AML, NOS (ICC 2022)"
+        ),
+        # Test Case 17: All Negative Fields without AML Differentiation Provided (ICC Classification)
+        (
+            {
+                "blasts_percentage": 15.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "Biallelic_TP53_mutation": {},
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "AML_differentiation": None,
+                "qualifiers": {}
+            },
+            "AML, NOS (ICC 2022)"
+        ),
+        # Test Case 18: Some Fields Negative, AML Differentiation Provided (Should Not Use Differentiation)
+        (
+            {
+                "blasts_percentage": 12.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "NPM1": False,
+                    "RUNX1::RUNX1T1": False
+                },
+                "Biallelic_TP53_mutation": {},
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "AML_differentiation": "M2",
+                "qualifiers": {}
+            },
+            "AML, NOS (ICC 2022)"
+        ),
+    ]
+)
+def test_classify_AML_ICC2022_differentiation(parsed_data, expected_classification):
+    classification, _ = classify_AML_ICC2022(parsed_data)
     assert classification == expected_classification

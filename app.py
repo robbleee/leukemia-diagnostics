@@ -129,13 +129,16 @@ def build_decision_flowchart(classification: str, decision_points: list) -> str:
 
     return dot.source
 
+
 ##############################
 # CLASSIFY AML WHO 2022
 ##############################
 def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     """
     Classifies AML subtypes based on the WHO 2022 criteria, including qualifiers.
-
+    If the final classification is "Acute myeloid leukaemia, [define by differentiation]",
+    we attempt to insert AML_differentiation from parsed_data if available.
+    
     Args:
         parsed_data (dict): A dictionary containing extracted hematological report data.
 
@@ -151,7 +154,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     if not isinstance(blasts_percentage, (int, float)) or not (0.0 <= blasts_percentage <= 100.0):
         return "Error: `blasts_percentage` must be a number between 0 and 100.", ""
     
-    classification = "AML, Not Otherwise Specified (NOS)"
+    classification = "Acute myeloid leukaemia, [define by differentiation]"
     follow_up_instructions = ""
 
     # Step 1: Check AML-defining recurrent genetic abnormalities
@@ -182,7 +185,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
                 break
 
     # Step 2: Check MDS-related mutations
-    if classification == "AML, Not Otherwise Specified (NOS)":
+    if classification == "Acute myeloid leukaemia, [define by differentiation]":
         mds_related_mutations = parsed_data.get("MDS_related_mutation", {})
         mds_mutations_list = ["ASXL1", "BCOR", "EZH2", "RUNX1", "SF3B1", "SRSF2", "STAG2", "U2AF1", "ZRSR2"]
         for gene in mds_mutations_list:
@@ -191,7 +194,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
                 break
 
     # Step 3: Check MDS-related cytogenetics
-    if classification == "AML, Not Otherwise Specified (NOS)":
+    if classification == "Acute myeloid leukaemia, [define by differentiation]":
         mds_related_cytogenetics = parsed_data.get("MDS_related_cytogenetics", {})
         mrd_cytogenetics = [
             "Complex_karyotype", "del_5q", "t_5q", "add_5q", "-7", "del_7q",
@@ -223,10 +226,52 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     if qualifier_descriptions:
         classification += f", {', '.join(qualifier_descriptions)}"
 
-    # Append "(WHO 2022)" at the end
-    classification += " (WHO 2022)"
+    # ----------------------------------------------------------------------
+    # STEP 5: ALLOW FOR "Acute myeloid leukaemia, [define by differentiation]"
+    # ----------------------------------------------------------------------
+    #
+    # If your overall logic or another function determined that the correct 
+    # classification is "Acute myeloid leukaemia, [define by differentiation]", 
+    # we will attempt to insert the AML_differentiation field.
+    #
+    # If not provided, no error is thrown.
+    # ----------------------------------------------------------------------
+    
+    # Let's say if the classification is exactly
+    # "Acute myeloid leukaemia, [define by differentiation]"
+    # we replace that bracketed text with the corresponding FAB-based WHO classification
+    if classification.strip() == "Acute myeloid leukaemia, [define by differentiation]":
+        # Grab AML_differentiation from parsed_data
+        aml_diff = parsed_data.get("AML_differentiation")
 
-    # Step 5: Determine follow-up instructions based on classification
+        # Map FAB to WHO classification
+        FAB_TO_WHO_MAPPING = {
+            "M0": "Acute myeloid leukaemia with minimal differentiation",
+            "M1": "Acute myeloid leukaemia without maturation",
+            "M2": "Acute myeloid leukaemia with maturation",
+            "M3": "Acute promyelocytic leukaemia",
+            "M4": "Acute myelomonocytic leukaemia",
+            "M4Eo": "Acute myelomonocytic leukaemia with eosinophilia",
+            "M5a": "Acute monoblastic leukaemia",
+            "M5b": "Acute monocytic leukaemia",
+            "M6a": "Acute erythroid leukaemia (erythroid/myeloid type)",
+            "M6b": "Pure erythroid leukaemia",
+            "M7": "Acute megakaryoblastic leukaemia",
+        }
+
+        # Replace classification based on AML_differentiation if valid
+        if aml_diff and aml_diff in FAB_TO_WHO_MAPPING:
+            classification = FAB_TO_WHO_MAPPING[aml_diff]
+        else:
+            # Default case if AML_differentiation is not provided or invalid
+            classification = "Acute myeloid leukaemia, unknown differentiation"
+
+
+    # Finally, append "(WHO 2022)" at the end if not already present
+    if "(WHO 2022)" not in classification:
+        classification += " (WHO 2022)"
+
+    # Determine follow-up instructions based on classification
     if "NPM1" in classification:
         follow_up_instructions = "Monitor MRD regularly via qPCR, and consider stem cell transplant if MRD persists."
     elif "RUNX1" in classification:
@@ -236,7 +281,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     elif "BCR::ABL1" in classification:
         follow_up_instructions = "Initiate and monitor tyrosine kinase inhibitor therapy with regular molecular testing for resistance."
 
-    # Default follow-up instructions
+    # Default follow-up instructions if none are set
     if not follow_up_instructions:
         follow_up_instructions = "Standard AML follow-up with regular molecular testing and imaging to detect relapse."
 
@@ -265,7 +310,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     if not isinstance(blasts_percentage, (int, float)) or not (0.0 <= blasts_percentage <= 100.0):
         return "Error: `blasts_percentage` must be a number between 0 and 100.", ""
 
-    classification = "AML, Not Otherwise Specified (NOS)"
+    classification = "AML, NOS"
     follow_up_instructions = ""
 
     # Retrieve necessary fields
@@ -298,21 +343,21 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
                     break  # Specific classification found
                 else:
                     # Detected the gene but blasts_percentage < 10%
-                    classification = "AML, Not Otherwise Specified (NOS)"
+                    classification = "AML, NOS"
             else:
                 # If there are other genes that do not require blasts_percentage condition
                 classification = classif
                 break  # Specific classification found
 
     # Step 2: Check Biallelic TP53 mutations
-    if classification == "AML, Not Otherwise Specified (NOS)":
+    if classification == "AML, NOS":
         if biallelic_tp53.get("2_x_TP53_mutations", False) or \
            biallelic_tp53.get("1_x_TP53_mutation_del_17p", False) or \
            biallelic_tp53.get("1_x_TP53_mutation_LOH", False):
             classification = "AML with mutated TP53"
 
     # Step 3: Check MDS-related mutations
-    if classification == "AML, Not Otherwise Specified (NOS)":
+    if classification == "AML, NOS":
         mds_mutations_list = ["ASXL1", "BCOR", "EZH2", "RUNX1", "SF3B1", "SRSF2", "STAG2", "U2AF1", "ZRSR2"]
         for gene in mds_mutations_list:
             if mds_related_mutations.get(gene, False):
@@ -320,7 +365,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
                 break
 
     # Step 4: Check MDS-related cytogenetics
-    if classification == "AML, Not Otherwise Specified (NOS)":
+    if classification == "AML, NOS":
         # Define cytogenetic abnormalities mapping
         mrd_cytogenetics = [
             "Complex_karyotype",
@@ -442,7 +487,7 @@ def get_gpt4_review(
 def parse_hematology_report(report_text: str) -> dict:
     """
     Sends the free-text hematological report to OpenAI and requests a structured JSON
-    with all fields needed for classification.
+    with all fields needed for classification, including AML differentiation.
     
     Returns:
         dict: A dictionary containing the extracted fields. Returns an empty dict if parsing fails.
@@ -504,6 +549,7 @@ def parse_hematology_report(report_text: str) -> dict:
             "del_20q": False,
             "idic_X_q13": False
         },
+        "AML_differentiation": None,  # New field added for AML differentiation
         "qualifiers": {
             "previous_MDS_diagnosed_over_3_months_ago": False,
             "previous_MDS/MPN_diagnosed_over_3_months_ago": False,
@@ -518,14 +564,35 @@ def parse_hematology_report(report_text: str) -> dict:
         Please extract the following fields from the text and format them into a valid JSON object exactly as specified below. 
         For boolean fields, use true/false. For numerical fields, provide the value. If a field is not found or unclear, set it to false or a default value.
         
-        Try to consider if the user may have used some sort of short hand and translate where necessary. If you see 2x before 
+        Additionally, extract the AML differentiation classification using the FAB (M0-M7) or WHO classification systems. 
+        If the differentiation is not specified, set the value to null.
         
-        For example:
+        Try to consider if the user may have used some sort of shorthand and translate where necessary.
+        
+        **For example**:
         
         1. 2_x_TP53_mutations: Extract if the report mentions phrases like "2 TP53 mutations," "biallelic TP53 mutations," or similar.
         2. 1_x_TP53_mutation_del_17p: Look for terms like "TP53 mutation and 17p deletion" or "TP53 mutation with del(17p)."
         3. 1_x_TP53_mutation_LOH: Identify phrases such as "TP53 mutation and LOH," "TP53 mutation with Loss of Heterozygosity," or equivalent.
+        4. AML_differentiation: Extract the AML differentiation classification, such as "FAB M3" or "WHO AML with myelodysplasia-related changes."
         
+        Examples of predisposing germline variants:
+            Germline predisposition
+                • CEBPA 
+                • DDX41 
+                • TP53 
+            Germline predisposition and pre-existing platelet disorder:
+                • RUNX1
+                • ANKRD26
+                • ETV6 
+            Germline predisposition and potential organ dysfunction:
+                • GATA2
+            Noonan syndrome-like disorders:
+                • Down syndrome
+                • SAMD9
+                • BLM 
+    
+
         For predisposing_germline_variant, leave as "None" if there is none otherwise record the variant specified.
         
         **Required JSON structure:**
@@ -580,6 +647,7 @@ def parse_hematology_report(report_text: str) -> dict:
                 "del_20q": false,
                 "idic_X_q13": false
             }},
+            "AML_differentiation": null
             "qualifiers": {{
                 "previous_MDS_diagnosed_over_3_months_ago": false,
                 "previous_MDS/MPN_diagnosed_over_3_months_ago": false,
@@ -587,32 +655,9 @@ def parse_hematology_report(report_text: str) -> dict:
                 "predisposing_germline_variant": "None"
             }}
         }}
-
-
-        Examples of predisposing germline variants:
-            Germline predisposition
-                • Germline CEBPA variant
-                • Germline DDX41 variant
-                • Germline TP53 variant
-            Germline predisposition and pre-existing platelet disorder:
-                • Germline RUNX1
-                • Germline ANKRD26
-                • Germline ETV6 variant
-            Germline predisposition and potential organ dysfunction:
-                • Germline GATA2 variant
-                • Bone marrow failure syndromes
-                    ◦ Severe congenital neutropenia (SCN)
-                    ◦ Shwachman-Diamond syndrome (SDS)
-                    ◦ Fanconi anaemia (FA)
-                    ◦ Diamond Blackfan anaemia
-                • Telomere biology disorders including DKC
-                • RASopathies (Neurofibromatosis type 1, CBL syndrome, Noonan syndrome or
-            Noonan syndrome-like disorders):
-                • Down syndrome
-                • Germline SAMD9 variant (MIRAGE Syndrome)
-                • Germline SAMD9L variant (SAMD9L-related Ataxia Pancytopenia Syndrome)
-                • Biallelic germline BLM variant (Bloom syndrome)
-
+    
+    
+    
         
         **Instructions:**
         1. Return **valid JSON only** with no extra text or commentary.
@@ -632,7 +677,7 @@ def parse_hematology_report(report_text: str) -> dict:
                 {"role": "system", "content": "You are a knowledgeable hematologist who formats output strictly in JSON."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=1500,  # Increased max_tokens to accommodate detailed JSON
+            max_tokens=2000,  # Increased max_tokens to accommodate detailed JSON including AML differentiation
             temperature=0.0  # Deterministic output
         )
         raw_content = response.choices[0].message.content.strip()
@@ -656,6 +701,16 @@ def parse_hematology_report(report_text: str) -> dict:
                 st.error("❌ Invalid `blasts_percentage` value. It must be a number between 0 and 100.")
                 return {}
         
+        # Validate AML_differentiation
+        aml_diff = parsed_data.get("AML_differentiation")
+        valid_fab_classes = [f"M{i}" for i in range(0, 8)]  # M0 to M7
+        if aml_diff is not None:
+            if not isinstance(aml_diff, str):
+                st.error("❌ Invalid `AML_differentiation` value. It must be a string representing the classification (e.g., 'FAB M3').")
+                return {}
+            elif not any(fab in aml_diff.upper() for fab in valid_fab_classes):
+                st.warning("⚠️ `AML_differentiation` value does not match known FAB classifications.")
+        
         # Print the parsed JSON object to stdout
         print("Parsed Hematology Report JSON:")
         print(json.dumps(parsed_data, indent=2))
@@ -670,7 +725,6 @@ def parse_hematology_report(report_text: str) -> dict:
         st.error(f"❌ Error communicating with OpenAI: {str(e)}")
         print(f"❌ Exception: {str(e)}")
         return {}
-
 
 ##############################
 # EXPLANATION FUNCTION
