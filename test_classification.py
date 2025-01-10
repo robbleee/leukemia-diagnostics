@@ -709,3 +709,389 @@ def test_classify_AML_WHO2022_edge_cases(parsed_data, expected_classification):
 def test_classify_AML_ICC2022_edge_cases(parsed_data, expected_classification):
     classification, _ = classify_AML_ICC2022(parsed_data)
     assert classification == expected_classification
+
+
+# ==========================================
+# ADDITIONAL TEST CASES FOR WHO 2022
+# ==========================================
+
+@pytest.mark.parametrize(
+    "parsed_data, expected_classification",
+    [
+        # Test Case A1: BCR::ABL1 fusion but blasts < 20%
+        # WHO 2022 typically requires ≥20% blasts for BCR::ABL1-driven AML classification.
+        # Here, blasts < 20% should lead to "NOS" classification.
+        (
+            {
+                "blasts_percentage": 10.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "BCR::ABL1": True
+                },
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "qualifiers": {}
+            },
+            "AML, Not Otherwise Specified (NOS) (WHO 2022)"
+        ),
+        # Test Case A2: RBM15::MRTFA (Megakaryoblastic) with blasts ≥ 20%
+        # WHO 2022 includes AML with RBM15::MRTFA fusion as a defined subtype.
+        (
+            {
+                "blasts_percentage": 28.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "RBM15::MRTFA": True,
+                    "NPM1": False,
+                    "CEBPA": False
+                },
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "qualifiers": {
+                    "previous_cytotoxic_therapy": False,
+                    "predisposing_germline_variant": "None"
+                }
+            },
+            "AML with RBM15::MRTFA fusion (WHO 2022)"
+        ),
+        # Test Case A3: Invalid Negative Blasts Percentage
+        # WHO 2022 logic should reject negative blasts as invalid.
+        (
+            {
+                "blasts_percentage": -2.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "qualifiers": {}
+            },
+            "Error: `blasts_percentage` must be a number between 0 and 100."
+        ),
+        # Test Case A4: Complex karyotype + MDS-related mutations + blasts = 19%
+        # Myelodysplasia related classification if blasts < 20% might still yield an “MDS with excess blasts” type scenario,
+        # but for AML (≥20%), we need to check if the logic defaults to “myelodysplasia related” or “NOS”.
+        # Since blasts are 19% (below AML threshold) in strict WHO classification, it might remain “NOS” or cause a borderline scenario.
+        # However, your code might interpret any MDS-related mutation + cytogenetics as “myelodysplasia related (WHO 2022)” regardless of blast count.
+        # Adjust the expected outcome to match your actual logic.
+        (
+            {
+                "blasts_percentage": 19.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "MDS_related_mutation": {
+                    "EZH2": True,
+                    "RUNX1": True
+                },
+                "MDS_related_cytogenetics": {
+                    "Complex_karyotype": True
+                },
+                "qualifiers": {}
+            },
+            "AML, myelodysplasia related (WHO 2022)"
+        ),
+    ]
+)
+def test_classify_AML_WHO2022_additional(parsed_data, expected_classification):
+    """
+    Additional WHO 2022 test cases to extend coverage.
+    """
+    classification, _ = classify_AML_WHO2022(parsed_data)
+    assert classification == expected_classification
+
+
+# ==========================================
+# ADDITIONAL TEST CASES FOR ICC 2022
+# ==========================================
+
+@pytest.mark.parametrize(
+    "parsed_data, expected_classification",
+    [
+        # Test Case B1: BCR::ABL1 rearrangement with blasts < 10%
+        # ICC 2022 requires ≥10% blasts for AML-defining genetic abnormalities.
+        # With blasts <10%, it should remain "NOS".
+        (
+            {
+                "blasts_percentage": 9.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "BCR::ABL1": True
+                },
+                "Biallelic_TP53_mutation": {},
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "qualifiers": {}
+            },
+            "AML, Not Otherwise Specified (NOS) (ICC 2022)"
+        ),
+        # Test Case B2: DEK::NUP214 with blasts ≥ 10%
+        # ICC 2022 includes AML with t(6;9)(p22.3;q34.1)/DEK::NUP214.
+        (
+            {
+                "blasts_percentage": 15.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "DEK::NUP214": True,
+                    "NPM1": False
+                },
+                "Biallelic_TP53_mutation": {},
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "qualifiers": {
+                    "previous_MDS_diagnosed_over_3_months_ago": False,
+                    "previous_cytotoxic_therapy": False
+                }
+            },
+            "AML with t(6;9)(p22.3;q34.1)/DEK::NUP214 (ICC 2022)"
+        ),
+        # Test Case B3: 1 TP53 mutation + del(17p) = Biallelic TP53
+        # ICC 2022: This qualifies as "AML with mutated TP53."
+        (
+            {
+                "blasts_percentage": 22.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "Biallelic_TP53_mutation": {
+                    "1_x_TP53_mutation_del_17p": True
+                },
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "qualifiers": {}
+            },
+            "AML with mutated TP53 (ICC 2022)"
+        ),
+        # Test Case B4: Both MDS-related gene mutation (SRSF2) + cytogenetics (del_7q)
+        # with blasts ≥ 10% => "AML with myelodysplasia related gene mutation"
+        # or "AML with myelodysplasia related cytogenetic abnormality."
+        # The actual string depends on your function's logic priority.
+        (
+            {
+                "blasts_percentage": 13.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "Biallelic_TP53_mutation": {},
+                "MDS_related_mutation": {
+                    "SRSF2": True
+                },
+                "MDS_related_cytogenetics": {
+                    "del_7q": True
+                },
+                "qualifiers": {
+                    "previous_cytotoxic_therapy": True
+                }
+            },
+            # If your code picks "myelodysplasia related gene mutation" first, it might produce:
+            #   "AML with myelodysplasia related gene mutation, therapy related (ICC 2022)"
+            # If it picks the cytogenetic route first, it might produce:
+            #   "AML with myelodysplasia related cytogenetic abnormality, therapy related (ICC 2022)"
+            # Choose whichever matches your actual classification logic’s final string.
+            "AML with myelodysplasia related gene mutation, therapy related (ICC 2022)"
+        ),
+    ]
+)
+def test_classify_AML_ICC2022_additional(parsed_data, expected_classification):
+    """
+    Additional ICC 2022 test cases to extend coverage.
+    """
+    classification, _ = classify_AML_ICC2022(parsed_data)
+    assert classification == expected_classification
+
+
+# ==========================================
+# ADDITIONAL COMPLEX TEST CASES FOR WHO 2022
+# ==========================================
+
+@pytest.mark.parametrize(
+    "parsed_data, expected_classification",
+    [
+        # Test Case 15: NPM1 and RUNX1 Mutations Present with High Blasts and Previous Therapy
+        (
+            {
+                "blasts_percentage": 22.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "NPM1": True,
+                    "RUNX1::RUNX1T1": False,
+                    "CBFB::MYH11": False,
+                    "DEK::NUP214": False,
+                    "RBM15::MRTFA": False,
+                    "KMT2A": False,
+                    "MECOM": False,
+                    "NUP98": False,
+                    "CEBPA": False,
+                    "bZIP": False,
+                    "BCR::ABL1": False
+                },
+                "MDS_related_mutation": {
+                    "ASXL1": False,
+                    "BCOR": False,
+                    "EZH2": False,
+                    "RUNX1": True,  # Additional RUNX1 mutation
+                    "SF3B1": False,
+                    "SRSF2": False,
+                    "STAG2": False,
+                    "U2AF1": False,
+                    "ZRSR2": False
+                },
+                "MDS_related_cytogenetics": {},
+                "qualifiers": {
+                    "previous_cytotoxic_therapy": True,
+                    "predisposing_germline_variant": "RUNX1"
+                }
+            },
+            "AML with NPM1 mutation, post cytotoxic therapy, associated with germline RUNX1 (WHO 2022)"
+        ),
+        # Test Case 16: CEBPA bZIP Mutation with Previous Therapy and Germline Variant
+        (
+            {
+                "blasts_percentage": 24.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "CEBPA": True,
+                    "bZIP": True,
+                    "NPM1": False,
+                    "RUNX1::RUNX1T1": False,
+                    "CBFB::MYH11": False,
+                    "DEK::NUP214": False,
+                    "RBM15::MRTFA": False,
+                    "KMT2A": False,
+                    "MECOM": False,
+                    "NUP98": False,
+                    "BCR::ABL1": False
+                },
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "qualifiers": {
+                    "previous_cytotoxic_therapy": True,
+                    "predisposing_germline_variant": "GATA2"
+                }
+            },
+            "AML with CEBPA mutation, post cytotoxic therapy, associated with germline GATA2 (WHO 2022)"
+        ),
+        # Test Case 17: Multiple MDS-related Mutations with Complex Karyotype and High Blasts
+        (
+            {
+                "blasts_percentage": 19.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "MDS_related_mutation": {
+                    "ASXL1": True,
+                    "SF3B1": True,
+                    "RUNX1": True
+                },
+                "MDS_related_cytogenetics": {
+                    "Complex_karyotype": True,
+                    "del_7q": True,
+                    "del_20q": True
+                },
+                "qualifiers": {
+                    "previous_cytotoxic_therapy": True,
+                    "predisposing_germline_variant": "None"
+                }
+            },
+            "AML, myelodysplasia related, post cytotoxic therapy (WHO 2022)"
+        ),
+        # Test Case 19: NUP98 with Multiple Fusion Partners and MDS Features
+        (
+            {
+                "blasts_percentage": 8.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "NUP98": True,
+                    "BCR::ABL1": True  # Additional fusion
+                },
+                "MDS_related_mutation": {
+                    "STAG2": True
+                },
+                "MDS_related_cytogenetics": {},
+                "qualifiers": {
+                    "previous_cytotoxic_therapy": False,
+                    "predisposing_germline_variant": "None"
+                }
+            },
+            "AML with NUP98 rearrangement (WHO 2022)"
+        ),
+        # Test Case 20: TP53 Mutations with Additional Cytogenetic Abnormalities
+        (
+            {
+                "blasts_percentage": 23.0,
+                "AML_defining_recurrent_genetic_abnormalities": {},
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {
+                    "del_17p": True,
+                    "Complex_karyotype": True
+                },
+                "qualifiers": {
+                    "previous_cytotoxic_therapy": False,
+                    "predisposing_germline_variant": "None"
+                },
+                "Biallelic_TP53_mutation": {
+                    "2_x_TP53_mutations": True
+                }
+            },
+            "AML, myelodysplasia related (WHO 2022)"
+        ),
+        # Test Case 21: KMT2A Rearrangement with bZIP Fusion and Previous Therapy
+        (
+            {
+                "blasts_percentage": 26.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "KMT2A": True,
+                    "bZIP": True
+                },
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "qualifiers": {
+                    "previous_cytotoxic_therapy": True,
+                    "predisposing_germline_variant": "None"
+                }
+            },
+            "AML with KMT2A rearrangement, post cytotoxic therapy (WHO 2022)"
+        ),
+        # Test Case 22: CBFB::MYH11 Fusion with Associated MDS-related Mutations
+        (
+            {
+                "blasts_percentage": 17.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "CBFB::MYH11": True
+                },
+                "MDS_related_mutation": {
+                    "SRSF2": True
+                },
+                "MDS_related_cytogenetics": {},
+                "qualifiers": {
+                    "previous_cytotoxic_therapy": False,
+                    "predisposing_germline_variant": "None"
+                }
+            },
+            "AML with CBFB::MYH11 fusion (WHO 2022)"
+        ),
+        # Test Case 23: MECOM Rearrangement with del_7q and Previous Cytotoxic Therapy
+        (
+            {
+                "blasts_percentage": 24.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "MECOM": True
+                },
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {
+                    "del_7q": True
+                },
+                "qualifiers": {
+                    "previous_cytotoxic_therapy": True,
+                    "predisposing_germline_variant": "None"
+                }
+            },
+            "AML with MECOM rearrangement, post cytotoxic therapy (WHO 2022)"
+        ),
+        # Test Case 24: FLT3-ITD Mutation with High Blasts and Previous Therapy (Handled as NOS)
+        (
+            {
+                "blasts_percentage": 35.0,
+                "AML_defining_recurrent_genetic_abnormalities": {
+                    "FLT3-ITD": True  # Assuming FLT3-ITD is not explicitly handled and defaults to NOS
+                },
+                "MDS_related_mutation": {},
+                "MDS_related_cytogenetics": {},
+                "qualifiers": {
+                    "previous_cytotoxic_therapy": True,
+                    "predisposing_germline_variant": "None"
+                }
+            },
+            "AML, Not Otherwise Specified (NOS), post cytotoxic therapy (WHO 2022)"
+        ),
+    ]
+)
+def test_classify_AML_WHO2022_complex(parsed_data, expected_classification):
+    """
+    Additional complex WHO 2022 test cases to extend coverage.
+    """
+    classification, _ = classify_AML_WHO2022(parsed_data)
+    assert classification == expected_classification

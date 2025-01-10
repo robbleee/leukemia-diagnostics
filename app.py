@@ -514,115 +514,115 @@ def parse_hematology_report(report_text: str) -> dict:
     
     # Construct the prompt with detailed instructions
     prompt = f"""
-    You are a specialized medical AI and a knowledgeable hematologist. The user has pasted a free-text hematological report. 
-    Please extract the following fields from the text and format them into a valid JSON object exactly as specified below. 
-    For boolean fields, use true/false. For numerical fields, provide the value. If a field is not found or unclear, set it to false or a default value.
-    
-    Try to consider if the user may have used some sort of short hand and translate where necessary. If you see 2x before 
-    
-    For example:
-    
-    1. 2_x_TP53_mutations: Extract if the report mentions phrases like "2 TP53 mutations," "biallelic TP53 mutations," or similar.
-    2. 1_x_TP53_mutation_del_17p: Look for terms like "TP53 mutation and 17p deletion" or "TP53 mutation with del(17p)."
-    3. 1_x_TP53_mutation_LOH: Identify phrases such as "TP53 mutation and LOH," "TP53 mutation with Loss of Heterozygosity," or equivalent.
-    
-    For predisposing_germline_variant, leave as "None" if there is none otherwise record the variant specified.
-    
-    **Required JSON structure:**
-    {{
-        "blasts_percentage": null,  # Changed from 0.0 to null
-        "AML_defining_recurrent_genetic_abnormalities": {{
-            "NPM1": false,
-            "RUNX1::RUNX1T1": false,
-            "CBFB::MYH11": false,
-            "DEK::NUP214": false,
-            "RBM15::MRTFA": false,
-            "KMT2A": false,
-            "MECOM": false,
-            "NUP98": false,
-            "CEBPA": false,
-            "bZIP": false,
-            "BCR::ABL1": false
-        }},
-        "Biallelic_TP53_mutation": {{
-            "2_x_TP53_mutations": false,
-            "1_x_TP53_mutation_del_17p": false,
-            "1_x_TP53_mutation_LOH": false
-        }},
-        "MDS_related_mutation": {{
-            "ASXL1": false,
-            "BCOR": false,
-            "EZH2": false,
-            "RUNX1": false,
-            "SF3B1": false,
-            "SRSF2": false,
-            "STAG2": false,
-            "U2AF1": false,
-            "ZRSR2": false
-        }},
-        "MDS_related_cytogenetics": {{
-            "Complex_karyotype": false,
-            "del_5q": false,
-            "t_5q": false,
-            "add_5q": false,
-            "-7": false,
-            "del_7q": false,
-            "+8": false,
-            "del_11q": false,
-            "del_12p": false,
-            "t_12p": false,
-            "add_12p": false,
-            "-13": false,
-            "i_17q": false,
-            "-17": false,
-            "add_17p": false,
-            "del_17p": false,
-            "del_20q": false,
-            "idic_X_q13": false
-        }},
-        "qualifiers": {{
-            "previous_MDS_diagnosed_over_3_months_ago": false,
-            "previous_MDS/MPN_diagnosed_over_3_months_ago": false,
-            "previous_cytotoxic_therapy": false,
-            "predisposing_germline_variant": "None"
+        You are a specialized medical AI and a knowledgeable hematologist. The user has pasted a free-text hematological report. 
+        Please extract the following fields from the text and format them into a valid JSON object exactly as specified below. 
+        For boolean fields, use true/false. For numerical fields, provide the value. If a field is not found or unclear, set it to false or a default value.
+        
+        Try to consider if the user may have used some sort of short hand and translate where necessary. If you see 2x before 
+        
+        For example:
+        
+        1. 2_x_TP53_mutations: Extract if the report mentions phrases like "2 TP53 mutations," "biallelic TP53 mutations," or similar.
+        2. 1_x_TP53_mutation_del_17p: Look for terms like "TP53 mutation and 17p deletion" or "TP53 mutation with del(17p)."
+        3. 1_x_TP53_mutation_LOH: Identify phrases such as "TP53 mutation and LOH," "TP53 mutation with Loss of Heterozygosity," or equivalent.
+        
+        For predisposing_germline_variant, leave as "None" if there is none otherwise record the variant specified.
+        
+        **Required JSON structure:**
+        {{
+            "blasts_percentage": null,  # Changed from 0.0 to null
+            "AML_defining_recurrent_genetic_abnormalities": {{
+                "NPM1": false,
+                "RUNX1::RUNX1T1": false,
+                "CBFB::MYH11": false,
+                "DEK::NUP214": false,
+                "RBM15::MRTFA": false,
+                "KMT2A": false,
+                "MECOM": false,
+                "NUP98": false,
+                "CEBPA": false,
+                "bZIP": false,
+                "BCR::ABL1": false
+            }},
+            "Biallelic_TP53_mutation": {{
+                "2_x_TP53_mutations": false,
+                "1_x_TP53_mutation_del_17p": false,
+                "1_x_TP53_mutation_LOH": false
+            }},
+            "MDS_related_mutation": {{
+                "ASXL1": false,
+                "BCOR": false,
+                "EZH2": false,
+                "RUNX1": false,
+                "SF3B1": false,
+                "SRSF2": false,
+                "STAG2": false,
+                "U2AF1": false,
+                "ZRSR2": false
+            }},
+            "MDS_related_cytogenetics": {{
+                "Complex_karyotype": false,
+                "del_5q": false,
+                "t_5q": false,
+                "add_5q": false,
+                "-7": false,
+                "del_7q": false,
+                "+8": false,
+                "del_11q": false,
+                "del_12p": false,
+                "t_12p": false,
+                "add_12p": false,
+                "-13": false,
+                "i_17q": false,
+                "-17": false,
+                "add_17p": false,
+                "del_17p": false,
+                "del_20q": false,
+                "idic_X_q13": false
+            }},
+            "qualifiers": {{
+                "previous_MDS_diagnosed_over_3_months_ago": false,
+                "previous_MDS/MPN_diagnosed_over_3_months_ago": false,
+                "previous_cytotoxic_therapy": false,
+                "predisposing_germline_variant": "None"
+            }}
         }}
-    }}
 
 
-    Examples of predisposing germline variants:
-        Germline predisposition
-            • Germline CEBPA variant
-            • Germline DDX41 variant
-            • Germline TP53 variant
-        Germline predisposition and pre-existing platelet disorder:
-            • Germline RUNX1
-            • Germline ANKRD26
-            • Germline ETV6 variant
-        Germline predisposition and potential organ dysfunction:
-            • Germline GATA2 variant
-            • Bone marrow failure syndromes
-                ◦ Severe congenital neutropenia (SCN)
-                ◦ Shwachman-Diamond syndrome (SDS)
-                ◦ Fanconi anaemia (FA)
-                ◦ Diamond Blackfan anaemia
-            • Telomere biology disorders including DKC
-            • RASopathies (Neurofibromatosis type 1, CBL syndrome, Noonan syndrome or
-        Noonan syndrome-like disorders):
-            • Down syndrome
-            • Germline SAMD9 variant (MIRAGE Syndrome)
-            • Germline SAMD9L variant (SAMD9L-related Ataxia Pancytopenia Syndrome)
-            • Biallelic germline BLM variant (Bloom syndrome)
+        Examples of predisposing germline variants:
+            Germline predisposition
+                • Germline CEBPA variant
+                • Germline DDX41 variant
+                • Germline TP53 variant
+            Germline predisposition and pre-existing platelet disorder:
+                • Germline RUNX1
+                • Germline ANKRD26
+                • Germline ETV6 variant
+            Germline predisposition and potential organ dysfunction:
+                • Germline GATA2 variant
+                • Bone marrow failure syndromes
+                    ◦ Severe congenital neutropenia (SCN)
+                    ◦ Shwachman-Diamond syndrome (SDS)
+                    ◦ Fanconi anaemia (FA)
+                    ◦ Diamond Blackfan anaemia
+                • Telomere biology disorders including DKC
+                • RASopathies (Neurofibromatosis type 1, CBL syndrome, Noonan syndrome or
+            Noonan syndrome-like disorders):
+                • Down syndrome
+                • Germline SAMD9 variant (MIRAGE Syndrome)
+                • Germline SAMD9L variant (SAMD9L-related Ataxia Pancytopenia Syndrome)
+                • Biallelic germline BLM variant (Bloom syndrome)
 
-    
-    **Instructions:**
-    1. Return **valid JSON only** with no extra text or commentary.
-    2. Ensure all fields are present as specified.
-    3. Use true/false for boolean values.
-    4. If a field is not applicable or not mentioned, set it to false or null as appropriate.
-    5. Do not wrap the JSON in Markdown or any other formatting.
-    
-    **Here is the free-text hematological report to parse:**
-    {report_text}
+        
+        **Instructions:**
+        1. Return **valid JSON only** with no extra text or commentary.
+        2. Ensure all fields are present as specified.
+        3. Use true/false for boolean values.
+        4. If a field is not applicable or not mentioned, set it to false or null as appropriate.
+        5. Do not wrap the JSON in Markdown or any other formatting.
+        
+        **Here is the free-text hematological report to parse:**
+        {report_text}
     """
     
     try:
