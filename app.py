@@ -130,6 +130,9 @@ def build_decision_flowchart(classification: str, decision_points: list) -> str:
     return dot.source
 
 
+##############################
+# CLASSIFY AML WHO 2022
+##############################
 def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     """
     Classifies AML subtypes based on the WHO 2022 criteria, including qualifiers.
@@ -146,13 +149,12 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     """
     derivation = []
 
-    # Retrieve blasts_percentage
     blasts_percentage = parsed_data.get("blasts_percentage")
     derivation.append(f"Retrieved blasts_percentage: {blasts_percentage}")
 
-    # Check if blasts_percentage is present and valid
+    # Validate blasts_percentage
     if blasts_percentage is None:
-        derivation.append("Error: `blasts_percentage` is missing.")
+        derivation.append("Error: `blasts_percentage` is missing. Classification cannot proceed.")
         return (
             "Error: `blasts_percentage` is missing. Please provide this information for classification.",
             derivation,
@@ -168,7 +170,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     derivation.append(f"Initial classification set to: {classification}")
 
     # -----------------------------
-    # STEP 1: AML-Defining Recurrent Genetic Abnormalities
+    # STEP 1: AML-Defining Recurrent Genetic Abnormalities (WHO)
     # -----------------------------
     aml_genetic_abnormalities_map = {
         "NPM1": "AML with NPM1 mutation",
@@ -179,66 +181,67 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         "KMT2A": "AML with KMT2A rearrangement",
         "MECOM": "AML with MECOM rearrangement",
         "NUP98": "AML with NUP98 rearrangement",
-        "CEBPA": "AML with CEBPA mutation",
-        "bZIP": "AML with CEBPA mutation",
-        "BCR::ABL1": "AML with BCR::ABL1 fusion"
+        "CEBPA": "AML with CEBPA mutation",  # Needs blasts >= 20%
+        "bZIP": "AML with CEBPA mutation",   # Needs blasts >= 20%
+        "BCR::ABL1": "AML with BCR::ABL1 fusion"  # Needs blasts >= 20%
     }
 
     aml_def_genetic = parsed_data.get("AML_defining_recurrent_genetic_abnormalities", {})
-    # Identify which abnormalities are actually true
     true_aml_genes = [gene for gene, val in aml_def_genetic.items() if val is True]
 
-    if true_aml_genes:
-        derivation.append(f"Detected AML-defining abnormalities: {', '.join(true_aml_genes)}")
-    
-    # Attempt classification if any are present
-    for gene, classif in aml_genetic_abnormalities_map.items():
-        if gene in ["CEBPA", "bZIP", "BCR::ABL1"]:
-            if aml_def_genetic.get(gene, False) and blasts_percentage >= 20.0:
-                classification = classif
-                derivation.append(
-                    f"Classification updated based on {gene} abnormality (blasts >=20%). => {classification}"
-                )
-                break
-        else:
-            if aml_def_genetic.get(gene, False):
-                classification = classif
-                derivation.append(
-                    f"Classification updated based on {gene} abnormality. => {classification}"
-                )
-                break
+    if not true_aml_genes:
+        derivation.append("All AML-defining recurrent genetic abnormality flags are false.")
+    else:
+        # Attempt classification based on AML-defining genetic abnormalities
+        derivation.append(f"Detected AML-defining abnormality flags: {', '.join(true_aml_genes)}")
+        updated = False
+        for gene, classif in aml_genetic_abnormalities_map.items():
+            if gene in ["CEBPA", "bZIP", "BCR::ABL1"]:
+                # For these, require blasts >= 20%
+                if aml_def_genetic.get(gene, False) and blasts_percentage >= 20.0:
+                    classification = classif
+                    derivation.append(
+                        f"{gene} abnormality meets blasts >=20%. Classification => {classification}"
+                    )
+                    updated = True
+                    break
+            else:
+                if aml_def_genetic.get(gene, False):
+                    classification = classif
+                    derivation.append(
+                        f"{gene} abnormality detected. Classification => {classification}"
+                    )
+                    updated = True
+                    break
+
+        if not updated:
+            derivation.append("No WHO AML-defining abnormality met final requirements (e.g. blasts threshold).")
 
     # -----------------------------
     # STEP 2: MDS-Related Mutations
     # -----------------------------
     if classification == "Acute myeloid leukaemia, [define by differentiation]":
         mds_related_mutations = parsed_data.get("MDS_related_mutation", {})
-        # Identify which are true
         true_mds_mutations = [gene for gene, val in mds_related_mutations.items() if val is True]
-
         if true_mds_mutations:
             classification = "AML, myelodysplasia related"
-            derivation.append(
-                f"Detected MDS-related mutation(s): {', '.join(true_mds_mutations)} => {classification}"
-            )
+            derivation.append(f"MDS-related mutation(s): {', '.join(true_mds_mutations)} => {classification}")
         else:
-            derivation.append("No MDS-related mutations triggered reclassification.")
+            derivation.append("All MDS-related mutation flags are false.")
 
     # -----------------------------
     # STEP 3: MDS-Related Cytogenetics
     # -----------------------------
     if classification == "Acute myeloid leukaemia, [define by differentiation]":
         mds_related_cytogenetics = parsed_data.get("MDS_related_cytogenetics", {})
-        # Identify which are true
         true_mds_cytos = [abn for abn, val in mds_related_cytogenetics.items() if val is True]
-
         if true_mds_cytos:
             classification = "AML, myelodysplasia related"
             derivation.append(
-                f"Detected MDS-related cytogenetic abnormality(ies): {', '.join(true_mds_cytos)} => {classification}"
+                f"MDS-related cytogenetic abnormality(ies): {', '.join(true_mds_cytos)} => {classification}"
             )
         else:
-            derivation.append("No MDS-related cytogenetic abnormalities triggered reclassification.")
+            derivation.append("All MDS-related cytogenetic flags are false.")
 
     # -----------------------------
     # STEP 4: Add Qualifiers
@@ -248,23 +251,26 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     
     if qualifiers.get("previous_cytotoxic_therapy", False):
         qualifier_descriptions.append("post cytotoxic therapy")
-        derivation.append("Qualifier detected: post cytotoxic therapy")
+        derivation.append("Detected qualifier: post cytotoxic therapy")
 
     germline_variant = qualifiers.get("predisposing_germline_variant", "None")
     if germline_variant and germline_variant.lower() != "none":
         qualifier_descriptions.append(f"associated with germline {germline_variant}")
-        derivation.append(f"Qualifier detected: germline variant = {germline_variant}")
+        derivation.append(f"Detected qualifier: germline variant = {germline_variant}")
 
     if qualifier_descriptions:
         classification += f", {', '.join(qualifier_descriptions)}"
-        derivation.append(f"Appended qualifiers: {', '.join(qualifier_descriptions)} => {classification}")
+        derivation.append(f"Qualifiers appended => {classification}")
 
     # -----------------------------
     # STEP 5: Replace "[define by differentiation]" if needed
     # -----------------------------
     if classification.strip() == "Acute myeloid leukaemia, [define by differentiation]":
         aml_diff = parsed_data.get("AML_differentiation")
-        derivation.append(f"Checking AML_differentiation: {aml_diff}")
+        if aml_diff:
+            derivation.append(f"AML_differentiation provided: {aml_diff}")
+        else:
+            derivation.append("No AML_differentiation provided.")
 
         FAB_TO_WHO_MAPPING = {
             "M0": "Acute myeloid leukaemia with minimal differentiation",
@@ -282,19 +288,22 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
 
         if aml_diff and aml_diff in FAB_TO_WHO_MAPPING:
             classification = FAB_TO_WHO_MAPPING[aml_diff]
-            derivation.append(f"Classification replaced by FAB to WHO mapping => {classification}")
+            derivation.append(f"Classification updated using FAB-to-WHO mapping => {classification}")
         else:
             classification = "Acute myeloid leukaemia, unknown differentiation"
-            derivation.append("Invalid or missing AML_differentiation => 'unknown differentiation'")
+            derivation.append("AML_differentiation is invalid or missing => 'unknown differentiation'.")
 
     # Append "(WHO 2022)" if not already present
     if "(WHO 2022)" not in classification:
         classification += " (WHO 2022)"
-        derivation.append(f"Appended '(WHO 2022)' => {classification}")
+        derivation.append(f"Final classification => {classification}")
 
     return classification, derivation
 
 
+##############################
+# CLASSIFY AML ICC 2022
+##############################
 def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     """
     Classifies AML subtypes based on the ICC 2022 criteria, including qualifiers.
@@ -309,13 +318,12 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     """
     derivation = []
 
-    # Retrieve blasts_percentage
     blasts_percentage = parsed_data.get("blasts_percentage")
     derivation.append(f"Retrieved blasts_percentage: {blasts_percentage}")
 
-    # Check if blasts_percentage is present and valid
+    # Validate blasts_percentage
     if blasts_percentage is None:
-        derivation.append("Error: `blasts_percentage` is missing.")
+        derivation.append("Error: `blasts_percentage` is missing. Classification cannot proceed.")
         return (
             "Error: `blasts_percentage` is missing. Please provide this information for classification.",
             derivation,
@@ -330,7 +338,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     classification = "AML, NOS"
     derivation.append(f"Initial classification set to: {classification}")
 
-    # Retrieve necessary fields
+    # Gather fields relevant to ICC classification
     aml_def_genetic = parsed_data.get("AML_defining_recurrent_genetic_abnormalities", {})
     biallelic_tp53 = parsed_data.get("Biallelic_TP53_mutation", {})
     mds_related_mutations = parsed_data.get("MDS_related_mutation", {})
@@ -338,7 +346,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     qualifiers = parsed_data.get("qualifiers", {})
 
     # -----------------------------
-    # STEP 1: AML-defining Recurrent Genetic Abnormalities
+    # STEP 1: AML-defining Recurrent Genetic Abnormalities (ICC)
     # -----------------------------
     aml_genetic_abnormalities_map = {
         "NPM1": "AML with mutated NPM1",
@@ -353,39 +361,26 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         "BCR::ABL1": "AML with t(9;22)(q34.1;q11.2)/BCR::ABL1"
     }
 
-    # Identify which AML-defining genes are actually true
     true_aml_genes = [gene for gene, val in aml_def_genetic.items() if val is True]
-    if true_aml_genes:
-        derivation.append(f"Detected AML-defining abnormalities: {', '.join(true_aml_genes)}")
-
-    # Attempt classification based on these genes
-    for gene, classif in aml_genetic_abnormalities_map.items():
-        if aml_def_genetic.get(gene, False):
-            # Genes that require blasts >= 10%
-            if gene in [
-                "NPM1", "RUNX1::RUNX1T1", "CBFB::MYH11",
-                "DEK::NUP214", "RBM15::MRTFA", "KMT2A",
-                "MECOM", "NUP98", "bZIP", "BCR::ABL1"
-            ]:
+    if not true_aml_genes:
+        derivation.append("All ICC AML-defining genetic abnormality flags are false.")
+    else:
+        derivation.append(f"Detected ICC AML-defining flags: {', '.join(true_aml_genes)}")
+        updated = False
+        for gene, classif in aml_genetic_abnormalities_map.items():
+            if aml_def_genetic.get(gene, False):
                 if blasts_percentage >= 10.0:
                     classification = classif
-                    derivation.append(f"Classification updated based on {gene} (blasts >=10%) => {classification}")
+                    derivation.append(f"{gene} abnormality meets blasts >=10%. Classification => {classification}")
+                    updated = True
                     break
-                else:
-                    derivation.append(
-                        f"{gene} abnormality found, but blasts <10%. Classification remains: {classification}"
-                    )
-            else:
-                # If any other scenario (not typically the case, but kept for completeness)
-                classification = classif
-                derivation.append(f"Classification updated based on {gene} => {classification}")
-                break
+        if not updated:
+            derivation.append("No ICC AML-defining abnormality met the blasts >=10% criterion.")
 
     # -----------------------------
     # STEP 2: Biallelic TP53
     # -----------------------------
     if classification == "AML, NOS":
-        # If any of these are True => AML with mutated TP53
         conditions = [
             biallelic_tp53.get("2_x_TP53_mutations", False),
             biallelic_tp53.get("1_x_TP53_mutation_del_17p", False),
@@ -393,23 +388,28 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         ]
         if any(conditions):
             classification = "AML with mutated TP53"
-            derivation.append(f"Biallelic TP53 mutation detected => {classification}")
+            derivation.append("Biallelic TP53 mutation condition met => AML with mutated TP53")
+        else:
+            derivation.append("All biallelic TP53 mutation flags are false.")
 
     # -----------------------------
     # STEP 3: MDS-related Mutations
     # -----------------------------
     if classification == "AML, NOS":
         true_mds_mutations = [gene for gene, val in mds_related_mutations.items() if val is True]
-
         if true_mds_mutations:
             classification = "AML with myelodysplasia related gene mutation"
-            derivation.append(f"MDS-related mutation(s): {', '.join(true_mds_mutations)} => {classification}")
+            derivation.append(
+                f"MDS-related mutation(s): {', '.join(true_mds_mutations)} => {classification}"
+            )
+        else:
+            derivation.append("All MDS-related gene mutation flags are false.")
 
     # -----------------------------
     # STEP 4: MDS-related Cytogenetics
     # -----------------------------
     if classification == "AML, NOS":
-        # Combine MRD and NOS cytogenetics
+        # Define relevant cytogenetic abnormalities for ICC
         mrd_cytogenetics = [
             "Complex_karyotype", "del_5q", "t_5q", "add_5q", "-7", "del_7q",
             "del_12p", "t_12p", "add_12p", "i_17q", "idic_X_q13"
@@ -420,14 +420,17 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         ]
         all_cytogenetics = mrd_cytogenetics + nos_cytogenetics
 
-        # Identify which ones are actually true
-        true_cytogenetics = [abn for abn, val in mds_related_cytogenetics.items() if val is True and abn in all_cytogenetics]
-
+        true_cytogenetics = [
+            abn for abn, val in mds_related_cytogenetics.items()
+            if val is True and abn in all_cytogenetics
+        ]
         if true_cytogenetics:
             classification = "AML with myelodysplasia related cytogenetic abnormality"
             derivation.append(
-                f"Detected cytogenetic abnormality(ies): {', '.join(true_cytogenetics)} => {classification}"
+                f"MDS-related cytogenetic abnormality(ies): {', '.join(true_cytogenetics)} => {classification}"
             )
+        else:
+            derivation.append("All MDS-related cytogenetic flags are false.")
 
     # -----------------------------
     # STEP 5: Qualifiers
@@ -436,22 +439,23 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
 
     if qualifiers.get("previous_MDS_diagnosed_over_3_months_ago", False):
         qualifier_descriptions.append("post MDS")
-        derivation.append("Qualifier detected: post MDS")
+        derivation.append("Detected qualifier: post MDS")
 
     if qualifiers.get("previous_MDS/MPN_diagnosed_over_3_months_ago", False):
         qualifier_descriptions.append("post MDS/MPN")
-        derivation.append("Qualifier detected: post MDS/MPN")
+        derivation.append("Detected qualifier: post MDS/MPN")
 
     if qualifiers.get("previous_cytotoxic_therapy", False):
         qualifier_descriptions.append("therapy related")
-        derivation.append("Qualifier detected: therapy related")
+        derivation.append("Detected qualifier: therapy related")
 
     if qualifier_descriptions:
         qualifiers_str = ", ".join(qualifier_descriptions)
         classification += f", {qualifiers_str} (ICC 2022)"
-        derivation.append(f"Appended qualifiers => {classification}")
+        derivation.append(f"Qualifiers appended => {classification}")
     else:
         classification += " (ICC 2022)"
+        derivation.append(f"Final classification => {classification}")
 
     return classification, derivation
 
@@ -967,17 +971,22 @@ def show_explanation():
 def app_main():
     st.title("Acute Myeloid Leukemia (AML) Classification Tool")
 
-    # ---------------------------
-    # FREE-TEXT REPORT PARSER (Visible Only to Authenticated Users)
-    # ---------------------------
     if st.session_state.get("authenticated", False):
         st.markdown("""
-        Enter the **full** hematological and cytogenetics reports in the text boxes below. The AI will extract key fields, and classification will proceed based on the extracted data.
+        Enter the **full** hematological and cytogenetics reports in the text boxes below. 
+        The AI will extract key fields, and classification will proceed based on the extracted data.
         """)
 
-        # **Split Input Section into Two Text Boxes**
+        # 1) Manual Input for Myeloid Blast Percentage
+        blast_input = st.text_input(
+            label="Myeloid Blasts Percentage", 
+            placeholder="e.g. 25",  # or any hint text you prefer
+            help="Enter the myeloid blasts percentage. This overrides any value extracted from the reports."
+        )
+
+        # 2) Two Text Areas for the Reports
         hematology_report = st.text_area(
-            "Hematology Report:", 
+            "Genetics Report:", 
             height=200, 
             help="Paste the complete hematology report from laboratory results."
         )
@@ -988,50 +997,53 @@ def app_main():
             help="Paste the complete cytogenetics report from laboratory results."
         )
 
+        # 3) Button to Parse & Classify
         if st.button("Parse & Classify from Free-Text"):
-            # **Concatenate the Two Reports**
             combined_report = f"{hematology_report}\n\n{cytogenetics_report}"
 
             if combined_report.strip():
                 with st.spinner("Extracting data and classifying..."):
-                    # 1) Parse the report with GPT (or your chosen parser)
+                    # Parse the report with GPT or your chosen parser
                     parsed_fields = parse_hematology_report(combined_report)
+
+                    # If the user supplied a blasts percentage, override it
+                    if blast_input.strip():
+                        try:
+                            blasts_value = float(blast_input.strip())
+                            parsed_fields["blasts_percentage"] = blasts_value
+                            st.info(f"Using manually entered blasts_percentage = {blasts_value}")
+                        except ValueError:
+                            st.warning("Invalid number entered for blasts percentage. Using parsed value if available.")
 
                     if not parsed_fields:
                         st.warning("No data extracted or an error occurred during parsing.")
                     else:
-                        # 2) Use the classification functions
-                        # Make sure these functions return (classification, derivation)
+                        # 4) Classify using WHO 2022 and ICC 2022
                         classification_who, who_derivation = classify_AML_WHO2022(parsed_fields)
                         classification_icc, icc_derivation = classify_AML_ICC2022(parsed_fields)
 
-                        # 3) Check for error classifications
+                        # 5) Check for error messages
                         if classification_who.startswith("Error:"):
                             st.error(classification_who)
                         else:
-                            # Proceed with displaying classifications
-                            st.success("Report parsed successfully! Attempting classification...")
+                            # --- Show the extracted JSON data (Collapsed by Default) ---
+                            with st.expander("### **View Extracted Values**", expanded=False):
+                                st.json(parsed_fields)
 
-                            # --- Show the extracted JSON data ---
-                            st.markdown("### **Extracted Values (JSON)**")
-                            st.json(parsed_fields)
-
-                            # 4) Log the parsed data and classification results to stdout (optional)
+                            # Log to stdout (optional)
                             print("Parsed Hematology Report JSON:")
                             print(json.dumps(parsed_fields, indent=2))
                             print("WHO 2022 Classification Result:", classification_who)
                             print("ICC 2022 Classification Result:", classification_icc)
 
-                            # 5) Display Classification Results
+                            # 6) Display Classifications
                             st.markdown("""
                             <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
                                 <h3 style='color: #0f5132;'>Classification Results</h3>
                             </div>
                             """, unsafe_allow_html=True)
 
-                            # Create two columns horizontally
                             col1, col2 = st.columns(2)
-
                             with col1:
                                 st.markdown("### **WHO 2022 Classification**")
                                 st.markdown(f"**Classification:** {classification_who}")
@@ -1040,41 +1052,35 @@ def app_main():
                                 st.markdown("### **ICC 2022 Classification**")
                                 st.markdown(f"**Classification:** {classification_icc}")
 
-                            # 6) Show derivations for both WHO and ICC
-                            st.markdown("### **Derivation (Step-by-step Logic)**")
-                            with st.expander("🔍 WHO 2022 Derivation"):
-                                # Convert derivation list to numbered Markdown list
-                                who_derivation_markdown = ""
-                                for idx, step in enumerate(who_derivation, start=1):
-                                    who_derivation_markdown += f"**Step {idx}:** {step}\n\n"
-                                st.markdown(who_derivation_markdown)
+                            # 7) Show derivations side-by-side
+                            col_who, col_icc = st.columns(2)
+                            with col_who:
+                                with st.expander("🔍 WHO 2022 Derivation", expanded=False):
+                                    who_derivation_markdown = "\n\n".join(
+                                        [f"**Step {idx}:** {step}"
+                                         for idx, step in enumerate(who_derivation, start=1)]
+                                    )
+                                    st.markdown(who_derivation_markdown)
 
-                            with st.expander("🔍 ICC 2022 Derivation"):
-                                # Convert derivation list to numbered Markdown list
-                                icc_derivation_markdown = ""
-                                for idx, step in enumerate(icc_derivation, start=1):
-                                    icc_derivation_markdown += f"**Step {idx}:** {step}\n\n"
-                                st.markdown(icc_derivation_markdown)
+                            with col_icc:
+                                with st.expander("🔍 ICC 2022 Derivation", expanded=False):
+                                    icc_derivation_markdown = "\n\n".join(
+                                        [f"**Step {idx}:** {step}"
+                                         for idx, step in enumerate(icc_derivation, start=1)]
+                                    )
+                                    st.markdown(icc_derivation_markdown)
 
-                            # 7) AI Review and Clinical Next Steps (Optional)
-                            st.markdown("### **AI Review & Clinical Next Steps**")
+                            # 8) AI Review & Clinical Next Steps (Optional)
                             if st.session_state.get('authenticated', False):
                                 with st.spinner("Generating AI review and clinical next steps..."):
-                                    # Combine WHO and ICC classification results into a single review
                                     combined_classifications = {
-                                        "WHO 2022": {
-                                            "Classification": classification_who
-                                        },
-                                        "ICC 2022": {
-                                            "Classification": classification_icc
-                                        }
+                                        "WHO 2022": {"Classification": classification_who},
+                                        "ICC 2022": {"Classification": classification_icc}
                                     }
-                                    # Generate a single AI review based on the combined classifications
                                     gpt4_review_result = get_gpt4_review(
                                         classification=combined_classifications,
                                         user_inputs=parsed_fields
                                     )
-                                # Display the AI review
                                 st.info(gpt4_review_result)
                             else:
                                 st.info("🔒 **Log in** to receive an AI-generated review and clinical recommendations.")
@@ -1090,7 +1096,6 @@ def app_main():
             else:
                 st.error("Please provide at least one of the hematology or cytogenetics reports.")
     else:
-        # User not authenticated, show a message or keep it hidden
         st.info("🔒 **Log in** to use the free-text hematological report parsing.")
 
     st.markdown("---")
@@ -1101,6 +1106,7 @@ def app_main():
 ##############################
 def main():
     app_main()
+
 
 if __name__ == "__main__":
     main()
