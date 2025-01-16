@@ -2,9 +2,6 @@ import streamlit as st
 import bcrypt
 import json
 from openai import OpenAI
-import uuid
-import time
-from streamlit_cookies_manager import EncryptedCookieManager
 
 # Example imports for your parsers/classifiers/reviewers
 from parsers.aml_parser import parse_genetics_report_aml
@@ -16,28 +13,11 @@ from classifiers.mds_classifier import classify_MDS_WHO2022, classify_MDS_ICC202
 from reviewers.aml_reviewer import get_gpt4_review_aml
 from reviewers.mds_reviewer import get_gpt4_review_mds
 
+
 ##############################
 # PAGE CONFIG
 ##############################
 st.set_page_config(page_title="Haematologic Classification", layout="wide")
-
-
-##############################
-# INITIALISE COOKIES
-##############################
-# Pull it as a string from st.secrets
-password_str = st.secrets["general"]["cookie_password"]  # This is a plain string
-
-# Pass the string directly to EncryptedCookieManager
-cookies = EncryptedCookieManager(
-    prefix="my_app_",
-    password=password_str  # DO NOT encode it here
-)
-
-# This must be called after you define cookies but before using them
-if not cookies.ready():
-    st.stop()
-
 
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
@@ -56,56 +36,12 @@ def authenticate_user(username: str, password: str) -> bool:
             return verify_password(user["hashed_password"], password)
     return False
 
-def login_user(username: str):
-    """
-    Logs in a user by generating a random session ID 
-    and saving it into the encrypted cookie and st.session_state.
-    """
-    session_id = str(uuid.uuid4())
-    cookies["session_id"] = session_id
-    cookies["username"] = username
-
-    st.session_state['authenticated'] = True
-    st.session_state['username'] = username
-
-def logout_user():
-    """
-    Logs out the current user by removing the session cookie and 
-    clearing session_state.
-    """
-    if "session_id" in cookies:
-        del cookies["session_id"]
-    if "username" in cookies:
-        del cookies["username"]
-
-    st.session_state['authenticated'] = False
-    st.session_state['username'] = ''
-
-def is_user_logged_in() -> bool:
-    """
-    Checks if a valid session exists in the cookies. 
-    If found, sets session_state accordingly and returns True.
-    Otherwise, returns False.
-    """
-    session_id = cookies.get("session_id")
-    username = cookies.get("username")
-    if session_id and username:
-        # Optionally validate session_id server-side if you wish
-        st.session_state['authenticated'] = True
-        st.session_state['username'] = username
-        return True
-    return False
-
 def login_logout():
-    """
-    Main function to handle login/logout in your sidebar (or anywhere).
-    Checks if a session cookie is set. If so, display a logout button;
-    otherwise display a login form.
-    """
-    if is_user_logged_in():
+    if st.session_state['authenticated']:
         st.sidebar.markdown(f"### Logged in as **{st.session_state['username']}**")
         if st.sidebar.button("Logout"):
-            logout_user()
+            st.session_state['authenticated'] = False
+            st.session_state['username'] = ''
             st.sidebar.success("Logged out successfully!")
     else:
         st.sidebar.header("Login for AI Features")
@@ -113,11 +49,11 @@ def login_logout():
         password = st.sidebar.text_input("Password", type="password")
         if st.sidebar.button("Login"):
             if authenticate_user(username, password):
-                login_user(username)
+                st.session_state['authenticated'] = True
+                st.session_state['username'] = username
                 st.sidebar.success("Logged in successfully!")
             else:
                 st.sidebar.error("Invalid username or password")
-
 
 login_logout()
 
@@ -664,7 +600,7 @@ def display_mds_classification_results(parsed_fields, classification_who, deriva
 # AML RESPONSE SECTION
 ##############################
 def app_aml_response_assessment():
-    st.subheader("AML Response Assessment (ELN 2022)")
+    st.subheader("AML Response Assessment")
 
     response_mode = st.radio("Input Mode:", ["Manual", "AI"], horizontal=True)
 
