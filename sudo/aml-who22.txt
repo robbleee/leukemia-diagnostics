@@ -66,4 +66,3 @@ qualifiers (true/false):
 
     Predisposing germline variant?
     [already derived classification], associated with germline [insert predisposition] (WHO 2022)
-

@@ -1,0 +1,38 @@
+
+---------- who ----------
+
+if any of these Biallelic TP53 mutation (true):
+    2 x TP53 mutations  -> MDS with mutated TP53 (ICC 2022)
+    1 x TP53 mutation + del(17p) -> MDS with mutated TP53 (ICC 2022)
+    1 x TP53 mutation + LOH -> MDS with mutated TP53 (ICC 2022)
+
+TBC: does fibrotic take precidence?
+else if blasts percentage:
+    5-9% -> MDS with excess blasts (ICC 2022)
+    10-19% -> MDS/AML (ICC 2022)
+
+
+else if any of these MDS-related mutations are true:
+    SF3B1 -> MDS with mutated SF3B1 (ICC 2022)
+
+
+else if MDS-related cytogenetics (true):
+    del(5q) -> MDS with del(5q) (ICC 2022)
+
+
+TBC: what is a dysplastic lineage?
+else if Number of dysplastic lineages:
+    =1 : MDS, NOS with single lineage dysplasia (ICC 2022)
+    >1 : MDS, NOS with multilineage dysplasia (ICC 2022)
+
+else if (monosomy 7) OR (complex karyotype)
+    MDS, NOS without dysplasia (ICC 2022)
+
+qualifiers (true/false):
+    Previous cytotoxic therapy?
+    [already derived classification], post cytotoxic therapy (WHO 2022)
+
+
+    Predisposing germline variant?
+    [already derived classification], associated with germline [insert predisposition] (WHO 2022)
+
