@@ -5,8 +5,10 @@ from openai import OpenAI
 
 # Example imports for your parsers/classifiers/reviewers
 from parsers.aml_parser import parse_genetics_report_aml
+from parsers.aml_response_parser import parse_aml_response_report
 from parsers.mds_parser import parse_genetics_report_mds
 from classifiers.aml_classifier import classify_AML_WHO2022, classify_AML_ICC2022
+from classifiers.aml_response_classifier import classify_AML_Response_ELN2022
 from classifiers.mds_classifier import classify_MDS_WHO2022, classify_MDS_ICC2022
 from reviewers.aml_reviewer import get_gpt4_review_aml
 from reviewers.mds_reviewer import get_gpt4_review_mds
@@ -295,6 +297,46 @@ def build_manual_mds_data() -> dict:
 
 
 ##############################
+# HELPER: Build Manual AML RESPONSE DATA
+##############################
+def build_manual_aml_response_data() -> dict:
+    """
+    Builds a dictionary with all fields needed for classify_AML_Response_ELN2022 in a compact form.
+    """
+    st.markdown("### Manual AML Response Assessment (ELN 2022)")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        adequate_sample = st.checkbox("Adequate sample available?")
+        bone_marrow_blasts = st.number_input("Bone Marrow Blasts (%)", min_value=0.0, max_value=100.0, value=0.0)
+        blood_counts_provided = st.checkbox("Are blood counts provided?")
+    with col2:
+        platelets = st.number_input("Platelet count (x10^9/L)", min_value=0.0, value=0.0)
+        neutrophils = st.number_input("Neutrophil count (x10^9/L)", min_value=0.0, value=0.0)
+
+    st.markdown("#### Additional Response-Related Fields")
+    col3, col4 = st.columns(2)
+    with col3:
+        previously_cr = st.checkbox("Previously achieved CR/CRh/CRi?")
+        blasts_decrease_50 = st.checkbox("Blasts decreased by >= 50%?")
+    with col4:
+        tnc_5_25 = st.checkbox("Total nucleated cells (TNC) 5-25 x10^9/L?")
+
+    # Convert booleans to your dictionary structure
+    manual_response_data = {
+        "AdequateSample": adequate_sample,
+        "BoneMarrowBlasts": bone_marrow_blasts,
+        "BloodCountsProvided": blood_counts_provided,
+        "Platelets": platelets,
+        "Neutrophils": neutrophils,
+        "PreviouslyAchievedCR_CRh_Cri": previously_cr,
+        "BlastsDecreaseBy50Percent": blasts_decrease_50,
+        "TNCBetween5And25": tnc_5_25
+    }
+    return manual_response_data
+
+
+##############################
 # AML SECTION
 ##############################
 def app_aml_section():
@@ -555,26 +597,94 @@ def display_mds_classification_results(parsed_fields, classification_who, deriva
 
 
 ##############################
-# APP MAIN
+# AML RESPONSE SECTION
 ##############################
+def app_aml_response_assessment():
+    st.subheader("AML Response Assessment (ELN 2022)")
+
+    response_mode = st.radio("AML Response Mode:", ["Manual", "AI"], horizontal=True)
+
+    if response_mode == "Manual":
+        st.markdown("**Manual Mode**: Fill out the form below to assess AML response without free-text parsing.")
+        manual_data = build_manual_aml_response_data()
+        if st.button("Assess AML Response (Manual)"):
+            response, derivation = classify_AML_Response_ELN2022(manual_data)
+            display_aml_response_results(manual_data, response, derivation, "manual")
+    else:
+        st.markdown("**AI Mode**: Paste your free-text AML response findings below.")
+        response_report = st.text_area("AML Response Report (Free-text):", height=120)
+        if st.button("Assess AML Response (AI)"):
+            if response_report.strip():
+                with st.spinner("Extracting AML response data..."):
+                    parsed_data = parse_aml_response_report(response_report)
+
+                if not parsed_data:
+                    st.warning("No data extracted or error in parsing.")
+                else:
+                    response, derivation = classify_AML_Response_ELN2022(parsed_data)
+                    display_aml_response_results(parsed_data, response, derivation, "ai")
+            else:
+                st.error("Please provide a free-text AML response report.")
+
+
+def display_aml_response_results(parsed_data, response, derivation, mode="manual"):
+    """
+    Displays the AML response assessment results (ELN 2022).
+    """
+    # Show the parsed/manual data
+    with st.expander("### **View Parsed AML Response Values**", expanded=False):
+        st.json(parsed_data)
+
+    # Show classification
+    st.markdown("""
+    <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
+        <h3 style='color: #0f5132;'>AML Response Assessment Result</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"### **{response}**")
+
+    # Show derivation steps
+    with st.expander("🔍 Derivation Steps", expanded=False):
+        derivation_text = "\n\n".join([f"**Step {i}**: {step}" for i, step in enumerate(derivation, start=1)])
+        st.markdown(derivation_text)
+
+    # (Optional) AI Review if desired—similar to your other classifiers
+    # If you want an AI review: 
+    # - You'd define get_gpt4_review_aml_response(...) 
+    # - Then call it below if st.session_state.get('authenticated', False)
+
+    # Disclaimer
+    st.markdown("""
+    ---
+    <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+        <p><strong>Disclaimer:</strong> This AML response assessment is a simplified demonstration 
+        and <strong>not</strong> a replacement for professional hematological review or real-world ELN criteria.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+
 def app_main():
-    st.title("Haematologic Classification Tool")
+    st.title("Haematologic Classification & Response Assessment Tool")
 
     if st.session_state.get("authenticated", False):
-        classification_choice = st.radio("Select classification type:", ("AML", "MDS"))
+        classification_choice = st.radio(
+            "Select classification or assessment type:", 
+            ("AML", "MDS", "AML Response Assessment (ELN 2022)")
+        )
+
         if classification_choice == "AML":
             app_aml_section()
-        else:
+        elif classification_choice == "MDS":
             app_mds_section()
+        else:
+            app_aml_response_assessment()
     else:
-        st.info("🔒 **Log in** to use the classification features.")
+        st.info("🔒 **Log in** to use the classification and response assessment features.")
 
     st.markdown("---")
 
-
-##############################
-# MAIN
-##############################
 def main():
     app_main()
 
