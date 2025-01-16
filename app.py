@@ -301,7 +301,7 @@ def app_aml_section():
     st.subheader("Acute Myeloid Leukemia (AML) Classification")
 
     # Radio to choose Manual or AI mode
-    aml_mode = st.radio("AML Mode:", ["Manual", "AI"], horizontal=True)
+    aml_mode = st.radio("Input Mode:", ["Manual", "AI"], horizontal=True)
 
     if aml_mode == "Manual":
         st.markdown("**Manual Mode**: Fill out the form below to classify AML without free-text parsing.")
@@ -431,7 +431,7 @@ def display_aml_classification_results(parsed_fields, classification_who, who_de
 def app_mds_section():
     st.subheader("Myelodysplastic Syndromes (MDS) Classification")
 
-    mds_mode = st.radio("MDS Mode:", ["Manual", "AI"], horizontal=True)
+    mds_mode = st.radio("Input Mode:", ["Manual", "AI"], horizontal=True)
 
     if mds_mode == "Manual":
         st.markdown("**Manual Mode**: Fill out the form below to classify MDS without free-text parsing.")
