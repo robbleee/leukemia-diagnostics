@@ -1,4 +1,10 @@
+import streamlit as st
 from openai import OpenAI
+
+##############################
+# OPENAI API CONFIG
+##############################
+client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
 ##############################
 # AI REVIEW AML
