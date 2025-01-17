@@ -84,7 +84,7 @@ def get_gpt4_review_aml(
                 {"role": "system", "content": "You are a knowledgeable hematologist."},
                 {"role": "user", "content": classification_prompt}
             ],
-            max_tokens=400,
+            max_tokens=200,
             temperature=0.00,
         )
         classification_review = classification_response.choices[0].message.content.strip()
@@ -101,7 +101,7 @@ def get_gpt4_review_aml(
                 {"role": "system", "content": "You are a knowledgeable hematologist."},
                 {"role": "user", "content": gene_prompt}
             ],
-            max_tokens=4000,
+            max_tokens=500,
             temperature=0.00,
         )
         gene_review = gene_response.choices[0].message.content.strip()
