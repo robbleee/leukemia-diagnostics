@@ -421,8 +421,8 @@ def display_aml_classification_results(parsed_fields, classification_who, who_de
     if st.session_state.get('authenticated', False):
         with st.spinner("Generating AI review and clinical next steps..."):
             combined_classifications = {
-                "WHO 2022": {"Classification": classification_who},
-                "ICC 2022": {"Classification": classification_icc}
+                "WHO 2022": {"Classification": classification_who, "Derivation": who_derivation_markdown},
+                "ICC 2022": {"Classification": classification_icc, "Derivation": icc_derivation_markdown}
             }
             gpt4_review_result = get_gpt4_review_aml(
                 classification=combined_classifications,

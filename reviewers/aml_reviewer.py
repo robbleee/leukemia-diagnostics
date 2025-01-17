@@ -6,51 +6,115 @@ from openai import OpenAI
 ##############################
 client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
+
 ##############################
-# AI REVIEW AML
+# AI REVIEW AML (Combined Output)
 ##############################
 def get_gpt4_review_aml(
     classification: str,
     user_inputs: dict
 ) -> str:
     """
-    Sends the classification, explanation, and all user input data to AI
-    for review and next steps.
+    Sends the classification and user input data to OpenAI in two separate calls:
+    1) Classification Review
+    2) Gene Analysis
+    
+    Returns a single string containing both the classification review and the gene analysis.
     """
+
     # Create a readable string of user inputs
     input_data_str = "Below is the data the user provided:\n"
     for key, value in user_inputs.items():
         input_data_str += f"- {key.replace('_', ' ').capitalize()}: {value}\n"
 
-    # Build the final prompt with refined structure
-    prompt = f"""
+    # -----------------------------
+    # 1) Classification Review Prompt
+    # -----------------------------
+    classification_prompt = f"""
     You are a specialized medical AI. The user has provided the following hematological data:
-
-    {input_data_str}
 
     **Classification Result**: {classification}
 
     **Task**:
-    1. Provide a quick review of the classification result, highlighting any potential concerns or inconsistencies.
-    2. Suggest clinically relevant next steps for further evaluation or management.
+    Provide a quick review of the classification result focussing solely on any potential concerns 
+    or inconsistencies you spot.
 
-    **Response should be concise and professional. It should also be beautifully structured in markdown.**
+    **Response**:
+    - Be concise and professional.
+    - Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamli frontend.
     """
 
-    # Send to AI
+    # -----------------------------
+    # 2) Gene Analysis Prompt
+    # -----------------------------
+    gene_prompt = f"""
+    You are a specialized medical AI. The user has provided the following hematological data:
+
+    {input_data_str}
+
+    **Task**:
+    Provide a section called Genetics Review that has a short paragraph for each and every positive genetic finding. 
+    Please follow these rules:
+    1. Use UK spelling.
+    2. Summarise clinical implications of each gene in AML (under 200 words).
+    3. Speak to a medical professional succinctly, referencing only peer-reviewed content.
+    4. Emphasise how each gene affects disease outcome and monitoring.
+    5. Whenever a gene name is used, it should appear in italic capital text (e.g., *FLT3*).
+    6. State the likely effect on outcome in **bold lower case**, unless other genes modify the outcome. 
+       In that case, also mention that in **bold lower case**.
+    7. Provide three references with high citation counts.
+    8. For any gene that can be used to monitor minimal residual disease (MRD) in the UK, put directly beneath the title (gene name)
+       in bold but regular size text: "Can be used for MRD in the UK".
+
+    **Response**:
+    - Be concise and professional.
+    - Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamli frontend.
+    - Make sure that the individual gene headers are on their own line
+    - No need to include references
+    - Do not include "bold lower case"
+    """
+
+    # -----------------------------------
+    # Call 1: Classification Review
+    # -----------------------------------
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o",  # Ensure your environment supports this model
+        classification_response = client.chat.completions.create(
+            model="gpt-4o",  
             messages=[
                 {"role": "system", "content": "You are a knowledgeable hematologist."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": classification_prompt}
             ],
-            max_tokens=500,
-            temperature=0.2,
-            n=1,
-            stop=None
+            max_tokens=400,
+            temperature=0.00,
         )
-        review = response.choices[0].message.content.strip()
-        return review
+        classification_review = classification_response.choices[0].message.content.strip()
     except Exception as e:
-        return f"Error communicating with OpenAI: {str(e)}"
+        classification_review = f"Error in classification review call: {str(e)}"
+
+    # -----------------------------------
+    # Call 2: Gene Analysis
+    # -----------------------------------
+    try:
+        gene_response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a knowledgeable hematologist."},
+                {"role": "user", "content": gene_prompt}
+            ],
+            max_tokens=4000,
+            temperature=0.00,
+        )
+        gene_review = gene_response.choices[0].message.content.strip()
+    except Exception as e:
+        gene_review = f"Error in gene review call: {str(e)}"
+
+    # Combine both reviews into one string
+    combined_review = f"""
+
+                    {classification_review}
+
+                    {gene_review}
+                    """
+
+    # Return the single, combined string
+    return combined_review
