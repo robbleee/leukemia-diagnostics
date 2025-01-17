@@ -38,7 +38,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         )
     
     classification = "Acute myeloid leukaemia, [define by differentiation]"
-    derivation.append(f"Initial classification set to: {classification}")
+    derivation.append(f"Default classification set to: {classification}")
 
     # -----------------------------
     # STEP 1: AML-Defining Recurrent Genetic Abnormalities (WHO)
@@ -50,6 +50,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         "DEK::NUP214": "AML with DEK::NUP214 fusion",
         "RBM15::MRTFA": "AML with RBM15::MRTFA fusion",
         "MLLT3::KMT2A": "AML with KMT2A rearrangement",
+        "GATA2:: MECOM": "AML with MECOM rearrangement",
         "KMT2A": "AML with KMT2A rearrangement",
         "MECOM": "AML with MECOM rearrangement",
         "NUP98": "AML with NUP98 rearrangement",
@@ -162,8 +163,9 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
             classification = FAB_TO_WHO_MAPPING[aml_diff]
             derivation.append(f"Classification updated using FAB-to-WHO mapping => {classification}")
         else:
-            classification = "Acute myeloid leukaemia, unknown differentiation"
-            derivation.append("AML_differentiation is invalid or missing => 'unknown differentiation'.")
+            if blasts_percentage < 5.0:
+                classification = "Not AML, consider MDS classification"
+            derivation.append("AML_differentiation is invalid or missing => 'Consider reclassification as MDS'.")
 
     # Append "(WHO 2022)" if not already present
     if "(WHO 2022)" not in classification:
@@ -208,7 +210,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         )
 
     classification = "AML, NOS"
-    derivation.append(f"Initial classification set to: {classification}")
+    derivation.append(f"Default classification set to: {classification}")
 
     # Gather fields relevant to ICC classification
     aml_def_genetic = parsed_data.get("AML_defining_recurrent_genetic_abnormalities", {})
@@ -227,6 +229,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         "DEK::NUP214": "AML with t(6;9)(p22.3;q34.1)/DEK::NUP214",
         "RBM15::MRTFA": "AML (megakaryoblastic) with t(1;22)(p13.3;q13.1)/RBM15::MRTF1",
         "MLLT3::KMT2A": "AML with t(9;11)(p21.3;q23.3)/MLLT3::KMT2A",
+        "GATA2:: MECOM": "AML with inv(3)(q21.3q26.2) or t(3;3)(q21.3;q26.2)/GATA2; MECOM(EVI1)",
         "KMT2A": "AML with other KMT2A rearrangements",
         "MECOM": "AML with other MECOM rearrangements",
         "NUP98": "AML with NUP98 and other partners",
@@ -304,6 +307,8 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
             )
         else:
             derivation.append("All MDS-related cytogenetic flags are false.")
+            if blasts_percentage < 5.0:
+                classification = "Not AML, consider MDS classification"
 
     # -----------------------------
     # STEP 5: Qualifiers

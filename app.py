@@ -526,7 +526,7 @@ def display_aml_response_results(parsed_data, response, derivation, mode="manual
 # MAIN APP
 ##################################
 def app_main():
-    st.title("Haematologic Classification & Response Assessment Tool")
+    st.title("Haematologic Classification Tool")
     
     # Only show tabs if user is authenticated
     if st.session_state.get("authenticated", False):
@@ -534,6 +534,7 @@ def app_main():
         tab_aml, tab_mds, tab_response = st.tabs(
             ["AML Classification", "MDS Classification", "AML Response Assessment"]
         )
+
 
         # -------------
         # AML TAB
@@ -569,40 +570,95 @@ def app_main():
             else:
                 # AI Mode
                 st.markdown("**AI Mode:** Paste your free-text AML reports. The system will parse & classify automatically.")
-                blasts_input = st.text_input("Blasts Percentage (Override)", placeholder="e.g. 25", key="aml_ai_blasts_override")
-                genetics_report = st.text_area("Genetics Report (AML):", height=100, key="aml_ai_genetics_report")
-                cytogenetics_report = st.text_area("Cytogenetics Report (AML):", height=100, key="aml_ai_cytogenetics_report")
+                
+                # Light Blue Panel Start
+                st.markdown(
+                    """
+                    <div class="light-blue-panel">
+                    """,
+                    unsafe_allow_html=True
+                )
+                
+                with st.container():
+                    # Create two columns for Blasts Percentage and Differentiation
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        blasts_input = st.text_input(
+                            "Blasts Percentage (Override)",
+                            placeholder="e.g. 25",
+                            key="aml_ai_blasts_override"
+                        )
+                    with col2:
+                        differentiation_input = st.text_input(
+                            "Differentiation",
+                            placeholder="e.g. FAB M3",
+                            key="aml_ai_differentiation"
+                        )
+                    
+                    # Add Morphology/Clinical Input
+                    morphology_input = st.text_input(
+                        "Morphology/Clinical",
+                        placeholder="e.g. Dysplasia observed in myeloid lineage",
+                        key="aml_ai_morphology_clinical"
+                    )
+                    
 
-                if st.button("Parse & Classify AML (AI)", key="classify_aml_ai_button"):
-                    combined_report = f"{genetics_report}\n\n{cytogenetics_report}"
-                    if combined_report.strip():
-                        with st.spinner("Extracting data for AML classification..."):
-                            parsed_fields = parse_genetics_report_aml(combined_report)
+                    
+                    # Genetics and Cytogenetics Reports
+                    genetics_report = st.text_area(
+                        "Genetics Report (AML):",
+                        height=100,
+                        key="aml_ai_genetics_report"
+                    )
+                    cytogenetics_report = st.text_area(
+                        "Cytogenetics Report (AML):",
+                        height=100,
+                        key="aml_ai_cytogenetics_report"
+                    )
+                    
+                    # Parse & Classify Button
+                    if st.button("Parse & Classify AML (AI)", key="classify_aml_ai_button"):
+                        combined_report = f"{genetics_report}\n\n{cytogenetics_report}"
+                        if combined_report.strip():
+                            with st.spinner("Extracting data for AML classification..."):
+                                parsed_fields = parse_genetics_report_aml(combined_report)
+                                
+                                # Override Blasts Percentage if provided
+                                if blasts_input.strip():
+                                    try:
+                                        blasts_value = float(blasts_input.strip())
+                                        parsed_fields["blasts_percentage"] = blasts_value
 
-                            if blasts_input.strip():
-                                try:
-                                    blasts_value = float(blasts_input.strip())
-                                    parsed_fields["blasts_percentage"] = blasts_value
-                                    st.info(f"Overridden blasts_percentage = {blasts_value}")
-                                except ValueError:
-                                    st.warning("Invalid blasts percentage. Using parsed value.")
+                                    except ValueError:
+                                        st.warning("Invalid blasts percentage. Using parsed value.")
+                                
+                                # Add Differentiation if provided
+                                if differentiation_input.strip():
+                                    parsed_fields["AML_differentiation"] = differentiation_input.strip()
+                                
+                                # Add Morphology/Clinical if provided
+                                if morphology_input.strip():
+                                    parsed_fields["morphology_clinical"] = morphology_input.strip()
+                            
+                            if not parsed_fields:
+                                st.warning("No data extracted or error in parsing.")
+                            else:
+                                classification_who, who_derivation = classify_AML_WHO2022(parsed_fields)
+                                classification_icc, icc_derivation = classify_AML_ICC2022(parsed_fields)
 
-                        if not parsed_fields:
-                            st.warning("No data extracted or error in parsing.")
+                                display_aml_classification_results(
+                                    parsed_fields,
+                                    classification_who,
+                                    who_derivation,
+                                    classification_icc,
+                                    icc_derivation,
+                                    mode="ai"
+                                )
                         else:
-                            classification_who, who_derivation = classify_AML_WHO2022(parsed_fields)
-                            classification_icc, icc_derivation = classify_AML_ICC2022(parsed_fields)
-
-                            display_aml_classification_results(
-                                parsed_fields,
-                                classification_who,
-                                who_derivation,
-                                classification_icc,
-                                icc_derivation,
-                                mode="ai"
-                            )
-                    else:
-                        st.error("Please provide genetics and/or cytogenetics report for AML.")
+                            st.error("Please provide genetics and/or cytogenetics report for AML.")
+                
+                # Light Blue Panel End
+                st.markdown("</div>", unsafe_allow_html=True)
 
         # -------------
         # MDS TAB

@@ -34,6 +34,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "DEK::NUP214": False,
             "RBM15::MRTFA": False,
             "MLLT3::KMT2A": False,
+            "GATA2:: MECOM": False,
             "KMT2A": False,
             "MECOM": False,
             "NUP98": False,
@@ -92,7 +93,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
         Please extract the following fields from the text and format them into a valid JSON object exactly as specified below. 
         For boolean fields, use true/false. For numerical fields, provide the value. If a field is not found or unclear, set it to false or a default value.
         
-        Additionally, extract the AML differentiation classification using the FAB (M0-M7) or WHO classification systems. 
+        Additionally, extract the AML differentiation classification using the FAB (M0-M7) or WHO classification systems. If the classification is given in some other form then convert it to fab.
         If the differentiation is not specified, set the value to null.
         
         Try to consider if the user may have used some sort of shorthand and translate where necessary.
@@ -140,7 +141,6 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             - "RUNX1::RUNX1T1 fusion present" -> "RUNX1::RUNX1T1" = true
 
     
-
         For predisposing_germline_variant, leave as "None" if there is none otherwise record the variant specified.
         
         **Required JSON structure:**
@@ -153,6 +153,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
                 "DEK::NUP214": false,
                 "RBM15::MRTFA": false,
                 "MLLT3::KMT2A": false,
+                "GATA2:: MECOM": false,
                 "KMT2A": false,
                 "MECOM": false,
                 "NUP98": false,
@@ -205,8 +206,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             }}
         }}
     
-    
-    
+       
         
         **Instructions:**
         1. Return **valid JSON only** with no extra text or commentary.

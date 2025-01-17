@@ -1,5 +1,5 @@
 TBC: how do we initially determine between MDS and AML 
-
+if its not AML it is probably MDS
 
 ---------- who ----------
 
@@ -27,7 +27,7 @@ else if MDS-related cytogenetics (true):
 else if hypoplasia -> MDS, hypoplastic (WHO 2022)
 
 
-TBC: what is a dysplastic lineage?
+TBC: what is a dysplastic lineage? (morphology section)
 else if Number of dysplastic lineages:
     =1 : MDS with low blasts (WHO 2022)
     >1 : MDS with low blasts (WHO 2022)
