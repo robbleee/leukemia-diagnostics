@@ -13,13 +13,15 @@ client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 def get_gpt4_review_aml(
     classification: str,
     user_inputs: dict
-) -> str:
+) -> (str, str):
     """
     Sends the classification and user input data to OpenAI in two separate calls:
     1) Classification Review
     2) Gene Analysis
     
-    Returns a single string containing both the classification review and the gene analysis.
+    Returns two separate strings: 
+    - classification_review 
+    - gene_review
     """
 
     # Create a readable string of user inputs
@@ -42,6 +44,7 @@ def get_gpt4_review_aml(
     **Response**:
     - Be concise and professional.
     - Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamli frontend.
+    - Response should not be more than 200 words.
     """
 
     # -----------------------------
@@ -84,7 +87,7 @@ def get_gpt4_review_aml(
                 {"role": "system", "content": "You are a knowledgeable hematologist."},
                 {"role": "user", "content": classification_prompt}
             ],
-            max_tokens=200,
+            max_tokens=600,
             temperature=0.00,
         )
         classification_review = classification_response.choices[0].message.content.strip()
@@ -101,20 +104,12 @@ def get_gpt4_review_aml(
                 {"role": "system", "content": "You are a knowledgeable hematologist."},
                 {"role": "user", "content": gene_prompt}
             ],
-            max_tokens=500,
+            max_tokens=1000,
             temperature=0.00,
         )
         gene_review = gene_response.choices[0].message.content.strip()
     except Exception as e:
         gene_review = f"Error in gene review call: {str(e)}"
 
-    # Combine both reviews into one string
-    combined_review = f"""
-
-                    {classification_review}
-
-                    {gene_review}
-                    """
-
-    # Return the single, combined string
-    return combined_review
+    # Return the two separate responses
+    return classification_review, gene_review

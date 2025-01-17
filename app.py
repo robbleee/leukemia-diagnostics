@@ -424,11 +424,19 @@ def display_aml_classification_results(parsed_fields, classification_who, who_de
                 "WHO 2022": {"Classification": classification_who, "Derivation": who_derivation_markdown},
                 "ICC 2022": {"Classification": classification_icc, "Derivation": icc_derivation_markdown}
             }
-            gpt4_review_result = get_gpt4_review_aml(
+            # Now we get two separate responses from our function
+            classification_review, gene_review = get_gpt4_review_aml(
                 classification=combined_classifications,
                 user_inputs=parsed_fields
             )
-        st.info(gpt4_review_result)
+
+        # Display each response in its own panel (or use st.info, st.expander, etc.)
+        with st.expander("### **AI Classification Review**", expanded=True):
+            st.markdown(classification_review)
+
+        with st.expander("### **AI Gene Analysis**", expanded=True):
+            st.markdown(gene_review)
+
     else:
         st.info("🔒 **Log in** for an AI-generated review and clinical recommendations.")
 
