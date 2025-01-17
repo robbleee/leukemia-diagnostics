@@ -417,9 +417,16 @@ def display_aml_classification_results(parsed_fields, classification_who, who_de
             )
             st.markdown(icc_derivation_markdown)
 
+    st.markdown("---")
+    st.markdown("""
+    <div style='background-color: #D6EFFF; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
+        <h3 style='color: #0f5132;'>Analysis Results</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
     # AI Review (optional)
     if st.session_state.get('authenticated', False):
-        with st.spinner("Generating AI review and clinical next steps..."):
+        with st.spinner("Assesing classification and reviewing gene mutations..."):
             combined_classifications = {
                 "WHO 2022": {"Classification": classification_who, "Derivation": who_derivation_markdown},
                 "ICC 2022": {"Classification": classification_icc, "Derivation": icc_derivation_markdown}
@@ -482,6 +489,7 @@ def display_mds_classification_results(parsed_fields, classification_who, deriva
             )
             st.markdown(derivation_text)
 
+    
     # Optional AI review
     if st.session_state.get("authenticated", False):
         with st.spinner("Generating AI review and next steps..."):

@@ -75,6 +75,7 @@ def get_gpt4_review_aml(
     - Make sure that the individual gene headers are on their own line
     - No need to include references
     - Do not include "bold lower case"
+    - Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:"
     """
 
     # -----------------------------------
