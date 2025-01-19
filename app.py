@@ -64,28 +64,63 @@ def local_css():
     st.markdown(
         """
         <style>
-        /* Existing Toggle Switch Styles */
-        /* ... (your existing CSS) ... */
-
-        /* Custom Styles for Classify Buttons */
-        /* Target buttons by their unique keys using attribute selectors */
-        button[k*="classify_"] {
-            background-color: #28a745 !important; /* Green background */
-            color: white !important;               /* White text */
-            border: none;
-            padding: 10px 24px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 16px;
-            margin: 4px 2px;
-            border-radius: 8px;
-            cursor: pointer;
+        /* Toggle Switch Styles */
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
         }
 
-        /* Optional: Change hover effect */
-        button[k*="classify_"]:hover {
-            background-color: #218838 !important; /* Darker green on hover */
+        .toggle-switch input {
+            display: none;
+        }
+
+        .toggle-switch-label {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            margin-right: 10px;
+        }
+
+        .toggle-switch-label input:checked + span {
+            background-color: #4CAF50;
+        }
+
+        .toggle-switch-label input:checked + span:before {
+            transform: translateX(26px);
+        }
+
+        .toggle-switch-label span {
+            position: absolute;
+            cursor: pointer;
+            background-color: #ccc;
+            border-radius: 34px;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            transition: 0.4s;
+        }
+
+        .toggle-switch-label span:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.4s;
+        }
+
+        /* Increase tab text size */
+        div[data-baseweb="tabs"] > div > div {
+            font-size: 20px; /* Adjust text size as needed */
+            font-weight: bold; /* Optional: Make text bold */
+            text-align: center; /* Optional: Center-align text */
         }
         </style>
         """,
@@ -643,6 +678,7 @@ def app_main():
             st.subheader("Myelodysplastic Syndromes (MDS)")
 
             # Toggle Switch for Manual vs AI Mode
+            st.markdown("##### Input Mode")
             mds_mode_toggle = st.checkbox("AI Mode", key="mds_mode_toggle")
             # Explanation:
             # - If checked, AI Mode is active
@@ -650,6 +686,7 @@ def app_main():
 
             if not mds_mode_toggle:
                 # Manual Mode
+                st.markdown("**Manual Mode:** Fill out the form below to classify MDS without free-text parsing.")
                 st.markdown("---")
                 manual_data = build_manual_mds_data_compact()
 

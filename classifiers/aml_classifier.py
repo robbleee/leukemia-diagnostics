@@ -138,9 +138,8 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     # -----------------------------
     # STEP 5: Replace "[define by differentiation]" if needed
     # -----------------------------
-    if classification.strip().lower() == "acute myeloid leukaemia, [define by differentiation]".lower():
+    if classification.strip() == "Acute myeloid leukaemia, [define by differentiation]":
         aml_diff = parsed_data.get("AML_differentiation")
-
         if aml_diff:
             derivation.append(f"AML_differentiation provided: {aml_diff}")
         else:
@@ -160,30 +159,20 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
             "M7": "Acute megakaryoblastic leukaemia",
         }
 
-        # Create a case-insensitive mapping by lowercasing the keys
-        FAB_TO_WHO_MAPPING_LOWER = {key.lower(): value for key, value in FAB_TO_WHO_MAPPING.items()}
-
-        # Normalize the aml_diff input to lowercase for matching
-        aml_diff_normalized = aml_diff.lower() if aml_diff else ""
-
-        # Attempt to retrieve the classification using the normalized input
-        classification_updated = FAB_TO_WHO_MAPPING_LOWER.get(aml_diff_normalized)
-
-        if classification_updated:
-            classification = classification_updated
+        if aml_diff and aml_diff in FAB_TO_WHO_MAPPING:
+            classification = FAB_TO_WHO_MAPPING[aml_diff]
             derivation.append(f"Classification updated using FAB-to-WHO mapping => {classification}")
         else:
-            # Handle cases where aml_diff is invalid or not provided
             if blasts_percentage < 20.0:
                 classification = "Not AML, consider MDS classification"
             derivation.append("AML_differentiation is invalid or missing => 'Consider reclassification as MDS'.")
 
-        # Append "(WHO 2022)" if not already present
-        if "(WHO 2022)" not in classification:
-            classification += " (WHO 2022)"
-            derivation.append(f"Final classification => {classification}")
+    # Append "(WHO 2022)" if not already present
+    if "(WHO 2022)" not in classification:
+        classification += " (WHO 2022)"
+        derivation.append(f"Final classification => {classification}")
 
-        return classification, derivation
+    return classification, derivation
 
 
 ##############################

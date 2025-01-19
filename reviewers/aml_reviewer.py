@@ -56,25 +56,23 @@ def get_gpt4_review_aml(
     {input_data_str}
 
     **Task**:
-    Provide a section called Genetics Review that has a short paragraph for each and every positive genetic finding. 
+    Provide a section called Genetics Review that has a short paragraph for each positive genetic finding. 
     Please follow these rules:
-    1. Use UK spelling.
-    2. Summarise clinical implications of each gene in AML (under 200 words).
-    3. Speak to a medical professional succinctly, referencing only peer-reviewed content.
-    4. Emphasise how each gene affects disease outcome and monitoring.
-    5. Whenever a gene name is used, it should appear in italic capital text (e.g., *FLT3*).
-    6. State the likely effect on outcome in **bold lower case**, unless other genes modify the outcome. 
-       In that case, also mention that in **bold lower case**.
-    7. Provide three references with high citation counts.
-    8. For any gene that can be used to monitor minimal residual disease (MRD) in the UK, put directly beneath the title (gene name)
-       in bold but regular size text: "Can be used for MRD in the UK".
+    1. Using UK spelling summarise the clinical implications for AML of each that is positive on in the above list. 
+    2. Summarise each in less than 200 words talking to a medical professional using succinct language and only using 
+       peer reviewed content emphasising effects on disease outcome and monitoring.
+    3. Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other 
+       instruction. 
+    4. State the likely effect on outcome in most cases in bold lettering (except for gene names which remain
+       in italic capital text). 
+    5. If outcome effects may be modified by other genes indicate this in bold lettering (except for gene 
+       names which remain in italic capital text). 
+    6. Provide three references that have high citation for each gene.
+    7. For each gene, if it can be used to monitor minimal residual disease (MRD) in the UK, state this in bold lettering below the title (gene name)
 
     **Response**:
-    - Be concise and professional.
-    - Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamli frontend.
+    - Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamlit frontend.
     - Make sure that the individual gene headers are on their own line
-    - No need to include references
-    - Do not include "bold lower case"
     - Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:"
     """
 
