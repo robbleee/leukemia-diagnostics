@@ -56,16 +56,16 @@ def get_gpt4_review_aml(
     {input_data_str}
 
     **Task**:
-    Provide a section called Genetics Review that has a short paragraph for each positive genetic finding. 
+    Provide a section called Genetics Review.
     Please follow these rules:
-    1. Using UK spelling summarise the clinical implications for AML of each that is positive on in the above list. 
+    1. Using UK spelling summarise the clinical implications for AML of each positive positive finding on in the above list. 
     2. Summarise each in less than 200 words talking to a medical professional using succinct language and only using 
        peer reviewed content emphasising effects on disease outcome and monitoring.
     3. Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other 
        instruction. 
-    4. State the likely effect on outcome in most cases in bold lettering (except for gene names which remain
+    4. State the likely effect on outcome in !!bold lettering!! (except for gene names which remain
        in italic capital text). 
-    5. If outcome effects may be modified by other genes indicate this in bold lettering (except for gene 
+    5. If outcome effects may be modified by other genes indicate this in !!bold lettering!! (except for gene 
        names which remain in italic capital text). 
     6. Provide three references that have high citation for each gene.
     7. For each gene, if it can be used to monitor minimal residual disease (MRD) in the UK, state this in bold lettering below the title (gene name)
