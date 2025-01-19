@@ -64,63 +64,28 @@ def local_css():
     st.markdown(
         """
         <style>
-        /* Toggle Switch Styles */
-        .toggle-switch {
-            display: flex;
-            align-items: center;
-            font-size: 18px;
-            font-weight: bold;
-        }
+        /* Existing Toggle Switch Styles */
+        /* ... (your existing CSS) ... */
 
-        .toggle-switch input {
-            display: none;
-        }
-
-        .toggle-switch-label {
-            position: relative;
+        /* Custom Styles for Classify Buttons */
+        /* Target buttons by their unique keys using attribute selectors */
+        button[k*="classify_"] {
+            background-color: #28a745 !important; /* Green background */
+            color: white !important;               /* White text */
+            border: none;
+            padding: 10px 24px;
+            text-align: center;
+            text-decoration: none;
             display: inline-block;
-            width: 60px;
-            height: 34px;
-            margin-right: 10px;
-        }
-
-        .toggle-switch-label input:checked + span {
-            background-color: #4CAF50;
-        }
-
-        .toggle-switch-label input:checked + span:before {
-            transform: translateX(26px);
-        }
-
-        .toggle-switch-label span {
-            position: absolute;
+            font-size: 16px;
+            margin: 4px 2px;
+            border-radius: 8px;
             cursor: pointer;
-            background-color: #ccc;
-            border-radius: 34px;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            transition: 0.4s;
         }
 
-        .toggle-switch-label span:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            border-radius: 50%;
-            transition: 0.4s;
-        }
-
-        /* Increase tab text size */
-        div[data-baseweb="tabs"] > div > div {
-            font-size: 20px; /* Adjust text size as needed */
-            font-weight: bold; /* Optional: Make text bold */
-            text-align: center; /* Optional: Center-align text */
+        /* Optional: Change hover effect */
+        button[k*="classify_"]:hover {
+            background-color: #218838 !important; /* Darker green on hover */
         }
         </style>
         """,
@@ -134,13 +99,13 @@ local_css()
 ##################################
 def build_manual_aml_data() -> dict:
 
-    st.markdown("#### Manual AML Data Entry ")
+    st.markdown("### Manual AML Data Entry ")
     
     # 1) Blasts
     blasts = st.number_input("Blasts (%)", min_value=0.0, max_value=100.0, value=0.0, key="aml_blasts_percentage")
 
     # 2) AML-defining Abnormalities in 2 columns
-    st.markdown("##### AML-defining Recurrent Genetic Abnormalities")
+    st.markdown("#### AML-defining Recurrent Genetic Abnormalities")
     c1, c2 = st.columns(2)
     with c1:
         npm1 = st.checkbox("NPM1 mutation", key="aml_npm1_mutation")
@@ -164,7 +129,7 @@ def build_manual_aml_data() -> dict:
 
 
     # 3) Biallelic TP53 mutation
-    st.markdown("##### Biallelic TP53 Mutation")
+    st.markdown("#### Biallelic TP53 Mutation")
     tp1, tp2, tp3 = st.columns(3)
     with tp1:
         two_tp53 = st.checkbox("2 x TP53 mutations", key="aml_tp53_2")
@@ -175,7 +140,7 @@ def build_manual_aml_data() -> dict:
 
 
     # MDS-related expanders
-    st.markdown("##### MDS Related Flags")
+    st.markdown("#### MDS Related Flags")
     with st.expander("MDS-related Mutations", expanded=False):
         col_a, col_b = st.columns(2)
         with col_a:
@@ -217,7 +182,7 @@ def build_manual_aml_data() -> dict:
     aml_diff = st.text_input("AML differentiation (e.g. 'FAB M3', 'M4')", value="", key="aml_differentiation")
 
     # Qualifiers
-    st.markdown("##### Qualifiers")
+    st.markdown("#### Qualifiers")
     qc1, qc2 = st.columns(2)
     with qc1:
         prev_mds_3mo = st.checkbox("Previous MDS diagnosed >3 months ago", key="aml_prev_mds_3mo")
@@ -556,10 +521,9 @@ def app_main():
             
             st.subheader("Acute Myeloid Leukemia (AML)")
 
-            st.markdown("---")
+
 
             # Toggle Switch for Manual vs AI Mode
-            st.markdown("##### Input Mode")
             aml_mode_toggle = st.checkbox("AI Mode", key="aml_mode_toggle")
             # Explanation:
             # - If checked, AI Mode is active
@@ -567,7 +531,6 @@ def app_main():
 
             if not aml_mode_toggle:
                 # Manual Mode
-                st.markdown("**Manual Mode:** Fill out the form below to classify AML without free-text parsing.")
                 st.markdown("---")
                 manual_data = build_manual_aml_data()
 
@@ -680,7 +643,6 @@ def app_main():
             st.subheader("Myelodysplastic Syndromes (MDS)")
 
             # Toggle Switch for Manual vs AI Mode
-            st.markdown("##### Input Mode")
             mds_mode_toggle = st.checkbox("AI Mode", key="mds_mode_toggle")
             # Explanation:
             # - If checked, AI Mode is active
@@ -688,7 +650,6 @@ def app_main():
 
             if not mds_mode_toggle:
                 # Manual Mode
-                st.markdown("**Manual Mode:** Fill out the form below to classify MDS without free-text parsing.")
                 st.markdown("---")
                 manual_data = build_manual_mds_data_compact()
 
