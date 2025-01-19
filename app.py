@@ -133,11 +133,11 @@ local_css()
 # FORMS & PARSING HELPERS
 ##################################
 def build_manual_aml_data() -> dict:
-    st.markdown("#### Manual AML Data Entry")
+
+    st.markdown("#### Manual AML Data Entry ")
     
     # 1) Blasts
     blasts = st.number_input("Blasts (%)", min_value=0.0, max_value=100.0, value=0.0, key="aml_blasts_percentage")
-    st.markdown("---")
 
     # 2) AML-defining Abnormalities in 2 columns
     st.markdown("##### AML-defining Recurrent Genetic Abnormalities")
@@ -162,7 +162,6 @@ def build_manual_aml_data() -> dict:
     with c4:
         bcr_abl1 = st.checkbox("BCR::ABL1 fusion", key="aml_bcr_abl1")
 
-    st.markdown("---")
 
     # 3) Biallelic TP53 mutation
     st.markdown("##### Biallelic TP53 Mutation")
@@ -174,7 +173,6 @@ def build_manual_aml_data() -> dict:
     with tp3:
         one_tp53_loh = st.checkbox("1 x TP53 + LOH", key="aml_tp53_loh")
 
-    st.markdown("---")
 
     # MDS-related expanders
     st.markdown("##### MDS Related Flags")
@@ -215,7 +213,6 @@ def build_manual_aml_data() -> dict:
             del_20q = st.checkbox("del(20q)", key="aml_del_20q")
             idic_x_q13 = st.checkbox("idic_X_q13", key="aml_idic_x_q13")
 
-    st.markdown("---")
     # AML Differentiation
     aml_diff = st.text_input("AML differentiation (e.g. 'FAB M3', 'M4')", value="", key="aml_differentiation")
 
@@ -556,7 +553,10 @@ def app_main():
         # AML TAB
         # -------------
         with tab_aml:
+            
             st.subheader("Acute Myeloid Leukemia (AML)")
+
+            st.markdown("---")
 
             # Toggle Switch for Manual vs AI Mode
             st.markdown("##### Input Mode")
@@ -568,6 +568,7 @@ def app_main():
             if not aml_mode_toggle:
                 # Manual Mode
                 st.markdown("**Manual Mode:** Fill out the form below to classify AML without free-text parsing.")
+                st.markdown("---")
                 manual_data = build_manual_aml_data()
 
                 if st.button("Classify AML (Manual)", key="classify_aml_manual_button"):
@@ -586,14 +587,10 @@ def app_main():
             else:
                 # AI Mode
                 st.markdown("**AI Mode:** Paste your free-text AML reports. The system will parse & classify automatically.")
-                
-                # Light Blue Panel Start
-                st.markdown(
-                    """
-                    <div class="light-blue-panel">
-                    """,
-                    unsafe_allow_html=True
-                )
+                st.markdown("---")
+                st.markdown("#### Free Text AML Data Entry ")
+
+
                 
                 with st.container():
                     # Create two columns for Blasts Percentage and Differentiation
@@ -692,6 +689,7 @@ def app_main():
             if not mds_mode_toggle:
                 # Manual Mode
                 st.markdown("**Manual Mode:** Fill out the form below to classify MDS without free-text parsing.")
+                st.markdown("---")
                 manual_data = build_manual_mds_data_compact()
 
                 if st.button("Classify MDS (Manual)", key="classify_mds_manual_button"):
