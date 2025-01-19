@@ -163,7 +163,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
             classification = FAB_TO_WHO_MAPPING[aml_diff]
             derivation.append(f"Classification updated using FAB-to-WHO mapping => {classification}")
         else:
-            if blasts_percentage < 5.0:
+            if blasts_percentage < 20.0:
                 classification = "Not AML, consider MDS classification"
             derivation.append("AML_differentiation is invalid or missing => 'Consider reclassification as MDS'.")
 
@@ -307,7 +307,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
             )
         else:
             derivation.append("All MDS-related cytogenetic flags are false.")
-            if blasts_percentage < 5.0:
+            if blasts_percentage < 20.0:
                 classification = "Not AML, consider MDS classification"
 
     # -----------------------------
