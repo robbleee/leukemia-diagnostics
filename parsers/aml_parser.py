@@ -101,7 +101,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
         **For example**:
         
         1. 2_x_TP53_mutations: Extract if the report mentions phrases like "2 TP53 mutations," "biallelic TP53 mutations," or similar.
-        2. 1_x_TP53_mutation_del_17p: This needs to be a TP 53 mutation AND a del_17p. We need both.
+        2. 1_x_TP53_mutation_del_17p: [very important] This NEEDS to be a TP 53 mutation AND a del_17p. We need both otherwise this is false!!!.
         3. 1_x_TP53_mutation_LOH: Identify phrases such as "TP53 mutation and LOH," "TP53 mutation with Loss of Heterozygosity," or equivalent.
         4. AML_differentiation: Extract the AML differentiation classification, such as "FAB M3" or "WHO AML with myelodysplasia-related changes."
         
