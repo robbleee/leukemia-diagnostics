@@ -89,7 +89,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
     
     # Construct the prompt with detailed instructions
     prompt = f"""
-        You are a specialized medical AI and a knowledgeable hematologist. The user has pasted a free-text hematological report. 
+        The user has pasted a free-text hematological report. 
         Please extract the following fields from the text and format them into a valid JSON object exactly as specified below. 
         For boolean fields, use true/false. For numerical fields, provide the value. If a field is not found or unclear, set it to false or a default value.
         
@@ -100,26 +100,11 @@ def parse_genetics_report_aml(report_text: str) -> dict:
         
         **For example**:
         
-        1. 2_x_TP53_mutations: Extract if the report mentions phrases like "2 TP53 mutations," "biallelic TP53 mutations," or similar.
-        2. 1_x_TP53_mutation_del_17p: [very important] This NEEDS to be a TP 53 mutation AND a del_17p. We need both otherwise this is false!!!.
-        3. 1_x_TP53_mutation_LOH: Identify phrases such as "TP53 mutation and LOH," "TP53 mutation with Loss of Heterozygosity," or equivalent.
+        1. 2_x_TP53_mutations: Extract if the report mentions phrases like "2 TP53 mutations," "biallelic TP53 mutations," or similar. We need at least 2 for it to be true
+        2. 1_x_TP53_mutation_del_17p: [very important] This NEEDS to be a TP 53 mutation AND a del_17p. We need both otherwise this is false. They maybe mentioned in different parts of the report.
+        3. 1_x_TP53_mutation_LOH: Identify phrases such as "TP53 mutation and LOH," "TP53 mutation with Loss of Heterozygosity," or equivalent. [very important] This NEEDS to be a TP 53 mutation AND LOH. We need both otherwise this is false. They maybe mentioned in different parts of the report.
         4. AML_differentiation: Extract the AML differentiation classification, such as "FAB M3" or "WHO AML with myelodysplasia-related changes."
         
-        Examples of predisposing germline variants:
-            Germline predisposition
-                • CEBPA 
-                • DDX41 
-                • TP53 
-            Germline predisposition and pre-existing platelet disorder:
-                • RUNX1
-                • ANKRD26
-                • ETV6 
-            Germline predisposition and potential organ dysfunction:
-                • GATA2
-            Noonan syndrome-like disorders:
-                • Down syndrome
-                • SAMD9
-                • BLM 
     
         Make sure to onle record AML_defining_recurrent_genetic_abnormalities if the abnorrmality pressent is the exact one mentioned in the list below:
             NPM1 mutation
@@ -205,15 +190,12 @@ def parse_genetics_report_aml(report_text: str) -> dict:
                 "predisposing_germline_variant": "None"
             }}
         }}
-    
-       
-        
+          
         **Instructions:**
         1. Return **valid JSON only** with no extra text or commentary.
         2. Ensure all fields are present as specified.
-        3. Use true/false for boolean values.
-        4. If a field is not applicable or not mentioned, set it to false or null as appropriate.
-        5. Do not wrap the JSON in Markdown or any other formatting.
+        3. If a field is not applicable or not mentioned, set it to false or null as appropriate.
+        4. Do not wrap the JSON in Markdown or any other formatting.
         
         **Here is the free-text hematological report to parse:**
         {report_text}
@@ -226,7 +208,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
                 {"role": "system", "content": "You are a knowledgeable hematologist who formats output strictly in JSON."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=2000,  # Increased max_tokens to accommodate detailed JSON including AML differentiation
+            max_tokens=3000,  # Increased max_tokens to accommodate detailed JSON including AML differentiation
             temperature=0.0  # Deterministic output
         )
         raw_content = response.choices[0].message.content.strip()
