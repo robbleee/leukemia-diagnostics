@@ -103,7 +103,7 @@ def get_gpt4_review_aml(
                 {"role": "system", "content": "You are a knowledgeable hematologist."},
                 {"role": "user", "content": gene_prompt}
             ],
-            max_tokens=1000,
+            max_tokens=3000,
             temperature=0.00,
         )
         gene_review = gene_response.choices[0].message.content.strip()
