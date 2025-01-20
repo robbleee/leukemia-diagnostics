@@ -63,9 +63,9 @@ def get_gpt4_review_aml(
        peer reviewed content emphasising effects on disease outcome and monitoring.
     3. Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other 
        instruction. 
-    4. State the likely effect on outcome in !!bold lettering!! (except for gene names which remain
+    4. State the likely effect on outcome in bold lettering (except for gene names which remain
        in italic capital text). 
-    5. If outcome effects may be modified by other genes indicate this in !!bold lettering!! (except for gene 
+    5. If outcome effects may be modified by other genes indicate this in bold lettering (except for gene 
        names which remain in italic capital text). 
     6. Provide three references that have high citation for each gene.
     7. For each gene, if it can be used to monitor minimal residual disease (MRD) in the UK, state this in bold lettering below the title (gene name)
