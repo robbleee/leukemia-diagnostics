@@ -58,7 +58,7 @@ def get_gpt4_review_aml(
     **Task**:
     Provide a section called Genetics Review.
     Please follow these rules:
-    1. Using UK spelling summarise the clinical implications for AML of each positive finding on in the above list **Only genes with "true" are positive findings**
+    1. Using UK spelling summarise the clinical implications for AML of each positive finding on in the above list **Only genes with "true" are positive findings, if all are false then return "all genes findings negative"**
     2. Summarise each in less than 200 words talking to a medical professional using succinct language and only using 
        peer reviewed content emphasising effects on disease outcome and monitoring.
     3. Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other 
