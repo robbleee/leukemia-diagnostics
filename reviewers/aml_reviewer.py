@@ -10,7 +10,9 @@ client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 ##############################
 # AI REVIEW AML - CLASSIFICATION ONLY
 ##############################
-def get_gpt4_review_aml_classification(classification: dict, user_inputs: dict) -> str:
+def get_gpt4_review_aml_classification(classification: dict, 
+                                       user_inputs: dict, 
+                                       free_text_input: str = None) -> str:
     """
     Sends the AML classification (WHO / ICC) to OpenAI for a short 'classification review.'
     
@@ -25,8 +27,8 @@ def get_gpt4_review_aml_classification(classification: dict, user_inputs: dict) 
                 "Derivation": [...]
             }
         }
-    :param user_inputs: The parsed user data dict (not strictly needed for this prompt, 
-        but included for consistency).
+    :param user_inputs: The parsed user data dict.
+    :param free_text_input: A single string containing all user-provided free text (overrides, notes, etc.).
     :return: classification_review (str)
     """
     
@@ -39,7 +41,7 @@ def get_gpt4_review_aml_classification(classification: dict, user_inputs: dict) 
     icc_class = icc_2022.get("Classification", "")
     icc_deriv = icc_2022.get("Derivation", "")
 
-    # You can join derivation steps if it's a list
+    # Join derivations if they're lists
     if isinstance(who_deriv, list):
         who_deriv = "\n".join(who_deriv)
     if isinstance(icc_deriv, list):
@@ -53,26 +55,38 @@ Derivation: {who_deriv}
 **ICC 2022**:
 Classification: {icc_class}
 Derivation: {icc_deriv}
-"""
+""".strip()
+
+    # Include extra text if provided
+    free_text_str = ""
+    if free_text_input:
+        free_text_str = f"\n**Additional User Entered Text**:\n{free_text_input}\n"
 
     # Create the prompt
     classification_prompt = f"""
 You are a specialized medical AI. The user has provided the following hematological data:
 
-    **Classification Result**: {classification}
-    **Task**:
-	1. Provide a quick review of the classification result 
-	2. You should explain any differences that are present in diagnostic categories determined by WHO and ICC classifications
-	3. If the blast cell percentage is at a borderline level for classification by either classification system then this should be discussed. For most cases the classification will require a blast count of 20%; however, for cases where a genetic lesion allows an AML at a lower blast percentage then consider that blast count instead.
-	4. If genetic testing or cytogenetic test results are not present in the data you have been given then state this finding and consider any impact this may have on the classification.
-	5. If these are stated in the reviewed information, please discuss the sample quality statement in the clinical report, the DNA quality metric in the genetic report, or the stated number of cells or metaphases considered in the cytogenetics report. Based on each of these values discuss any concerns around sample quality that you spot. If the aspirate is of poor quality then consider whether this may affect the representation of cells in the genetic sample and how it may affect VAF or sensitivity.
-	6. If the VAF levels suggest the presence of subclones state this
+**Classification Result**: 
+{classification_text}
 
-    **Response**:
-    - Be concise and professional.
-    - Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamli frontend.
-    - Response should not be more than 150 words.
+**Raw user inputs**: {user_inputs}
+
+{free_text_str}
+
+**Task**:
+1. Provide a quick review of the classification result.
+2. Explain any differences between WHO and ICC diagnostic categories.
+3. If the blast cell % is borderline for classification, discuss it (20% threshold, or lower if a defining genetic abnormality).
+4. If genetic or cytogenetic test results are missing, note the impact.
+5. Discuss sample quality if indicated, including DNA quality or cell/metaphase numbers.
+6. If VAF levels suggest subclones, mention it.
+
+**Response**:
+- Be concise and professional (<150 words).
+- Format in Markdown with smaller headings for a Streamlit UI.
 """
+
+
 
     # Call OpenAI
     try:
@@ -95,49 +109,49 @@ You are a specialized medical AI. The user has provided the following hematologi
 ##############################
 # AI REVIEW AML - GENE ANALYSIS ONLY
 ##############################
-def get_gpt4_review_aml_genes(classification: dict, user_inputs: dict) -> str:
+def get_gpt4_review_aml_genes(classification: dict, 
+                              user_inputs: dict, 
+                              free_text_input: str = None) -> str:
     """
     Sends user input data (parsed AML fields) to OpenAI for gene-level analysis.
     Emphasizes which genes were marked "True" and their clinical implications.
     
-    :param classification: A dict like:
-        {
-            "WHO 2022": "Some classification",
-            "ICC 2022": "Some classification"
-        }
-      (Here, we only need it if you want to mention classification in the prompt.)
+    :param classification: A dict with "WHO 2022" / "ICC 2022" classification results.
     :param user_inputs: The parsed user data dict containing gene flags, blasts%, etc.
+    :param free_text_input: A single string containing all user-provided free text.
     :return: gene_review (str)
     """
 
-    # Build a readable string of user inputs for the prompt
-    # Only illustrate keys relevant to genes/positives, or everything if you prefer
+    # Build a readable string of user inputs
     input_data_str = "Below is the AML data the user provided:\n"
     for key, value in user_inputs.items():
         input_data_str += f"- {key}: {value}\n"
 
+    # Include extra text if provided
+    free_text_str = ""
+    if free_text_input:
+        free_text_str = f"\n**Additional User Entered Text**:\n{free_text_input}\n"
+
     gene_prompt = f"""
 You are a specialized medical AI. The user has provided the following hematological data:
 
-    {input_data_str}
+{input_data_str}
+{free_text_str}
 
-	**Task**:
-	Provide a section called Genetics Review.
-	Please follow these rules: 
-	1. Forget any gene or cytogenetic lists used in previous analyses and do not include that content in your answer.
-	2. Use UK spelling.  Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other instruction.
-	3. If there are no mutated genes or cytogenetic change present then do not discuss any genes. Instead state that no genetic or cytogenetic lesions were detected using the procedures and panels employed in the testing and advise that the classification has been made on that basis. Suggest that MDT meetings should advise whether repeat or extended testing should be performed.
-	4. Where genetic or cytogenetic lesions are found summarise the clinical implications for each positive finding in the above list. This discussion should assume a proven diagnosis of AML. The summary for each gene should use fewer than 200 words and be written to inform a medical professional using succinct language and only using peer reviewed content. The summary should emphasise the role of the listed genes or cytogenetic change on clinical outcome. 
-	5. If outcome effects may be modified by other genes indicate this in bold lettering (except for gene names which remain in italic capital text). This action should particularly focus on the effects of any other genes on the provided input list. 
-	6. Provide three references that have high citation for each gene. 
-	7. For each gene, if it can be used to monitor minimal residual disease (MRD) in the UK, state this in bold lettering below the title (gene name)
-    **Response**:
-    - Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamlit frontend.
-    - Make sure that the individual gene headers are on their own line
-    - Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:"
-	- Do not attempt to provide an overview summary after the written sections	
-	- Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD
-	- When structuring your response place those mutations that have greater clinical impact first in your output
+**Task**:
+Provide a section called "Genetics Review" adhering to these rules:
+1. Use UK spelling. Whenever a gene name is used, write it in capital letters and *italic text*.
+2. If no mutated genes/cytogenetic changes are present, simply note no genetic lesions detected and suggest whether retesting is needed.
+3. If there are mutations/cytogenetic lesions, summarize implications for each finding (assume a confirmed AML).
+4. Use fewer than 200 words per gene, be succinct and peer-reviewed in tone.
+5. If outcome effects are modified by another gene from the input list, bold that note (keep gene name in *italic capitals*).
+6. Provide three references for each gene.
+7. For each gene that can be used for MRD monitoring in the UK, explicitly state this in **bold** beneath the gene name.
+
+**Response**:
+- Structure in Markdown with smaller headings (Streamlit-friendly).
+- Do NOT provide an overall summary beyond the gene discussions.
+- Prioritize genes with higher clinical impact first.
 """
 
     # Call OpenAI
@@ -158,38 +172,46 @@ You are a specialized medical AI. The user has provided the following hematologi
     return gene_review
 
 
-
 ##############################
 # AI REVIEW AML - MRD ONLY
 ##############################
-def get_gpt4_review_aml_mrd(classification: dict, user_inputs: dict) -> str:
-
-    # Build a readable string of user inputs for the prompt
-    # Only illustrate keys relevant to genes/positives, or everything if you prefer
+def get_gpt4_review_aml_mrd(classification: dict, 
+                            user_inputs: dict, 
+                            free_text_input: str = None) -> str:
+    """
+    Provides MRD strategy commentary based on the user’s AML data.
+    
+    :param classification: Classification data (WHO/ICC).
+    :param user_inputs: Parsed user data dict containing gene/cytogenetic details.
+    :param free_text_input: A string of any additional free-text user input.
+    :return: mrd_review (str)
+    """
+    
     input_data_str = "Below is the AML data the user provided:\n"
     for key, value in user_inputs.items():
         input_data_str += f"- {key}: {value}\n"
 
+    free_text_str = f"\n**Additional User Entered Text**:\n{free_text_input}\n" if free_text_input else ""
+
     mrd_prompt = f"""
-    You are a specialized medical AI. The user has provided the following hematological data:
+You are a specialized medical AI. The user has provided the following hematological data:
 
-    {input_data_str}
+{input_data_str}
+{free_text_str}
 
-	**Task**:
-	Provide a section called MRD strategy
-	Please follow these rules: 
-	1. Use only the gene lists from this input data. 
-	2. Use UK spelling.  Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other instruction.
-	3. Discuss only those genes from the list that are suitable for monitoring minimal residual disease in the UK. 
-	4. Then for any gene that can be used to monitor MRD advise the appropriate monitoring recommendations used in the UK. The advice should be provided for a well-informed doctor wishing to monitor the patient and should be succinct but include time intervals and sample types. This should be performed separately for each identified target gene or cytogenetic lesion. The monitoring recommendation should use European LeukemiaNet MRD Working Party recommendations 2021 described in Blood. 2021 Dec 30;138(26):2753–2767. The summary for each gene should use fewer than 200 words and be written to inform a medical professional using succinct language and only using peer reviewed content. 
-	5. Provide a maximum of 2 references that have high citation for each recommendation. 
-    **Response**:
-    - Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamlit frontend.
-    - Make sure that the individual gene headers are on their own line
-    - Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:"
-	- Do not attempt to provide an overview summary after the written sections
-	- Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD
-	- When structuring your response place those mutations that are suitable for MRD monitoring first in your output
+**Task**:
+Provide a section called "MRD strategy" following these rules:
+1. Use only the genes from the input to discuss MRD applicability in the UK.
+2. Use UK spelling, with gene names in capital letters and italic text.
+3. For each MRD-applicable gene, advise time intervals and sample types (succinct, <200 words) referencing European LeukemiaNet MRD Working Party (Blood. 2021 Dec 30;138(26):2753–2767).
+4. Provide max 2 references per gene.
+5. Do not provide an overview summary, only the per-gene discussion.
+
+**Response**:
+- Format in Markdown with smaller headings.
+- Do NOT provide general treatment approaches or overall summary at the end.
+- ONLY mention relevant genes that we have a POSITIVE result for. If no genes mentioned just
+  Respond that no relevant genes were positive.
 """
 
     # Call OpenAI
@@ -205,7 +227,7 @@ def get_gpt4_review_aml_mrd(classification: dict, user_inputs: dict) -> str:
         )
         mrd_review = mrd_response.choices[0].message.content.strip()
     except Exception as e:
-        mrd_review = f"Error in gene review call: {str(e)}"
+        mrd_review = f"Error in MRD review call: {str(e)}"
 
     return mrd_review
 
@@ -213,37 +235,45 @@ def get_gpt4_review_aml_mrd(classification: dict, user_inputs: dict) -> str:
 ##############################
 # AI REVIEW AML - ADDITIONAL COMMENTS
 ##############################
-def get_gpt4_review_aml_additional_comments(classification: dict, user_inputs: dict) -> str:
+def get_gpt4_review_aml_additional_comments(classification: dict, 
+                                            user_inputs: dict, 
+                                            free_text_input: str = None) -> str:
+    """
+    Provides a short "Additional Comments" section focusing on gene frequency, possible germline origin, etc.
 
-    # Build a readable string of user inputs for the prompt
-    # Only illustrate keys relevant to genes/positives, or everything if you prefer
+    :param classification: Classification data (WHO/ICC).
+    :param user_inputs: Parsed user data dict (genes, blasts, etc.).
+    :param free_text_input: Additional user free-text input (overrides, extra details).
+    :return: A short additional comments review (str).
+    """
+
     input_data_str = "Below is the AML data the user provided:\n"
     for key, value in user_inputs.items():
         input_data_str += f"- {key}: {value}\n"
 
+    free_text_str = f"\n**Additional User Entered Text**:\n{free_text_input}\n" if free_text_input else ""
+
     additional_comments_prompt = f"""
-    You are a specialized medical AI. The user has provided the following hematological data:
+You are a specialized medical AI. The user has provided the following hematological data:
 
-    {input_data_str}
+{input_data_str}
+{free_text_str}
 
-	**Task**:
-	Provide a section called Additional Comments
-	Please follow these rules: 
-	1. Use only gene lists from this input data. 
-	2. Use UK spelling.  Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other instruction.
-	3. If the list is not empty then write a brief cautionary note advising users about each gene noting how frequently it is found in acute myeloid leukaemia, also consider how frequently it arises as a variant of uncertain significance. 
-	4. If any gene in the list has a possible germline origin state this using a threshold of 0.3 (30%) and consider the implications of this. For genes that have possible germline origin consider whether the reported VAF is consistent with a germline origin. When discussing possible germline origin use the phrase “may support germline origin”.
-	5. If TP53 has a single allele mutated consider whether there is also a 17p deletion present when interpreting the VAF result. If the case has biallelic mutations of TP53 then do not discuss the possibility of a 17p deletion.
-	6. If the gene mutation may also occur in lymphoid cells or co-existent lymphoid neoplasms discuss this and advise that clinical features may be reviewed to determine “if there is any clinical suspicion”. 
-	7. Do this separately for each gene using minimum text, aim for fewer that 100 words
+**Task**:
+Provide a section called "Additional Comments" following these rules:
+1. Only use the genes from this input.
+2. Use UK spelling, with gene names in capital letters and italic text.
+3. If no genes are present, do not discuss them—simply note that none were found.
+4. For each gene, note frequency in AML, possibility of variant of uncertain significance.
+5. If a gene "may support germline origin" (VAF ~30%), mention it.
+6. If TP53 is single-allele mutated, consider whether 17p deletion is also present. If biallelic TP53, do not mention 17p deletion possibility.
+7. If a gene also arises in lymphoid cells, advise to check clinical suspicion.
+8. Keep each gene’s comment <100 words.
 
-	**Response**:
-    - Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamlit frontend.
-    - Make sure that the individual gene headers are on their own line
-    - Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:"
-	- Do not attempt to provide an overview summary after the written sections
-	- Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD
-	- When structuring your response place those mutations that are suitable for MRD monitoring first in your output
+**Response**:
+- Format in Markdown with smaller headings.
+- No extra summary beyond the per-gene statements.
+- No MRD or treatment approach suggestions.
 """
 
     # Call OpenAI

@@ -18,12 +18,13 @@ from reviewers.aml_reviewer import (
     get_gpt4_review_aml_genes,
     get_gpt4_review_aml_additional_comments,
     get_gpt4_review_aml_mrd
-
 )
+
 from reviewers.mds_reviewer import (
     get_gpt4_review_mds_classification,
     get_gpt4_review_mds_genes
 )
+
 
 ##################################
 # PAGE CONFIG
@@ -33,6 +34,7 @@ st.set_page_config(page_title="Haematologic Classification", layout="wide")
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
     st.session_state['username'] = ''
+
 
 ##################################
 # AUTH FUNCTIONS
@@ -68,6 +70,7 @@ def login_logout():
                 st.sidebar.error("Invalid username or password")
 
 login_logout()
+
 
 ##################################
 # CUSTOM CSS
@@ -379,6 +382,7 @@ def build_manual_aml_response_data() -> dict:
     }
     return manual_response_data
 
+
 ##################################
 # CLASSIFICATION DISPLAY HELPERS
 ##################################
@@ -417,14 +421,7 @@ def display_aml_classification_results(parsed_fields, classification_who, who_de
                 [f"**Step {idx}:** {step}" for idx, step in enumerate(icc_derivation, start=1)]
             )
             st.markdown(icc_derivation_markdown)
-
-    st.markdown("---")
-    st.markdown("""
-    <div style='background-color: #D6EFFF; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
-        <h3 style='color: #0f5132;'>Analysis Actions:</h3>
-    </div>
-    """, unsafe_allow_html=True)
-
+  
 def display_mds_classification_results(parsed_fields, classification_who, derivation_who,
                                        classification_icc, derivation_icc, mode="manual"):
     """
@@ -502,8 +499,6 @@ def display_aml_response_results(parsed_data, response, derivation, mode="manual
     """, unsafe_allow_html=True)
 
 
-
-
 ##################################
 # MAIN APP
 ##################################
@@ -515,8 +510,6 @@ def app_main():
         tab_aml, tab_mds, tab_response = st.tabs(
             ["AML Classification", "MDS Classification", "AML Response Assessment"]
         )
-
-        
 
 
         ################################################
@@ -578,24 +571,26 @@ def app_main():
                     rev_col1, rev_col2, rev_col3, rev_col4 = st.columns(4)
 
                     with rev_col1:
-                        if st.button("🩺 Classification"):
+                        if st.button("🩺 AI Classification"):
                             class_review = get_gpt4_review_aml_classification(classification_dict, res["parsed_data"])
                             st.session_state["aml_manual_class_review"] = class_review
-
+                    
                     with rev_col2:
+                        if st.button("📄 AI Comments"):
+                            add_comments = get_gpt4_review_aml_additional_comments(classification_dict, res["parsed_data"])
+                            st.session_state["aml_manual_additional_comments"] = add_comments
+
+                    with rev_col3:
                         if st.button("🧬 Gene Review"):
                             gene_review = get_gpt4_review_aml_genes(classification_dict, res["parsed_data"])
                             st.session_state["aml_manual_gene_review"] = gene_review
 
-                    with rev_col3:
+                    with rev_col4:
                         if st.button("🧪 MRD Review"):
                             mrd_review = get_gpt4_review_aml_mrd(classification_dict, res["parsed_data"])
                             st.session_state["aml_manual_mrd_review"] = mrd_review
 
-                    with rev_col4:
-                        if st.button("📄 AI Comments"):
-                            add_comments = get_gpt4_review_aml_additional_comments(classification_dict, res["parsed_data"])
-                            st.session_state["aml_manual_additional_comments"] = add_comments
+                    
 
                     # Now display each if it exists
                     # Classification review
@@ -637,11 +632,29 @@ def app_main():
                 genetics_report = st.text_area("Genetics Report:", height=100)
                 cytogenetics_report = st.text_area("Cytogenetics Report:", height=100)
 
+                
+
+
                 if st.button("Parse & Classify AML (AI)"):
                     combined = f"{genetics_report}\n\n{cytogenetics_report}"
+                    
+                    # Bundle all relevant free-text fields into a single string
+                    free_text_input = f"""
+                    Blasts Override: {blasts_override}
+                    AML Differentiation: {diff_override}
+                    Morphology / Clinical Info: {morph_input}
+                    Genetics Report:
+                    {genetics_report}
+
+                    Cytogenetics Report:
+                    {cytogenetics_report}
+                    """.strip()
+
                     if combined.strip():
                         with st.spinner("Parsing & classifying (AI)..."):
                             parsed_data = parse_genetics_report_aml(combined)
+                            
+                            # Merge overrides into parsed_data
                             if blasts_override.strip():
                                 try:
                                     parsed_data["blasts_percentage"] = float(blasts_override.strip())
@@ -655,15 +668,22 @@ def app_main():
                             who_class, who_deriv = classify_AML_WHO2022(parsed_data)
                             icc_class, icc_deriv = classify_AML_ICC2022(parsed_data)
 
+                            # Store the results, plus the combined free-text
                             st.session_state["aml_ai_result"] = {
                                 "parsed_data": parsed_data,
                                 "who_class": who_class,
                                 "who_derivation": who_deriv,
                                 "icc_class": icc_class,
-                                "icc_derivation": icc_deriv
+                                "icc_derivation": icc_deriv,
+                                "free_text_input": free_text_input
                             }
                     else:
                         st.error("No AML data provided.")
+
+
+
+
+
 
                 if "aml_ai_result" in st.session_state:
                     res = st.session_state["aml_ai_result"]
@@ -687,26 +707,34 @@ def app_main():
                         }
                     }
 
-                    # 4 Buttons in 2 rows:
-                    row1_col1, row1_col2 = st.columns(2)
-                    with row1_col1:
-                        if st.button("🩺 Classification Review (AI)"):
-                            class_rev = get_gpt4_review_aml_classification(classification_dict, res["parsed_data"])
+                    # Grab the free-text input that we stored
+                    user_free_text = res.get("free_text_input", "")
+
+                    # 4 Buttons in a single row
+                    button_col1, button_col2, button_col3, button_col4 = st.columns(4)
+
+                    with button_col1:
+                        if st.button("🩺 AI Classification"):
+                            class_rev = get_gpt4_review_aml_classification(classification_dict, res["parsed_data"], free_text_input=user_free_text)
                             st.session_state["aml_ai_class_review"] = class_rev
-                    with row1_col2:
-                        if st.button("🧬 Gene Review (AI)"):
-                            gene_rev = get_gpt4_review_aml_genes(classification_dict, res["parsed_data"])
+
+                    with button_col2:
+                        if st.button("📄 AI Comments"):
+                            add_comments = get_gpt4_review_aml_additional_comments(classification_dict, res["parsed_data"], free_text_input=user_free_text)
+                            st.session_state["aml_ai_additional_comments"] = add_comments
+
+                    with button_col3:
+                        if st.button("🧬 Gene Review"):
+                            gene_rev = get_gpt4_review_aml_genes(classification_dict, res["parsed_data"], free_text_input=user_free_text)
                             st.session_state["aml_ai_gene_review"] = gene_rev
 
-                    row2_col1, row2_col2 = st.columns(2)
-                    with row2_col1:
-                        if st.button("🧪 MRD Review (AI)"):
-                            mrd_rev = get_gpt4_review_mrd(classification_dict, res["parsed_data"])
+                    with button_col4:
+                        if st.button("🧪 MRD Review"):
+                            mrd_rev = get_gpt4_review_aml_mrd(classification_dict, res["parsed_data"], free_text_input=user_free_text)
                             st.session_state["aml_ai_mrd_review"] = mrd_rev
-                    with row2_col2:
-                        if st.button("📄 Additional Comments (AI)"):
-                            add_comments = get_gpt4_review_additional_comments(classification_dict, res["parsed_data"])
-                            st.session_state["aml_ai_additional_comments"] = add_comments
+
+                    
+
 
                     # Now show them if exist:
                     if "aml_ai_class_review" in st.session_state:
@@ -724,7 +752,6 @@ def app_main():
                     if "aml_ai_additional_comments" in st.session_state:
                         with st.expander("### AI Additional Comments", expanded=True):
                             st.markdown(st.session_state["aml_ai_additional_comments"])
-
 
 
         ################################################
@@ -921,9 +948,6 @@ def app_main():
 
     else:
         st.info("🔒 **Log in** to use the classification features.")
-
-    st.markdown("---")
-
 
 def main():
     app_main()
