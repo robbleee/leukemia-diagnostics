@@ -138,7 +138,35 @@ def local_css():
         unsafe_allow_html=True
     )
 
+# Add custom CSS for buttons with a pastel blue outline
+def add_custom_css():
+    st.markdown(
+        """
+        <style>
+        /* Buttons with a pastel blue outline */
+        .stButton > button {
+            background-color: white; /* White background */
+            color: #6CAFD8; /* Pastel blue text */
+            border: 2px solid #6CAFD8; /* Pastel blue outline */
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .stButton > button:hover {
+            background-color: #EAF6FD; /* Light pastel blue background on hover */
+            color: #569ABA; /* Slightly darker pastel blue text on hover */
+            border-color: #569ABA; /* Slightly darker pastel blue outline on hover */
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 local_css()
+add_custom_css()
 
 
 ##################################
@@ -567,6 +595,8 @@ def app_main():
                     # Example: We'll do 2 columns for row1, 2 columns for row2
                     # so we don't have 4 tiny columns. Or we can do all 4 in a single row.
                     
+                    
+
                     # Place all four buttons on the same row
                     rev_col1, rev_col2, rev_col3, rev_col4 = st.columns(4)
 
