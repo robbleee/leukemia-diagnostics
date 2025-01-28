@@ -11,7 +11,7 @@ client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 # AI REVIEW AML - CLASSIFICATION ONLY
 ##############################
 def get_gpt4_review_aml_classification(classification: dict, 
-                                       user_inputs: dict, 
+                                       manual_inputs: dict, 
                                        free_text_input: str = None) -> str:
     """
     Sends the AML classification (WHO / ICC) to OpenAI for a short 'classification review.'
@@ -27,7 +27,7 @@ def get_gpt4_review_aml_classification(classification: dict,
                 "Derivation": [...]
             }
         }
-    :param user_inputs: The parsed user data dict.
+    :param manual_inputs: The parsed user data dict.
     :param free_text_input: A single string containing all user-provided free text (overrides, notes, etc.).
     :return: classification_review (str)
     """
@@ -65,7 +65,8 @@ Derivation: {icc_deriv}
     # Create the prompt
     classification_prompt = f"""
 
-
+**Free text inputs:** {free_text_input}
+**Manual inputs**: {manual_inputs}
 **Classification Result**: {classification_text}
 
 **Task**: 
@@ -103,21 +104,21 @@ Derivation: {icc_deriv}
 # AI REVIEW AML - GENE ANALYSIS ONLY
 ##############################
 def get_gpt4_review_aml_genes(classification: dict, 
-                              user_inputs: dict, 
+                              manual_inputs: dict, 
                               free_text_input: str = None) -> str:
     """
     Sends user input data (parsed AML fields) to OpenAI for gene-level analysis.
     Emphasizes which genes were marked "True" and their clinical implications.
     
     :param classification: A dict with "WHO 2022" / "ICC 2022" classification results.
-    :param user_inputs: The parsed user data dict containing gene flags, blasts%, etc.
+    :param manual_inputs: The parsed user data dict containing gene flags, blasts%, etc.
     :param free_text_input: A single string containing all user-provided free text.
     :return: gene_review (str)
     """
 
     # Build a readable string of user inputs
     input_data_str = "Below is the AML data the user provided:\n"
-    for key, value in user_inputs.items():
+    for key, value in manual_inputs.items():
         input_data_str += f"- {key}: {value}\n"
 
     # Include extra text if provided
@@ -169,19 +170,19 @@ Provide a section called "Genetics Review" adhering to these rules:
 # AI REVIEW AML - MRD ONLY
 ##############################
 def get_gpt4_review_aml_mrd(classification: dict, 
-                            user_inputs: dict, 
+                            manual_inputs: dict, 
                             free_text_input: str = None) -> str:
     """
     Provides MRD strategy commentary based on the user’s AML data.
     
     :param classification: Classification data (WHO/ICC).
-    :param user_inputs: Parsed user data dict containing gene/cytogenetic details.
+    :param manual_inputs: Parsed user data dict containing gene/cytogenetic details.
     :param free_text_input: A string of any additional free-text user input.
     :return: mrd_review (str)
     """
     
     input_data_str = "Below is the AML data the user provided:\n"
-    for key, value in user_inputs.items():
+    for key, value in manual_inputs.items():
         input_data_str += f"- {key}: {value}\n"
 
     free_text_str = f"\n**Additional User Entered Text**:\n{free_text_input}\n" if free_text_input else ""
@@ -229,19 +230,19 @@ Provide a section called "MRD strategy" following these rules:
 # AI REVIEW AML - ADDITIONAL COMMENTS
 ##############################
 def get_gpt4_review_aml_additional_comments(classification: dict, 
-                                            user_inputs: dict, 
+                                            manual_inputs: dict, 
                                             free_text_input: str = None) -> str:
     """
     Provides a short "Additional Comments" section focusing on gene frequency, possible germline origin, etc.
 
     :param classification: Classification data (WHO/ICC).
-    :param user_inputs: Parsed user data dict (genes, blasts, etc.).
+    :param manual_inputs: Parsed user data dict (genes, blasts, etc.).
     :param free_text_input: Additional user free-text input (overrides, extra details).
     :return: A short additional comments review (str).
     """
 
     input_data_str = "Below is the AML data the user provided:\n"
-    for key, value in user_inputs.items():
+    for key, value in manual_inputs.items():
         input_data_str += f"- {key}: {value}\n"
 
     free_text_str = f"\n**Additional User Entered Text**:\n{free_text_input}\n" if free_text_input else ""
