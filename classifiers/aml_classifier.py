@@ -258,6 +258,8 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
                     derivation.append(f"{gene} abnormality meets blasts >=10%. Classification => {classification}")
                     updated = True
                     break
+                else:
+                    derivation.append(f"Blasts do not meet 10% ICC requirement for {gene} defining classification")
         if not updated:
             derivation.append("No ICC AML-defining abnormality met")
 

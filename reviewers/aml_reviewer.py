@@ -71,8 +71,8 @@ Derivation: {icc_deriv}
 
 **Task**: 
 1. Using the heading: “Classification Review”. State any significant differences in the classification of this case given by WHO and ICC focussing particularly on the genetic elements of this classification if present. 
-2. Using the heading: “Sample Quality”. If genetic testing or cytogenetic test results are not present in the provided data, then state any impact this may have on the classification. If these are stated in the reviewed information, please discuss the sample quality statement for clinical report, DNA quality metric and the cytogenetics report. Based on each of these values discuss any concerns around sample quality. If the aspirate is of poor quality, then consider whether this may affect the representation of cells in the genetic sample and how it may affect VAF or sensitivity. 
-3. Using the heading: “Additional notes” Do not use bullet points. (1) In the first part of your answer consider whether any mutation present may worsen the prognostic impact of the classification. If prognosis is not worsened, then do not discuss it. (2) In the second part of your answer consider the gene list and identify any that may be inherited (constitutive) considering both the gene and the VAF levels. Your answer to this part should be brief and restricted only to genes that are likely to be constitutively mutated. 
+2. Using the heading: “Sample Quality”. If genetic testing or cytogenetic test results are not present in the provided data, then state any impact this may have on the classification. If these are stated in the reviewed information, please discuss the sample quality statement for clinical report, DNA quality metric and the cytogenetics report. Based on each of these values discuss any concerns around sample quality. If the morphology report suggests poor sample quality, then consider whether this may affect the representation of cells in the genetic sample and how it may affect VAF or sensitivity. 
+
 **Response**: 
 - Be concise and professional. Provide only the headings stated. Headings should be in bold type followed by a colon, then the text should follow on the next line. - Use UK English spelling. The text elements should not use bold font at any point. 
 - Format in Markdown with smaller headings for a Streamlit UI.
@@ -127,25 +127,27 @@ def get_gpt4_review_aml_genes(classification: dict,
         free_text_str = f"\n**Additional User Entered Text**:\n{free_text_input}\n"
 
     gene_prompt = f"""
-You are a specialized medical AI. The user has provided the following hematological data:
-
-{input_data_str}
-{free_text_str}
+**Free text inputs:** {free_text_input}
+**Manual inputs**: {manual_inputs}
+**Classification Result**: {classification}
 
 **Task**:
-Provide a section called "Genetics Review" adhering to these rules:
-1. Use UK spelling. Whenever a gene name is used, write it in capital letters and *italic text*.
-2. If no mutated genes/cytogenetic changes are present, simply note no genetic lesions detected and suggest whether retesting is needed.
-3. If there are mutations/cytogenetic lesions, summarize implications for each finding (assume a confirmed AML).
-4. Use fewer than 200 words per gene, be succinct and peer-reviewed in tone.
-5. If outcome effects are modified by another gene from the input list, bold that note (keep gene name in *italic capitals*).
-6. Provide three references for each gene.
-7. For each gene that can be used for MRD monitoring in the UK, explicitly state this in **bold** beneath the gene name.
+Provide a section called Genetics Review.
+Please follow these rules: 
+1. Use UK spelling.  Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other instruction.
+2. If there are no mutated genes or cytogenetic change present then do not discuss any genes. Instead state that no genetic or cytogenetic lesions were detected using the procedures and panels employed in the testing and advise that the classification has been made on that basis. Suggest that MDT meetings should advise whether repeat or extended testing should be performed.
+3. Where genetic or cytogenetic lesions are found summarise the clinical implications for each positive finding in the above list. This discussion should assume a proven diagnosis of AML. The summary for each gene should use fewer than 200 words and be written to inform a medical professional using succinct language and only using peer reviewed content. The summary should emphasise the role of the listed genes or cytogenetic change on clinical outcome. 
+4. If outcome effects may be modified by other genes indicate this in bold lettering (except for gene names which remain in italic capital text). This action should consider only the effects of any other genes on the provided input list. 
+6. Provide three references that have high citation for each gene. 
+7. For each gene, if it can be used to monitor minimal residual disease (MRD) in the UK, state this in bold lettering below the title (gene name) 
 
 **Response**:
-- Structure in Markdown with smaller headings (Streamlit-friendly).
-- Do NOT provide an overall summary beyond the gene discussions.
-- Prioritize genes with higher clinical impact first.
+- Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamlit frontend.
+- Make sure that the individual gene headers are on their own line
+- Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:"
+- Do not attempt to provide an overview summary after the written sections
+- Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD
+- When structuring your response place those mutations that have greater clinical impact first in your output
 """
 
     # Call OpenAI
@@ -188,24 +190,29 @@ def get_gpt4_review_aml_mrd(classification: dict,
     free_text_str = f"\n**Additional User Entered Text**:\n{free_text_input}\n" if free_text_input else ""
 
     mrd_prompt = f"""
-You are a specialized medical AI. The user has provided the following hematological data:
 
-{input_data_str}
-{free_text_str}
+**Free text inputs:** {free_text_input}
+**Manual inputs**: {manual_inputs}
+**Classification Result**: {classification}
+
 
 **Task**:
-Provide a section called "MRD strategy" following these rules:
-1. Use only the genes from the input to discuss MRD applicability in the UK.
-2. Use UK spelling, with gene names in capital letters and italic text.
-3. For each MRD-applicable gene, advise time intervals and sample types (succinct, <200 words) referencing European LeukemiaNet MRD Working Party (Blood. 2021 Dec 30;138(26):2753–2767).
-4. Provide max 2 references per gene.
-5. Do not provide an overview summary, only the per-gene discussion.
+Provide a section called MRD strategy
 
-**Response**:
-- Format in Markdown with smaller headings.
-- Do NOT provide general treatment approaches or overall summary at the end.
-- ONLY mention relevant genes that we have a POSITIVE result for. If no genes mentioned just
-  Respond that no relevant genes were positive.
+Please follow these rules: 
+1. Use only the gene and cytogenetic lists from this input data. 
+2. Use UK spelling. Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other instruction. 
+2. Discuss only those genes from the list that are suitable for monitoring minimal residual disease in the UK. 
+3. Then for any gene that can be used to monitor MRD advise the appropriate monitoring recommendations used in the UK. The advice should be provided for a well-informed doctor wishing to monitor the patient and should be succinct but include time intervals and sample types. This should be performed separately for each identified target gene or cytogenetic lesion. The monitoring recommendation should use European LeukemiaNet MRD Working Party recommendations 2021 described in Blood. 2021 Dec 30;138(26):2753–2767. The summary for each gene should use fewer than 200 words and be written to inform a medical professional using succinct language and only using peer reviewed content. Do not mention genes present in the list but not detected in this case. 
+4. If a cytogenetic lesion is recommended for monitoring as a marker of disease response or can be used as such then discuss that cytogenetic lesion too. 
+5. Provide a maximum of 2 references that have high citation for each recommendation. 
+
+**Response**: 
+- Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamlit frontend. - Make sure that the individual gene headers are on their own line 
+- Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:" 
+- Do not attempt to provide an overview summary after the written sections
+ - Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD 
+- When structuring your response place those mutations that are suitable for MRD monitoring first in your output 
 """
 
     # Call OpenAI
@@ -248,26 +255,30 @@ def get_gpt4_review_aml_additional_comments(classification: dict,
     free_text_str = f"\n**Additional User Entered Text**:\n{free_text_input}\n" if free_text_input else ""
 
     additional_comments_prompt = f"""
-You are a specialized medical AI. The user has provided the following hematological data:
-
-{input_data_str}
-{free_text_str}
+**Free text inputs:** {free_text_input}
+**Manual inputs**: {manual_inputs}
+**Classification Result**: {classification}
 
 **Task**:
-Provide a section called "Additional Comments" following these rules:
-1. Only use the genes from this input.
-2. Use UK spelling, with gene names in capital letters and italic text.
-3. If no genes are present, do not discuss them—simply note that none were found.
-4. For each gene, note frequency in AML, possibility of variant of uncertain significance.
-5. If a gene "may support germline origin" (VAF ~30%), mention it.
-6. If TP53 is single-allele mutated, consider whether 17p deletion is also present. If biallelic TP53, do not mention 17p deletion possibility.
-7. If a gene also arises in lymphoid cells, advise to check clinical suspicion.
-8. Keep each gene’s comment <100 words.
+Provide a section called Additional Considerations
+Please follow these rules: 
+1. Use only genes only listed in the input data. 
+2. Use UK spelling.  Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other instruction.
+3. If the list does not detect any mutated genes simply state that there are no genes to review. 
+4. If mutated genes are detected do the following for each gene using concise language and <150 words:
+a. State how frequently the gene is mutated in acute myeloid leukaemia
+b. if the VAF levels are significantly lower than other mutated genes consider if the mutated gene may be a subclone. If it is unlikely to be a subclone do mention this in the review.
+C. If any mutated gene is frequently associated with germline mutation state whether the VAF supports this and advise appropriately.
+d. If TP53 has a single allele mutated consider whether there is also a 17p deletion present when interpreting the VAF result. If the case has biallelic mutations of TP53 then do not discuss the possibility of a 17p deletion.
+e. If mutation of the discussed gene is frequently seen in lymphoid cells then state this and advise on possible action. Do this only if the gene is frequently mutated in lymphoid cells.
 
 **Response**:
-- Format in Markdown with smaller headings.
-- No extra summary beyond the per-gene statements.
-- No MRD or treatment approach suggestions.
+- Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamlit frontend.
+- Make sure that the individual gene headers are on their own line
+- Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:"
+- Do not attempt to provide an overview summary after the written sections
+- Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD
+- When structuring your response place those mutations that are suitable for MRD monitoring first in your output
 """
 
     # Call OpenAI
