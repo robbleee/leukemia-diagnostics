@@ -64,26 +64,19 @@ Derivation: {icc_deriv}
 
     # Create the prompt
     classification_prompt = f"""
-You are a specialized medical AI. The user has provided the following hematological data:
 
-**Classification Result**: 
-{classification_text}
 
-**Raw user inputs**: {user_inputs}
+**Classification Result**: {classification_text}
 
-{free_text_str}
-
-**Task**:
-1. Provide a quick review of the classification result.
-2. Explain any differences between WHO and ICC diagnostic categories.
-3. If the blast cell % is borderline for classification, discuss it (20% threshold, or lower if a defining genetic abnormality).
-4. If genetic or cytogenetic test results are missing, note the impact.
-5. Discuss sample quality if indicated, including DNA quality or cell/metaphase numbers.
-6. If VAF levels suggest subclones, mention it.
-
-**Response**:
-- Be concise and professional (<150 words).
+**Task**: 
+1. Using the heading: “Classification Review”. State any significant differences in the classification of this case given by WHO and ICC focussing particularly on the genetic elements of this classification if present. 
+2. Using the heading: “Sample Quality”. If genetic testing or cytogenetic test results are not present in the provided data, then state any impact this may have on the classification. If these are stated in the reviewed information, please discuss the sample quality statement for clinical report, DNA quality metric and the cytogenetics report. Based on each of these values discuss any concerns around sample quality. If the aspirate is of poor quality, then consider whether this may affect the representation of cells in the genetic sample and how it may affect VAF or sensitivity. 
+3. Using the heading: “Additional notes” Do not use bullet points. (1) In the first part of your answer consider whether any mutation present may worsen the prognostic impact of the classification. If prognosis is not worsened, then do not discuss it. (2) In the second part of your answer consider the gene list and identify any that may be inherited (constitutive) considering both the gene and the VAF levels. Your answer to this part should be brief and restricted only to genes that are likely to be constitutively mutated. 
+**Response**: 
+- Be concise and professional. Provide only the headings stated. Headings should be in bold type followed by a colon, then the text should follow on the next line. - Use UK English spelling. The text elements should not use bold font at any point. 
 - Format in Markdown with smaller headings for a Streamlit UI.
+
+- Response should not be more than 150 words. 
 """
 
 
