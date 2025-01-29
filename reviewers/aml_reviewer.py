@@ -211,8 +211,9 @@ Please follow these rules:
 - Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamlit frontend. - Make sure that the individual gene headers are on their own line 
 - Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:" 
 - Do not attempt to provide an overview summary after the written sections
- - Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD 
+- Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD 
 - When structuring your response place those mutations that are suitable for MRD monitoring first in your output 
+- If there are no positive gene findings to note then just say that, don't put put in genes that aren't there.
 """
 
     # Call OpenAI
