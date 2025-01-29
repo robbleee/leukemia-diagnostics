@@ -75,7 +75,7 @@ Derivation: {icc_deriv}
 
 **Response**: 
 - Be concise and professional. Provide only the headings stated. Headings should be in bold type followed by a colon, then the text should follow on the next line. - Use UK English spelling. The text elements should not use bold font at any point. 
-- Format in Markdown with smaller headings for a Streamlit UI.
+- Format in Markdown with smaller headings (**<heading**>) for a Streamlit UI.
 
 - Response should not be more than 150 words. 
 """
@@ -142,7 +142,7 @@ Please follow these rules:
 7. For each gene, if it can be used to monitor minimal residual disease (MRD) in the UK, state this in bold lettering below the title (gene name) 
 
 **Response**:
-- Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamlit frontend.
+- Structure your answer beautifully in markdown with smaller headings (**<heading**>) for a Streamlit UI.
 - Make sure that the individual gene headers are on their own line
 - Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:"
 - Do not attempt to provide an overview summary after the written sections
@@ -208,7 +208,7 @@ Please follow these rules:
 5. Provide a maximum of 2 references that have high citation for each recommendation. 
 
 **Response**: 
-- Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamlit frontend. - Make sure that the individual gene headers are on their own line 
+- Structure your answer beautifully in markdown with smaller headings (**<heading**>) for a Streamlit UI. - Make sure that the individual gene headers are on their own line 
 - Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:" 
 - Do not attempt to provide an overview summary after the written sections
 - Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD 
@@ -274,7 +274,7 @@ d. If TP53 has a single allele mutated consider whether there is also a 17p dele
 e. If mutation of the discussed gene is frequently seen in lymphoid cells then state this and advise on possible action. Do this only if the gene is frequently mutated in lymphoid cells.
 
 **Response**:
-- Structure your answer beautifully in Markdown but reduce heading size so that it looks good in streamlit frontend.
+- Structure your answer beautifully in markdown with smaller headings (**<heading**>) for a Streamlit UI..
 - Make sure that the individual gene headers are on their own line
 - Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:"
 - Do not attempt to provide an overview summary after the written sections

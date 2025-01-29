@@ -319,7 +319,14 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
             derivation.append("All MDS-related cytogenetic flags are false.")
 
     # -----------------------------
-    # STEP 5: Qualifiers
+    # STEP 5: Failback to not MDS if blasts are not high enough
+    # -----------------------------
+    if classification == "AML, NOS" and blasts_percentage < 20.0:
+        classification = "Not AML, consider MDS classification"
+        derivation.append(f"All findings are negative and blasts are < 20 so => {classification}")
+
+    # -----------------------------
+    # STEP 6: Qualifiers
     # -----------------------------
     qualifier_descriptions = []
 

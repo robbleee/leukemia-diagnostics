@@ -79,7 +79,7 @@ Derivation: {icc_deriv}
 **Response**:
 - Use UK English spelling.
 - Provide only the headings “Classification Review” and “Sample Quality” (in bold) with succinct text under each.
-- Format in Markdown (Streamlit-friendly), no more than 150 words total.
+- Structure your answer beautifully in markdown with smaller headings (**<heading**>) for a Streamlit UI. no more than 150 words total.
 - Do not use bold anywhere except for the exact headings.
 """
 
@@ -142,7 +142,7 @@ Follow these rules:
 5. Provide up to three well-cited references per gene/abnormality.
 
 **Response**:
-- Format your answer in Markdown (Streamlit-friendly).
+- Structure your answer beautifully in markdown with smaller headings (**<heading**>) for a Streamlit UI.
 - Begin with the heading “Genetics Review” (not bold). 
 - Each gene or cytogenetic finding should be italicised in capital letters (e.g. *TP53*) and placed at the start of a new line as a subheading.
 - Do not add extraneous text like "Certainly, here is the analysis..."
@@ -202,7 +202,7 @@ Provide a section called Additional Considerations for MDS.
 4. If no further detail is necessary, simply state that there are no additional comments.
 
 **Response**:
-- Format in Markdown (Streamlit-friendly).
+- Structure your answer beautifully in markdown with smaller headings (**<heading**>) for a Streamlit UI.
 - Title it “Additional Considerations” (not bold).
 - Do not add extra flourish or disclaimers at the end.
 - Keep it succinct and professional.
