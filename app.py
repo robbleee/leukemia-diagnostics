@@ -536,7 +536,7 @@ def app_main():
         # Replace st.tabs with a horizontal menu
         selected_tab = option_menu(
             menu_title=None,
-            options=["AML Classification", "MDS Classification", "AML Response Assessment"],
+            options=["AML Diagnostics", "MDS Diagnostics"],
             default_index=0,
             orientation="horizontal"
         )
@@ -544,7 +544,7 @@ def app_main():
         # --------------------------------------------------------------
         # AML CLASSIFICATION
         # --------------------------------------------------------------
-        if selected_tab == "AML Classification":
+        if selected_tab == "AML Diagnostics":
             st.subheader("Acute Myeloid Leukemia (AML)")
             aml_mode_toggle = st.checkbox("Free Text Mode", key="aml_mode_toggle")
 
@@ -856,7 +856,7 @@ def app_main():
         # --------------------------------------------------------------
         # MDS CLASSIFICATION
         # --------------------------------------------------------------
-        elif selected_tab == "MDS Classification":
+        elif selected_tab == "MDS Diagnostics":
             st.subheader("Myelodysplastic Syndromes (MDS)")
             mds_mode_toggle = st.checkbox("Free Text Mode", key="mds_mode_toggle")
 
@@ -1074,12 +1074,6 @@ def app_main():
                         ):
                             st.markdown(st.session_state["mds_ai_gene_review"])
 
-        # --------------------------------------------------------------
-        # AML RESPONSE ASSESSMENT
-        # --------------------------------------------------------------
-        elif selected_tab == "AML Response Assessment":
-            st.subheader("AML Response Assessment")
-            st.info("Placeholder for AML response classification...")
 
     else:
         st.info("🔒 **Log in** to use the classification features.")
