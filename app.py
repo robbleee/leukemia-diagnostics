@@ -115,10 +115,12 @@ def local_css():
             margin-right: 10px;
         }
 
+        /* Updated the checked background to teal (#009688) */
         .toggle-switch-label input:checked + span {
-            background-color: #4CAF50;
+            background-color: #009688;
         }
 
+        /* Moves toggle circle on check */
         .toggle-switch-label input:checked + span:before {
             transform: translateX(26px);
         }
@@ -126,7 +128,7 @@ def local_css():
         .toggle-switch-label span {
             position: absolute;
             cursor: pointer;
-            background-color: #ccc;
+            background-color: #ccc; /* Unchecked color */
             border-radius: 34px;
             top: 0; left: 0; right: 0; bottom: 0;
             transition: 0.4s;
@@ -143,7 +145,7 @@ def local_css():
             transition: 0.4s;
         }
 
-        /* Increase tab text size */
+        /* Increase tab text size (only relevant if you still use st.tabs) */
         div[data-baseweb="tabs"] > div > div {
             font-size: 20px;
             font-weight: bold;
@@ -154,16 +156,15 @@ def local_css():
         unsafe_allow_html=True
     )
 
-# Add custom CSS for buttons with a pastel blue outline
 def add_custom_css():
     st.markdown(
         """
         <style>
-        /* Buttons with a pastel blue outline */
+        /* Buttons with a teal outline */
         .stButton > button {
-            background-color: white; /* White background */
-            color: #6CAFD8; /* Pastel blue text */
-            border: 2px solid #6CAFD8; /* Pastel blue outline */
+            background-color: white;
+            color: #009688; /* Teal text */
+            border: 2px solid #009688; /* Teal outline */
             border-radius: 8px;
             padding: 10px 20px;
             font-size: 16px;
@@ -171,18 +172,18 @@ def add_custom_css():
         }
 
         .stButton > button:hover {
-            background-color: #EAF6FD; /* Light pastel blue background on hover */
-            color: #569ABA; /* Slightly darker pastel blue text on hover */
-            border-color: #569ABA; /* Slightly darker pastel blue outline on hover */
+            background-color: #E0F2F1; /* Light pastel teal on hover */
+            color: #00695C;           /* Slightly darker teal text on hover */
+            border-color: #00695C;    /* Darker teal outline on hover */
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-
 local_css()
 add_custom_css()
+
 
 
 ##################################
@@ -437,12 +438,9 @@ def display_aml_classification_results(parsed_fields, classification_who, who_de
     """
     with st.expander("### **View Parsed AML Values**", expanded=False):
         st.json(parsed_fields)
+    st.markdown("---")
 
-    st.markdown("""
-    <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
-        <h3 style='color: #0f5132;'>Classification Results</h3>
-    </div>
-    """, unsafe_allow_html=True)
+    
 
     col1, col2 = st.columns(2)
     with col1:
@@ -506,6 +504,7 @@ def display_aml_response_results(parsed_data, response, derivation, mode="manual
     with st.expander("### **View Parsed AML Response Values**", expanded=False):
         st.json(parsed_data)
 
+    
     st.markdown("""
     <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
         <h3 style='color: #0f5132;'>AML Response Assessment Result</h3>
