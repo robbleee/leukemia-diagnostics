@@ -192,84 +192,119 @@ add_custom_css()
 def build_manual_aml_data() -> dict:
     # Wrap everything in a single expander
     with st.expander("Manual Input Area", expanded=True):
-        st.markdown("### Manual AML Data Entry ")
-        blasts = st.number_input("Blasts (%)", min_value=0.0, max_value=100.0, value=0.0, key="aml_blasts_percentage")
+        st.markdown("### Manual AML Data Entry")
+        # ---------------------------------------------------------------------
+        # Blasts
+        # ---------------------------------------------------------------------
+        blasts = st.number_input(
+            "Blasts (%)",
+            min_value=0.0, 
+            max_value=100.0, 
+            value=0.0,
+            key="aml_blasts_percentage"
+        )
 
+        # ---------------------------------------------------------------------
+        # AML-defining Recurrent Genetic Abnormalities (4 columns)
+        # ---------------------------------------------------------------------
         st.markdown("#### AML-defining Recurrent Genetic Abnormalities")
-        c1, c2 = st.columns(2)
-        with c1:
+        c_aml1, c_aml2, c_aml3, c_aml4 = st.columns(4)
+
+        with c_aml1:
             npm1 = st.checkbox("NPM1 mutation", key="aml_npm1_mutation")
             runx1_runx1t1 = st.checkbox("RUNX1::RUNX1T1 fusion", key="aml_runx1_runx1t1")
             cbfb_myh11 = st.checkbox("CBFB::MYH11 fusion", key="aml_cbfb_myh11")
+
+        with c_aml2:
             dek_nup214 = st.checkbox("DEK::NUP214 fusion", key="aml_dek_nup214")
             rbm15_mrtfa = st.checkbox("RBM15::MRTFA fusion", key="aml_rbm15_mrtfa")
-        with c2:
             mllt3_kmt2a = st.checkbox("MLLT3::KMT2A fusion", key="aml_mllt3_kmt2a")
+
+        with c_aml3:
             kmt2a = st.checkbox("KMT2A rearrangement (other)", key="aml_kmt2a_other")
             mecom = st.checkbox("MECOM rearrangement", key="aml_mecom")
             nup98 = st.checkbox("NUP98 rearrangement", key="aml_nup98")
-            cebpa = st.checkbox("CEBPA mutation", key="aml_cebpa_mutation")
 
-        # Additional row
-        c3, c4 = st.columns(2)
-        with c3:
+        with c_aml4:
+            cebpa = st.checkbox("CEBPA mutation", key="aml_cebpa_mutation")
             bzip = st.checkbox("CEBPA bZIP mutation", key="aml_cebpa_bzip")
-        with c4:
             bcr_abl1 = st.checkbox("BCR::ABL1 fusion", key="aml_bcr_abl1")
 
+        # ---------------------------------------------------------------------
         # Biallelic TP53
+        # ---------------------------------------------------------------------
         st.markdown("#### Biallelic TP53 Mutation")
-        tp1, tp2, tp3 = st.columns(3)
+        tp1, tp2, tp3, tp4 = st.columns(4)
         with tp1:
             two_tp53 = st.checkbox("2 x TP53 mutations", key="aml_tp53_2")
         with tp2:
             one_tp53_del17p = st.checkbox("1 x TP53 + del(17p)", key="aml_tp53_del17p")
         with tp3:
             one_tp53_loh = st.checkbox("1 x TP53 + LOH", key="aml_tp53_loh")
+        with tp4:
+            pass
 
-        # MDS-related flags (merged from previous expanders)
-        st.markdown("#### MDS Related Flags")
-        st.subheader("MDS-related Mutations")
-        col_a, col_b = st.columns(2)
-        with col_a:
+        # ---------------------------------------------------------------------
+        # MDS-related Mutations (4 columns)
+        # ---------------------------------------------------------------------
+        st.markdown("#### MDS-related Mutations")
+        col_a1, col_a2, col_a3, col_a4 = st.columns(4)
+
+        with col_a1:
             asxl1 = st.checkbox("ASXL1", key="aml_asxl1")
             bcor = st.checkbox("BCOR", key="aml_bcor")
             ezh2 = st.checkbox("EZH2", key="aml_ezh2")
+        with col_a2:
             runx1_mds = st.checkbox("RUNX1 (MDS-related)", key="aml_runx1_mds")
             sf3b1 = st.checkbox("SF3B1", key="aml_sf3b1")
-        with col_b:
+        with col_a3:
             srsf2 = st.checkbox("SRSF2", key="aml_srsf2")
             stag2 = st.checkbox("STAG2", key="aml_stag2")
+        with col_a4:           
             u2af1 = st.checkbox("U2AF1", key="aml_u2af1")
             zrsr2 = st.checkbox("ZRSR2", key="aml_zrsr2")
 
-        st.subheader("MDS-related Cytogenetics")
-        c_left, c_right = st.columns(2)
-        with c_left:
+        # ---------------------------------------------------------------------
+        # MDS-related Cytogenetics (4 columns)
+        # ---------------------------------------------------------------------
+        st.markdown("#### MDS-related Cytogenetics")
+        col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+
+        with col_b1:
             complex_kary = st.checkbox("Complex karyotype", key="aml_complex_karyotype")
             del_5q = st.checkbox("del(5q)", key="aml_del_5q")
             t_5q = st.checkbox("t(5q)", key="aml_t_5q")
             add_5q = st.checkbox("add(5q)", key="aml_add_5q")
             minus7 = st.checkbox("-7", key="aml_minus7")
+        with col_b2:
             del_7q = st.checkbox("del(7q)", key="aml_del_7q")
             plus8 = st.checkbox("+8", key="aml_plus8")
-        with c_right:
             del_11q = st.checkbox("del(11q)", key="aml_del_11q")
             del_12p = st.checkbox("del(12p)", key="aml_del_12p")
             t_12p = st.checkbox("t(12p)", key="aml_t_12p")
+        with col_b3:
             add_12p = st.checkbox("add(12p)", key="aml_add_12p")
             minus13 = st.checkbox("-13", key="aml_minus13")
             i_17q = st.checkbox("i(17q)", key="aml_i_17q")
             minus17 = st.checkbox("-17", key="aml_minus17")
             add_17p = st.checkbox("add(17p)", key="aml_add_17p")
+        with col_b4:
             del_17p = st.checkbox("del(17p)", key="aml_del_17p")
             del_20q = st.checkbox("del(20q)", key="aml_del_20q")
             idic_x_q13 = st.checkbox("idic_X_q13", key="aml_idic_x_q13")
 
+        # ---------------------------------------------------------------------
         # AML Differentiation
-        aml_diff = st.text_input("AML differentiation (e.g. 'FAB M3', 'M4')", value="", key="aml_differentiation")
+        # ---------------------------------------------------------------------
+        aml_diff = st.text_input(
+            "AML differentiation (e.g. 'FAB M3', 'M4')",
+            value="", 
+            key="aml_differentiation"
+        )
 
+        # ---------------------------------------------------------------------
         # Qualifiers
+        # ---------------------------------------------------------------------
         st.markdown("#### Qualifiers")
         qc1, qc2 = st.columns(2)
         with qc1:
@@ -279,66 +314,69 @@ def build_manual_aml_data() -> dict:
             prev_cytotx = st.checkbox("Previous cytotoxic therapy?", key="aml_prev_cytotx")
             germ_variant = st.text_input("Predisposing germline variant (if any)", value="None", key="aml_germ_variant")
 
-        manual_data = {
-            "blasts_percentage": blasts,
-            "AML_defining_recurrent_genetic_abnormalities": {
-                "NPM1": npm1,
-                "RUNX1::RUNX1T1": runx1_runx1t1,
-                "CBFB::MYH11": cbfb_myh11,
-                "DEK::NUP214": dek_nup214,
-                "RBM15::MRTFA": rbm15_mrtfa,
-                "MLLT3::KMT2A": mllt3_kmt2a,
-                "KMT2A": kmt2a,
-                "MECOM": mecom,
-                "NUP98": nup98,
-                "CEBPA": cebpa,
-                "bZIP": bzip,
-                "BCR::ABL1": bcr_abl1
-            },
-            "Biallelic_TP53_mutation": {
-                "2_x_TP53_mutations": two_tp53,
-                "1_x_TP53_mutation_del_17p": one_tp53_del17p,
-                "1_x_TP53_mutation_LOH": one_tp53_loh
-            },
-            "MDS_related_mutation": {
-                "ASXL1": asxl1,
-                "BCOR": bcor,
-                "EZH2": ezh2,
-                "RUNX1": runx1_mds,
-                "SF3B1": sf3b1,
-                "SRSF2": srsf2,
-                "STAG2": stag2,
-                "U2AF1": u2af1,
-                "ZRSR2": zrsr2
-            },
-            "MDS_related_cytogenetics": {
-                "Complex_karyotype": complex_kary,
-                "del_5q": del_5q,
-                "t_5q": t_5q,
-                "add_5q": add_5q,
-                "-7": minus7,
-                "del_7q": del_7q,
-                "+8": plus8,
-                "del_11q": del_11q,
-                "del_12p": del_12p,
-                "t_12p": t_12p,
-                "add_12p": add_12p,
-                "-13": minus13,
-                "i(17q)": i_17q,
-                "-17": minus17,
-                "add(17p)": add_17p,
-                "del(17p)": del_17p,
-                "del(20q)": del_20q,
-                "idic_X_q13": idic_x_q13
-            },
-            "AML_differentiation": aml_diff.strip() if aml_diff.strip() else None,
-            "qualifiers": {
-                "previous_MDS_diagnosed_over_3_months_ago": prev_mds_3mo,
-                "previous_MDS/MPN_diagnosed_over_3_months_ago": prev_mds_mpn_3mo,
-                "previous_cytotoxic_therapy": prev_cytotx,
-                "predisposing_germline_variant": germ_variant.strip() if germ_variant.strip() else "None"
-            }
+    # -------------------------------------------------------------------------
+    # Collect inputs into a dictionary
+    # -------------------------------------------------------------------------
+    manual_data = {
+        "blasts_percentage": blasts,
+        "AML_defining_recurrent_genetic_abnormalities": {
+            "NPM1": npm1,
+            "RUNX1::RUNX1T1": runx1_runx1t1,
+            "CBFB::MYH11": cbfb_myh11,
+            "DEK::NUP214": dek_nup214,
+            "RBM15::MRTFA": rbm15_mrtfa,
+            "MLLT3::KMT2A": mllt3_kmt2a,
+            "KMT2A": kmt2a,
+            "MECOM": mecom,
+            "NUP98": nup98,
+            "CEBPA": cebpa,
+            "bZIP": bzip,
+            "BCR::ABL1": bcr_abl1
+        },
+        "Biallelic_TP53_mutation": {
+            "2_x_TP53_mutations": two_tp53,
+            "1_x_TP53_mutation_del_17p": one_tp53_del17p,
+            "1_x_TP53_mutation_LOH": one_tp53_loh
+        },
+        "MDS_related_mutation": {
+            "ASXL1": asxl1,
+            "BCOR": bcor,
+            "EZH2": ezh2,
+            "RUNX1": runx1_mds,
+            "SF3B1": sf3b1,
+            "SRSF2": srsf2,
+            "STAG2": stag2,
+            "U2AF1": u2af1,
+            "ZRSR2": zrsr2
+        },
+        "MDS_related_cytogenetics": {
+            "Complex_karyotype": complex_kary,
+            "del_5q": del_5q,
+            "t_5q": t_5q,
+            "add_5q": add_5q,
+            "-7": minus7,
+            "del_7q": del_7q,
+            "+8": plus8,
+            "del_11q": del_11q,
+            "del_12p": del_12p,
+            "t_12p": t_12p,
+            "add_12p": add_12p,
+            "-13": minus13,
+            "i(17q)": i_17q,
+            "-17": minus17,
+            "add(17p)": add_17p,
+            "del(17p)": del_17p,
+            "del(20q)": del_20q,
+            "idic_X_q13": idic_x_q13
+        },
+        "AML_differentiation": aml_diff.strip() if aml_diff.strip() else None,
+        "qualifiers": {
+            "previous_MDS_diagnosed_over_3_months_ago": prev_mds_3mo,
+            "previous_MDS/MPN_diagnosed_over_3_months_ago": prev_mds_mpn_3mo,
+            "previous_cytotoxic_therapy": prev_cytotx,
+            "predisposing_germline_variant": germ_variant.strip() if germ_variant.strip() else "None"
         }
+    }
 
     return manual_data
 
