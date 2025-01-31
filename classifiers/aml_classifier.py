@@ -192,8 +192,8 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
 
     Returns:
         tuple:
-            classification (str): The final AML classification according to ICC 2022
-            derivation (list): A list capturing the step-by-step logic used
+            classification (str): The final classification according to ICC 2022.
+            derivation (list): A list capturing the step-by-step logic used.
     """
     derivation = []
 
@@ -214,6 +214,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
             derivation,
         )
 
+    # Default classification
     classification = "AML, NOS"
     derivation.append(f"Default classification set to: {classification}")
 
@@ -242,26 +243,28 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         "BCR::ABL1": "AML with t(9;22)(q34.1;q11.2)/BCR::ABL1"
     }
 
+    # Check if any of the ICC AML-defining genetic abnormalities are present
     true_aml_genes = [gene for gene, val in aml_def_genetic.items() if val is True]
-    if not true_aml_genes:
-        derivation.append("All ICC AML-defining genetic abnormality flags are false.")
-        if blasts_percentage < 20.0:
-                classification = "Not AML, consider MDS classification"
-                derivation.append("No AML defining abnormalities and blasts < 20% => 'Consider reclassification as MDS'.")
-    else:
+    if true_aml_genes:
         derivation.append(f"Detected ICC AML-defining flags: {', '.join(true_aml_genes)}")
         updated = False
         for gene, classif in aml_genetic_abnormalities_map.items():
             if aml_def_genetic.get(gene, False):
+                # For ICC 2022, if blasts >=10%, we typically consider AML
+                # (But final "MDS/AML" vs "Not AML" is decided in Step 5)
                 if blasts_percentage >= 10.0:
                     classification = classif
-                    derivation.append(f"{gene} abnormality meets blasts >=10%. Classification => {classification}")
+                    derivation.append(f"{gene} abnormality => provisional classification: {classification}")
                     updated = True
                     break
                 else:
-                    derivation.append(f"Blasts do not meet 10% ICC requirement for {gene} defining classification")
+                    derivation.append(
+                        f"Found {gene} abnormality, but blasts <10% => cannot label as AML at this stage"
+                    )
         if not updated:
-            derivation.append("No ICC AML-defining abnormality met")
+            derivation.append("No single ICC AML-defining abnormality triggered classification.")
+    else:
+        derivation.append("All ICC AML-defining genetic abnormality flags are false.")
 
     # -----------------------------
     # STEP 2: Biallelic TP53
@@ -270,11 +273,11 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         conditions = [
             biallelic_tp53.get("2_x_TP53_mutations", False),
             biallelic_tp53.get("1_x_TP53_mutation_del_17p", False),
-            biallelic_tp53.get("1_x_TP53_mutation_LOH", False)
+            biallelic_tp53.get("1_x_TP53_mutation_LOH", False),
         ]
         if any(conditions):
             classification = "AML with mutated TP53"
-            derivation.append("Biallelic TP53 mutation condition met => AML with mutated TP53")
+            derivation.append("Biallelic TP53 mutation condition met => provisional classification: AML with mutated TP53")
         else:
             derivation.append("All biallelic TP53 mutation flags are false.")
 
@@ -286,7 +289,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         if true_mds_mutations:
             classification = "AML with myelodysplasia related gene mutation"
             derivation.append(
-                f"MDS-related mutation(s): {', '.join(true_mds_mutations)} => {classification}"
+                f"MDS-related mutation(s): {', '.join(true_mds_mutations)} => provisional classification: {classification}"
             )
         else:
             derivation.append("All MDS-related gene mutation flags are false.")
@@ -313,17 +316,44 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         if true_cytogenetics:
             classification = "AML with myelodysplasia related cytogenetic abnormality"
             derivation.append(
-                f"MDS-related cytogenetic abnormality(ies): {', '.join(true_cytogenetics)} => {classification}"
+                f"MDS-related cytogenetic abnormality(ies): {', '.join(true_cytogenetics)} => "
+                f"provisional classification: {classification}"
             )
         else:
             derivation.append("All MDS-related cytogenetic flags are false.")
 
     # -----------------------------
-    # STEP 5: Failback to not MDS if blasts are not high enough
+    # STEP 5: Final Blast-Count Check (AML vs MDS/AML vs Not AML)
     # -----------------------------
-    if classification == "AML, NOS" and blasts_percentage < 20.0:
-        classification = "Not AML, consider MDS classification"
-        derivation.append(f"All findings are negative and blasts are < 20 so => {classification}")
+    # These subtypes can become "MDS/AML" if blasts are 10–19%
+    convertible_subtypes = {
+        "AML with mutated TP53",
+        "AML with myelodysplasia related gene mutation",
+        "AML with myelodysplasia related cytogenetic abnormality",
+        "AML, NOS"
+    }
+
+    # If the classification is one of the convertible subtypes:
+    if classification in convertible_subtypes:
+        if blasts_percentage < 10.0:
+            classification = "Not AML, consider MDS classification"
+            derivation.append("Blasts <10% => final classification: Not AML, consider MDS classification")
+        elif 10.0 <= blasts_percentage < 20.0:
+            # Replace "AML" with "MDS/AML" (only the first occurrence)
+            new_classification = classification.replace("AML", "MDS/AML", 1)
+            derivation.append(
+                "Blasts 10–19% => replaced 'AML' with 'MDS/AML'. Final classification: "
+                f"{new_classification}"
+            )
+            classification = new_classification
+        else:
+            derivation.append("Blasts >=20% => remain AML.")
+    else:
+        # If we are in some other special genetically-defined AML group but blasts <10 => Not AML
+        # (Typically won't happen for standard AML-defining rearrangements, but just in case)
+        if blasts_percentage < 10.0:
+            classification = "Not AML, consider MDS classification"
+            derivation.append("Blasts <10% => final classification: Not AML, consider MDS classification")
 
     # -----------------------------
     # STEP 6: Qualifiers
@@ -342,12 +372,16 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         qualifier_descriptions.append("therapy related")
         derivation.append("Detected qualifier: therapy related")
 
-    if qualifier_descriptions:
+    # Append qualifiers (and always add " (ICC 2022)" at the end)
+    if qualifier_descriptions and "Not AML" not in classification:
+        # If final classification is "Not AML," we typically don't tack on qualifiers.
         qualifiers_str = ", ".join(qualifier_descriptions)
         classification += f", {qualifiers_str} (ICC 2022)"
         derivation.append(f"Qualifiers appended => {classification}")
     else:
-        classification += " (ICC 2022)"
+        # If "Not AML," or if no qualifiers found, just add the ICC 2022 parenthetical
+        if "Not AML" not in classification:
+            classification += " (ICC 2022)"
         derivation.append(f"Final classification => {classification}")
 
     return classification, derivation
