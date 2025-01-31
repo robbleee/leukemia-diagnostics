@@ -454,7 +454,11 @@ def display_aml_classification_results(parsed_fields, classification_who, who_de
     """
     with st.expander("### **View Parsed AML Values**", expanded=False):
         st.json(parsed_fields)
-    st.markdown("---")
+    st.markdown("""
+                <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
+                    <h3 style='color: #0f5132;'>Classification Results</h3>
+                </div>
+                """, unsafe_allow_html=True)
 
     
 
@@ -487,6 +491,12 @@ def display_mds_classification_results(parsed_fields, classification_who, deriva
     """
     with st.expander("View Parsed MDS Values", expanded=False):
         st.json(parsed_fields)
+    
+    st.markdown("""
+                <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
+                    <h3 style='color: #0f5132;'>Classification Results</h3>
+                </div>
+                """, unsafe_allow_html=True)
 
     st.markdown("""
     <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
