@@ -1,8 +1,11 @@
 import streamlit as st
 import bcrypt
 import json
+import datetime
 from openai import OpenAI
 from streamlit_option_menu import option_menu
+from fpdf import FPDF
+import re
 
 # Example imports for your parsers/classifiers
 from parsers.aml_parser import parse_genetics_report_aml
@@ -183,6 +186,170 @@ def add_custom_css():
 
 local_css()
 add_custom_css()
+
+
+
+# ------------------------------------------------------------------------------
+# Helper function to strip markdown formatting from text
+# ------------------------------------------------------------------------------
+def clean_text(text: str) -> str:
+    """
+    Remove common markdown tokens (headings, emphasis, code markers) so that
+    the PDF shows plain, nicely formatted text.
+    """
+    # Remove markdown headings (e.g. ### Heading)
+    text = re.sub(r'^\s*#{1,6}\s+', '', text, flags=re.MULTILINE)
+    # Remove bold and italic markers
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+    text = re.sub(r'__(.*?)__', r'\1', text)
+    text = re.sub(r'\*(.*?)\*', r'\1', text)
+    text = re.sub(r'_(.*?)_', r'\1', text)
+    # Remove inline code markers
+    text = re.sub(r'`{1,3}', '', text)
+    return text
+
+# ------------------------------------------------------------------------------
+# Custom PDF class with a minimal header (only on the first page) and a footer
+# ------------------------------------------------------------------------------
+class PDF(FPDF):
+    def header(self):
+        # Show header only on first page.
+        if self.page_no() == 1:
+            self.set_font("Arial", "B", 14)
+            self.set_text_color(0, 70, 140)  # Dark blue
+            self.cell(0, 8, "Diagnostic Report", ln=1, align="C")
+            self.set_font("Arial", "", 10)
+            self.set_text_color(100, 100, 100)
+            self.cell(0, 5, datetime.datetime.now().strftime("%B %d, %Y"), ln=1, align="C")
+            self.ln(4)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font("Arial", "I", 8)
+        self.set_text_color(150, 150, 150)
+        self.cell(0, 10, f"Page {self.page_no()}", align="C")
+
+# ------------------------------------------------------------------------------
+# Helper function: Add a colored section title
+# ------------------------------------------------------------------------------
+def add_section_title(pdf: PDF, title: str):
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_fill_color(0, 70, 140)  # Dark blue background
+    pdf.cell(0, 10, clean_text(title), ln=1, fill=True)
+    pdf.ln(2)
+    pdf.set_text_color(0, 0, 0)
+
+# ------------------------------------------------------------------------------
+# Helper function: Add the classification details in a “table‐like” layout.
+#
+# This section is divided into two parts: one for WHO 2022 and one for ICC 2022.
+# Each subsection shows the classification result and then the derivation steps.
+# ------------------------------------------------------------------------------
+def add_classification_section(pdf: PDF, classification_data: dict):
+    line_height = 8
+
+    # WHO 2022 Section
+    pdf.set_font("Arial", "B", 11)
+    pdf.cell(0, line_height, "WHO 2022", ln=1, border='B')
+    pdf.set_font("Arial", "", 10)
+    pdf.multi_cell(0, line_height, f"Classification: {clean_text(classification_data['WHO']['classification'])}")
+    pdf.multi_cell(0, line_height, "Derivation Steps:")
+    for i, step in enumerate(classification_data["WHO"]["derivation"], start=1):
+        pdf.multi_cell(0, line_height, f"  {i}. {clean_text(step)}")
+    pdf.ln(4)
+
+    # ICC 2022 Section
+    pdf.set_font("Arial", "B", 11)
+    pdf.cell(0, line_height, "ICC 2022", ln=1, border='B')
+    pdf.set_font("Arial", "", 10)
+    pdf.multi_cell(0, line_height, f"Classification: {clean_text(classification_data['ICC']['classification'])}")
+    pdf.multi_cell(0, line_height, "Derivation Steps:")
+    for i, step in enumerate(classification_data["ICC"]["derivation"], start=1):
+        pdf.multi_cell(0, line_height, f"  {i}. {clean_text(step)}")
+    pdf.ln(6)
+
+# ------------------------------------------------------------------------------
+# Helper function: Build a diagnostic section (AML or MDS) using session state data.
+#
+# This function pulls from the session state the classification results and any additional review content.
+# It supports both manual and AI modes.
+# ------------------------------------------------------------------------------
+def add_diagnostic_section(pdf: PDF, diag_type: str):
+    """
+    diag_type: "AML" or "MDS"
+    """
+    manual_key = diag_type.lower() + "_manual_result"
+    ai_key = diag_type.lower() + "_ai_result"
+    if manual_key in st.session_state:
+        data = st.session_state[manual_key]
+        prefix = diag_type.lower() + "_manual"
+    elif ai_key in st.session_state:
+        data = st.session_state[ai_key]
+        prefix = diag_type.lower() + "_ai"
+    else:
+        return  # No results for this diagnostic type
+
+    # Build dictionary for classification details.
+    classification_data = {
+        "WHO": {
+            "classification": data["who_class"],
+            "derivation": data["who_derivation"]
+        },
+        "ICC": {
+            "classification": data["icc_class"],
+            "derivation": data["icc_derivation"]
+        }
+    }
+
+    # Add main section header for this diagnostic.
+    add_section_title(pdf, f"{diag_type} Classification Results")
+    add_classification_section(pdf, classification_data)
+
+    # Check and add additional review sections if available.
+    review_key = prefix + "_class_review"
+    if review_key in st.session_state:
+        add_section_title(pdf, "Classification Review")
+        pdf.set_font("Arial", "", 10)
+        pdf.multi_cell(0, 8, clean_text(st.session_state[review_key]))
+        pdf.ln(4)
+
+    mrd_key = prefix + "_mrd_review"
+    if mrd_key in st.session_state:
+        add_section_title(pdf, "MRD Review")
+        pdf.set_font("Arial", "", 10)
+        pdf.multi_cell(0, 8, clean_text(st.session_state[mrd_key]))
+        pdf.ln(4)
+
+    gene_key = prefix + "_gene_review"
+    if gene_key in st.session_state:
+        add_section_title(pdf, "Gene Review")
+        pdf.set_font("Arial", "", 10)
+        pdf.multi_cell(0, 8, clean_text(st.session_state[gene_key]))
+        pdf.ln(4)
+
+    comments_key = prefix + "_additional_comments"
+    if comments_key in st.session_state:
+        add_section_title(pdf, "Additional Comments")
+        pdf.set_font("Arial", "", 10)
+        pdf.multi_cell(0, 8, clean_text(st.session_state[comments_key]))
+        pdf.ln(4)
+
+# ------------------------------------------------------------------------------
+# Main function: Create the beautifully formatted PDF report.
+# ------------------------------------------------------------------------------
+def create_beautiful_pdf() -> bytes:
+    pdf = PDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # Add AML section (if available)
+    add_diagnostic_section(pdf, "AML")
+    # Add MDS section (if available)
+    add_diagnostic_section(pdf, "MDS")
+
+    return pdf.output(dest="S").encode("latin1")
+
 
 
 
@@ -639,8 +806,7 @@ def app_main():
             default_index=0,
             orientation="horizontal"
         )
-
-        
+          
 
 
         # --------------------------------------------------------------
@@ -742,7 +908,7 @@ def app_main():
                     ##########################################
                     # Buttons for MRD, Gene Review, Comments
                     ##########################################
-                    col1, col2, col3 = st.columns(3)
+                    col1, col2, col3, col4, col5 = st.columns(5)
 
                     with col1:
                         if st.button("🧪 MRD Review"):
@@ -770,6 +936,19 @@ def app_main():
                                 st.session_state["aml_manual_additional_comments"] = add_comments
                                 st.session_state["expanded_aml_section"] = "comments"
                             st.session_state["aml_busy"] = False
+
+                    with col4:
+                        pass
+                    with col5:
+                        if st.download_button(
+                            label="📄 Download Report PDF",
+                            data=create_beautiful_pdf(),
+                            file_name="diagnostic_report.pdf",
+                            mime="application/pdf"
+                        ):
+                            st.success("Your beautiful PDF report is ready for download!")
+              
+
 
                     ##########################################
                     # Display reviews, if any
@@ -1227,7 +1406,6 @@ def app_main():
 
     else:
         st.info("🔒 **Log in** to use the classification features.")
-
 
 def main():
     app_main()
