@@ -105,3 +105,6 @@ wcwidth==0.2.13
 Werkzeug==3.0.6
 yarl==1.18.3
 zipp==3.21.0
+DateTime==5.5
+fpdf==1.7.2
+zope.interface==7.2
