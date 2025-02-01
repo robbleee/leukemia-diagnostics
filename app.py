@@ -1194,7 +1194,7 @@ def app_main():
                     }
                     user_free_text = res.get("free_text_input", "")
 
-                    col_a, col_b, col_c = st.columns(3)
+                    col_a, col_b, col_c, col_d, col_e = st.columns(5)
 
                     with col_a:
                         if st.button("🧪 MRD Review"):
@@ -1225,6 +1225,53 @@ def app_main():
                             )
                             st.session_state["aml_ai_additional_comments"] = add_comments
                             st.session_state["expanded_aml_section"] = "comments"
+
+                    with col_d:
+                        pass
+
+                    with col_e:
+                        # Ensure the session state flag is initialized.
+                        if "show_pdf_form" not in st.session_state:
+                            st.session_state.show_pdf_form = False
+
+                        # Create the download button.
+                        if st.button("Download Report 📄⬇️"):
+                            st.session_state.show_pdf_form = True
+
+                        # Create a placeholder container for the form.
+                        form_placeholder = st.empty()
+
+                        # If the flag is set, display the form in the placeholder.
+                        if st.session_state.show_pdf_form:
+                            with form_placeholder.form(key="pdf_info_form"):
+                                patient_name = st.text_input("Enter Patient Name:")
+                                patient_dob = st.date_input("Enter Date of Birth:")
+                                submit_pdf = st.form_submit_button("Submit")
+                            if submit_pdf:
+                                if not patient_name:
+                                    st.error("Please enter the patient name.")
+                                else:
+                                    pdf_bytes = create_beautiful_pdf(patient_name, patient_dob)
+                                    pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                                    download_html = f'''
+                                        <a id="pdf_download" href="data:application/pdf;base64,{pdf_base64}" download="diagnostic_report.pdf"></a>
+                                        <script>
+                                            setTimeout(function() {{
+                                                document.getElementById("pdf_download").click();
+                                            }}, 100);
+                                        </script>
+                                    '''
+                                    components.html(download_html, height=0)
+                                    st.success("Your beautiful PDF report is ready for download!")
+                                    # Clear the form by emptying the placeholder and resetting the flag.
+                                    st.session_state.show_pdf_form = False
+                                    form_placeholder.empty()
+
+
+
+
+
+
 
                     # Gene Analysis
                     if "aml_ai_gene_review" in st.session_state:
