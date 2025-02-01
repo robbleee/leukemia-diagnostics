@@ -6,6 +6,8 @@ from openai import OpenAI
 from streamlit_option_menu import option_menu
 from fpdf import FPDF
 import re
+import base64
+import streamlit.components.v1 as components  # <-- Ensure this line is present
 
 # Example imports for your parsers/classifiers
 from parsers.aml_parser import parse_genetics_report_aml
@@ -189,6 +191,7 @@ add_custom_css()
 
 
 
+
 # ------------------------------------------------------------------------------
 # Helper function to strip markdown formatting from text
 # ------------------------------------------------------------------------------
@@ -197,26 +200,100 @@ def clean_text(text: str) -> str:
     Remove common markdown tokens (headings, emphasis, code markers) so that
     the PDF shows plain, nicely formatted text.
     """
-    # Remove markdown headings (e.g. ### Heading)
-    text = re.sub(r'^\s*#{1,6}\s+', '', text, flags=re.MULTILINE)
-    # Remove bold and italic markers
-    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
-    text = re.sub(r'__(.*?)__', r'\1', text)
-    text = re.sub(r'\*(.*?)\*', r'\1', text)
-    text = re.sub(r'_(.*?)_', r'\1', text)
-    # Remove inline code markers
-    text = re.sub(r'`{1,3}', '', text)
-    return text
+    text = re.sub(r'^\s*#{1,6}\s+', '', text, flags=re.MULTILINE)  # headings
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # bold
+    text = re.sub(r'__(.*?)__', r'\1', text)        # bold alternate
+    text = re.sub(r'\*(.*?)\*', r'\1', text)          # italic
+    text = re.sub(r'_(.*?)_', r'\1', text)            # italic alternate
+    text = re.sub(r'`{1,3}', '', text)                # inline code
+    return text.strip()
+
+def write_line_with_keywords(pdf: FPDF, line: str, line_height: float = 8):
+    """
+    Writes a line to the PDF, but forces certain keywords to be in bold.
+    """
+    bold_keywords = ["Classification Review", "Sample Quality:", "Derivation Steps:", "Classification:", "Other Genes"]
+    # We'll find all occurrences of any of the keywords.
+    occurrences = []
+    for kw in bold_keywords:
+        start = line.find(kw)
+        if start != -1:
+            occurrences.append((start, kw))
+    occurrences.sort(key=lambda x: x[0])
+    
+    current = 0
+    # If there are no occurrences, just write the whole line normally.
+    if not occurrences:
+        pdf.set_font("Arial", "", 10)
+        pdf.write(line_height, line)
+        pdf.ln(line_height)
+        return
+    
+    # Otherwise, write in segments.
+    for start, kw in occurrences:
+        if start > current:
+            # Write the segment before the keyword in normal font.
+            pdf.set_font("Arial", "", 10)
+            pdf.write(line_height, line[current:start])
+        # Write the keyword in bold.
+        pdf.set_font("Arial", "B", 10)
+        pdf.write(line_height, kw)
+        current = start + len(kw)
+    # Write any remaining text in normal font.
+    if current < len(line):
+        pdf.set_font("Arial", "", 10)
+        pdf.write(line_height, line[current:])
+    pdf.ln(line_height)
+
+def output_review_text(pdf: FPDF, review_text: str, section: str):
+    """
+    Splits review_text into lines and outputs each line.
+    
+    For sections "MRD Review", "Gene Review", and "Additional Comments", if a line is short
+    and entirely uppercase, it is rendered as a subheading (bold, larger font).
+    Otherwise, each line is output using write_line_with_keywords() so that specific keywords
+    are automatically rendered in bold.
+    
+    For other sections (for example, "Classification Review"), all lines are output via write_line_with_keywords().
+    """
+    # For duplicate heading removal, we filter only for some sections.
+    DUPLICATE_HEADINGS = {
+        "MRD Review": ["MRD Strategy", "MRD Review", "MRD Review:"],
+        "Gene Review": ["Genetics Review", "Gene Review", "Genetics Review:"],
+        "Additional Comments": ["Additional Considerations", "Additional Considerations:"]
+    }
+    dup_list = DUPLICATE_HEADINGS.get(section, [])
+    lines = review_text.splitlines()
+    
+    for line in lines:
+        cleaned_line = clean_text(line)
+        if not cleaned_line:
+            pdf.ln(4)
+            continue
+        # For sections with duplicate headings to filter, skip them.
+        if dup_list and any(cleaned_line.lower() == dup.lower() for dup in dup_list):
+            continue
+        # If the section is one where we want subheading formatting…
+        if section in ["MRD Review", "Gene Review", "Additional Comments"]:
+            # If the line is short and entirely uppercase, treat it as a subheading.
+            if len(cleaned_line) < 30 and cleaned_line.isupper():
+                pdf.set_font("Arial", "B", 12)
+                pdf.cell(0, 10, cleaned_line, ln=1)
+                pdf.set_font("Arial", "", 10)
+            else:
+                write_line_with_keywords(pdf, cleaned_line)
+        else:
+            # For Classification Review and other sections, always output using inline keyword formatting.
+            write_line_with_keywords(pdf, cleaned_line)
 
 # ------------------------------------------------------------------------------
 # Custom PDF class with a minimal header (only on the first page) and a footer
 # ------------------------------------------------------------------------------
 class PDF(FPDF):
     def header(self):
-        # Show header only on first page.
         if self.page_no() == 1:
             self.set_font("Arial", "B", 14)
-            self.set_text_color(0, 70, 140)  # Dark blue
+            self.set_text_color(0, 70, 140)
             self.cell(0, 8, "Diagnostic Report", ln=1, align="C")
             self.set_font("Arial", "", 10)
             self.set_text_color(100, 100, 100)
@@ -235,20 +312,16 @@ class PDF(FPDF):
 def add_section_title(pdf: PDF, title: str):
     pdf.set_font("Arial", "B", 12)
     pdf.set_text_color(255, 255, 255)
-    pdf.set_fill_color(0, 70, 140)  # Dark blue background
+    pdf.set_fill_color(0, 70, 140)
     pdf.cell(0, 10, clean_text(title), ln=1, fill=True)
     pdf.ln(2)
     pdf.set_text_color(0, 0, 0)
 
 # ------------------------------------------------------------------------------
 # Helper function: Add the classification details in a “table‐like” layout.
-#
-# This section is divided into two parts: one for WHO 2022 and one for ICC 2022.
-# Each subsection shows the classification result and then the derivation steps.
 # ------------------------------------------------------------------------------
 def add_classification_section(pdf: PDF, classification_data: dict):
     line_height = 8
-
     # WHO 2022 Section
     pdf.set_font("Arial", "B", 11)
     pdf.cell(0, line_height, "WHO 2022", ln=1, border='B')
@@ -258,7 +331,6 @@ def add_classification_section(pdf: PDF, classification_data: dict):
     for i, step in enumerate(classification_data["WHO"]["derivation"], start=1):
         pdf.multi_cell(0, line_height, f"  {i}. {clean_text(step)}")
     pdf.ln(4)
-
     # ICC 2022 Section
     pdf.set_font("Arial", "B", 11)
     pdf.cell(0, line_height, "ICC 2022", ln=1, border='B')
@@ -271,9 +343,6 @@ def add_classification_section(pdf: PDF, classification_data: dict):
 
 # ------------------------------------------------------------------------------
 # Helper function: Build a diagnostic section (AML or MDS) using session state data.
-#
-# This function pulls from the session state the classification results and any additional review content.
-# It supports both manual and AI modes.
 # ------------------------------------------------------------------------------
 def add_diagnostic_section(pdf: PDF, diag_type: str):
     """
@@ -288,9 +357,8 @@ def add_diagnostic_section(pdf: PDF, diag_type: str):
         data = st.session_state[ai_key]
         prefix = diag_type.lower() + "_ai"
     else:
-        return  # No results for this diagnostic type
+        return
 
-    # Build dictionary for classification details.
     classification_data = {
         "WHO": {
             "classification": data["who_class"],
@@ -302,53 +370,44 @@ def add_diagnostic_section(pdf: PDF, diag_type: str):
         }
     }
 
-    # Add main section header for this diagnostic.
     add_section_title(pdf, f"{diag_type} Classification Results")
     add_classification_section(pdf, classification_data)
 
-    # Check and add additional review sections if available.
-    review_key = prefix + "_class_review"
-    if review_key in st.session_state:
-        add_section_title(pdf, "Classification Review")
-        pdf.set_font("Arial", "", 10)
-        pdf.multi_cell(0, 8, clean_text(st.session_state[review_key]))
-        pdf.ln(4)
-
-    mrd_key = prefix + "_mrd_review"
-    if mrd_key in st.session_state:
-        add_section_title(pdf, "MRD Review")
-        pdf.set_font("Arial", "", 10)
-        pdf.multi_cell(0, 8, clean_text(st.session_state[mrd_key]))
-        pdf.ln(4)
-
-    gene_key = prefix + "_gene_review"
-    if gene_key in st.session_state:
-        add_section_title(pdf, "Gene Review")
-        pdf.set_font("Arial", "", 10)
-        pdf.multi_cell(0, 8, clean_text(st.session_state[gene_key]))
-        pdf.ln(4)
-
-    comments_key = prefix + "_additional_comments"
-    if comments_key in st.session_state:
-        add_section_title(pdf, "Additional Comments")
-        pdf.set_font("Arial", "", 10)
-        pdf.multi_cell(0, 8, clean_text(st.session_state[comments_key]))
-        pdf.ln(4)
+    review_sections = [
+        ("Classification Review", prefix + "_class_review"),
+        ("MRD Review", prefix + "_mrd_review"),
+        ("Gene Review", prefix + "_gene_review"),
+        ("Additional Comments", prefix + "_additional_comments")
+    ]
+    for section_name, key in review_sections:
+        if key in st.session_state:
+            add_section_title(pdf, section_name)
+            output_review_text(pdf, st.session_state[key], section_name)
+            pdf.ln(4)
 
 # ------------------------------------------------------------------------------
 # Main function: Create the beautifully formatted PDF report.
+# Now it accepts patient_name and patient_dob, which are included at the top.
 # ------------------------------------------------------------------------------
-def create_beautiful_pdf() -> bytes:
+def create_beautiful_pdf(patient_name: str, patient_dob: datetime.date) -> bytes:
     pdf = PDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Add AML section (if available)
+    # Add a Patient Information section at the top.
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, f"Patient Name: {patient_name}", ln=1)
+    pdf.cell(0, 10, f"Date of Birth: {patient_dob.strftime('%B %d, %Y')}", ln=1)
+    pdf.ln(10)
+
+    # Add diagnostic sections (AML and MDS, if available)
     add_diagnostic_section(pdf, "AML")
-    # Add MDS section (if available)
     add_diagnostic_section(pdf, "MDS")
 
     return pdf.output(dest="S").encode("latin1")
+
+
+
 
 
 
@@ -940,14 +999,37 @@ def app_main():
                     with col4:
                         pass
                     with col5:
-                        if st.download_button(
-                            label="📄 Download Report PDF",
-                            data=create_beautiful_pdf(),
-                            file_name="diagnostic_report.pdf",
-                            mime="application/pdf"
-                        ):
-                            st.success("Your beautiful PDF report is ready for download!")
-              
+                        if "show_pdf_form" not in st.session_state:
+                            st.session_state.show_pdf_form = False
+
+                        if st.button("Download Report 📄⬇️"):
+                            st.session_state.show_pdf_form = True
+
+                        if st.session_state.show_pdf_form:
+                            with st.form(key="pdf_info_form"):
+                                patient_name = st.text_input("Enter Patient Name:")
+                                patient_dob = st.date_input("Enter Date of Birth:")
+                                submit_pdf = st.form_submit_button("Submit")
+                            if submit_pdf:
+                                if not patient_name:
+                                    st.error("Please enter the patient name.")
+                                else:
+                                    pdf_bytes = create_beautiful_pdf(patient_name, patient_dob)
+                                    pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                                    # Build the HTML that creates a hidden anchor and auto-clicks it.
+                                    download_html = f'''
+                                        <a id="pdf_download" href="data:application/pdf;base64,{pdf_base64}" download="diagnostic_report.pdf"></a>
+                                        <script>
+                                            // Wait a short moment to ensure the anchor is rendered, then click it.
+                                            setTimeout(function() {{
+                                                document.getElementById("pdf_download").click();
+                                            }}, 100);
+                                        </script>
+                                    '''
+                                    # Use st.components.v1.html to render the HTML/JS so it will execute.
+                                    components.html(download_html, height=0)
+                                    st.session_state.show_pdf_form = False
+
 
 
                     ##########################################
