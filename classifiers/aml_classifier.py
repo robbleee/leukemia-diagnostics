@@ -44,6 +44,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     # STEP 1: AML-Defining Recurrent Genetic Abnormalities (WHO)
     # -----------------------------
     aml_genetic_abnormalities_map = {
+        "PML::RARA": "Acute promyelocytic leukaemia with PML::RARA fusion",
         "NPM1": "AML with NPM1 mutation",
         "RUNX1::RUNX1T1": "AML with RUNX1::RUNX1T1 fusion",
         "CBFB::MYH11": "AML with CBFB::MYH11 fusion",
@@ -229,6 +230,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     # STEP 1: AML-defining Recurrent Genetic Abnormalities (ICC)
     # -----------------------------
     aml_genetic_abnormalities_map = {
+        "PML::RARA": "APL with t(15;17)(q24.1;q21.2)/PML::RARA",
         "NPM1": "AML with mutated NPM1",
         "RUNX1::RUNX1T1": "AML with t(8;21)(q22;q22.1)/RUNX1::RUNX1T1",
         "CBFB::MYH11": "AML with inv(16)(p13.1q22) or t(16;16)(p13.1;q22)/CBFB::MYH11",
@@ -240,7 +242,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         "MECOM": "AML with other MECOM rearrangements",
         "NUP98": "AML with NUP98 and other partners",
         "bZIP": "AML with in-frame bZIP CEBPA mutations",
-        "BCR::ABL1": "AML with t(9;22)(q34.1;q11.2)/BCR::ABL1"
+        "BCR::ABL1": "AML with t(9;22)(q34.1;q11.2)/BCR::ABL1",
     }
 
     # Check if any of the ICC AML-defining genetic abnormalities are present
@@ -274,6 +276,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
             biallelic_tp53.get("2_x_TP53_mutations", False),
             biallelic_tp53.get("1_x_TP53_mutation_del_17p", False),
             biallelic_tp53.get("1_x_TP53_mutation_LOH", False),
+            biallelic_tp53.get("1_x_TP53_mutation_10_percent_vaf", False)
         ]
         if any(conditions):
             classification = "AML with mutated TP53"

@@ -28,6 +28,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
     required_json_structure = {
         "blasts_percentage": None,  # Changed from 0.0 to None
         "AML_defining_recurrent_genetic_abnormalities": {
+            "PML::RARA": False,
             "NPM1": False,
             "RUNX1::RUNX1T1": False,
             "CBFB::MYH11": False,
@@ -45,7 +46,8 @@ def parse_genetics_report_aml(report_text: str) -> dict:
         "Biallelic_TP53_mutation": {
             "2_x_TP53_mutations": False,
             "1_x_TP53_mutation_del_17p": False,
-            "1_x_TP53_mutation_LOH": False
+            "1_x_TP53_mutation_LOH": False,
+            "1_x_TP53_mutation_10_percent_vaf": False
         },
         "MDS_related_mutation": {
             "ASXL1": False,
@@ -104,9 +106,10 @@ def parse_genetics_report_aml(report_text: str) -> dict:
         2. 1_x_TP53_mutation_del_17p: [very important] This NEEDS to be a TP 53 mutation AND a del_17p. We need both otherwise this is false. They maybe mentioned in different parts of the report.
         3. 1_x_TP53_mutation_LOH: Identify phrases such as "TP53 mutation and LOH," "TP53 mutation with Loss of Heterozygosity," or equivalent. [very important] This NEEDS to be a TP 53 mutation AND LOH. We need both otherwise this is false. They maybe mentioned in different parts of the report.
         4. AML_differentiation: Extract the AML differentiation classification, such as "FAB M3" or "WHO AML with myelodysplasia-related changes."
-        
+        5. Complex_karyotype: Can be any combination of ANY 3 cytogenetic abnormalities, even if they're not MDS related.
     
         Make sure to onle record AML_defining_recurrent_genetic_abnormalities if the abnorrmality pressent is the exact one mentioned in the list below:
+            PML::RARA fusion
             NPM1 mutation
             RUNX1::RUNX1T1
             CBFB::MYH11 fusion
@@ -132,6 +135,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
         {{
             "blasts_percentage": null, 
             "AML_defining_recurrent_genetic_abnormalities": {{
+                "PML::RARA": false,
                 "NPM1": false,
                 "RUNX1::RUNX1T1": false,
                 "CBFB::MYH11": false,
@@ -149,7 +153,8 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "Biallelic_TP53_mutation": {{
                 "2_x_TP53_mutations": false,
                 "1_x_TP53_mutation_del_17p": false,
-                "1_x_TP53_mutation_LOH": false
+                "1_x_TP53_mutation_LOH": false,
+                "1_x_TP53_mutation_10_percent_vaf" false
             }},
             "MDS_related_mutation": {{
                 "ASXL1": false,
