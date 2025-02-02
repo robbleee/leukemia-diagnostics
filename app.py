@@ -194,10 +194,9 @@ add_custom_css()
 # PDF CONVERTER HELPERS
 ##################################
 def clean_text(text: str) -> str:
-    """
-    Remove common markdown tokens (headings, emphasis, code markers) so that
-    the PDF shows plain, nicely formatted text.
-    """
+    # Replace the Unicode heavy arrow (➔) with a simple arrow.
+    text = text.replace('\u2794', '->')
+    # Remove common markdown tokens
     text = re.sub(r'^\s*#{1,6}\s+', '', text, flags=re.MULTILINE)  # headings
     text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # bold
     text = re.sub(r'__(.*?)__', r'\1', text)        # bold alternate
@@ -995,141 +994,141 @@ def app_main():
                     else:
                         st.error("No AML data provided.")
 
-            # ------------------------------------------------------------------
-            # Display Sub-Tabs if classification results exist (manual or free text)
-            # ------------------------------------------------------------------
-            if "aml_manual_result" in st.session_state or "aml_ai_result" in st.session_state:
-                # Create sub-menu (tabs) for "Classification" and "Risk"
-                sub_tab = option_menu(
-                    menu_title="Results",
-                    options=["Classification", "Risk"],
-                    icons=["clipboard", "graph-up-arrow"],
-                    default_index=0,
-                    orientation="horizontal",
-                    menu_icon="clipboard"
+        # ------------------------------------------------------------------
+        # Display Sub-Tabs if classification results exist (manual or free text)
+        # ------------------------------------------------------------------
+        if "aml_manual_result" in st.session_state or "aml_ai_result" in st.session_state:
+            # Create sub-menu (tabs) for "Classification" and "Risk"
+            sub_tab = option_menu(
+                menu_title="Results",
+                options=["Classification", "Risk"],
+                icons=["funnel", "graph-up-arrow"],
+                default_index=0,
+                orientation="horizontal",
+                menu_icon="clipboard"
+            )
+
+            # ---------------- "Classification" TAB ----------------
+            if sub_tab == "Classification":
+                # Prefer manual results if available; otherwise, use free-text (AI) results.
+                if "aml_manual_result" in st.session_state:
+                    res = st.session_state["aml_manual_result"]
+                else:
+                    res = st.session_state["aml_ai_result"]
+
+                # Display WHO & ICC classification results.
+                display_aml_classification_results(
+                    res["parsed_data"],
+                    res["who_class"],
+                    res["who_derivation"],
+                    res["icc_class"],
+                    res["icc_derivation"],
+                    mode="manual"
                 )
 
-                # ---------------- "Classification" TAB ----------------
-                if sub_tab == "Classification":
-                    # Prefer manual results if available; otherwise, use free-text (AI) results.
-                    if "aml_manual_result" in st.session_state:
-                        res = st.session_state["aml_manual_result"]
-                    else:
-                        res = st.session_state["aml_ai_result"]
+                # Display Classification Review.
+                if "aml_manual_class_review" in st.session_state:
+                    with st.expander("View Classification Review",
+                                    expanded=(st.session_state["expanded_aml_section"] == "classification")):
+                        st.markdown(st.session_state["aml_manual_class_review"])
+                elif "aml_ai_class_review" in st.session_state:
+                    with st.expander("View Classification Review",
+                                    expanded=(st.session_state["expanded_aml_section"] == "classification")):
+                        st.markdown(st.session_state["aml_ai_class_review"])
 
-                    # Display WHO & ICC classification results.
-                    display_aml_classification_results(
-                        res["parsed_data"],
-                        res["who_class"],
-                        res["who_derivation"],
-                        res["icc_class"],
-                        res["icc_derivation"],
-                        mode="manual"
-                    )
-
-                    # Display Classification Review.
-                    if "aml_manual_class_review" in st.session_state:
-                        with st.expander("View Classification Review",
-                                        expanded=(st.session_state["expanded_aml_section"] == "classification")):
-                            st.markdown(st.session_state["aml_manual_class_review"])
-                    elif "aml_ai_class_review" in st.session_state:
-                        with st.expander("View Classification Review",
-                                        expanded=(st.session_state["expanded_aml_section"] == "classification")):
-                            st.markdown(st.session_state["aml_ai_class_review"])
-
-                    classification_dict = {
-                        "WHO 2022": {
-                            "Classification": res["who_class"],
-                            "Derivation": res["who_derivation"]
-                        },
-                        "ICC 2022": {
-                            "Classification": res["icc_class"],
-                            "Derivation": res["icc_derivation"]
-                        }
+                classification_dict = {
+                    "WHO 2022": {
+                        "Classification": res["who_class"],
+                        "Derivation": res["who_derivation"]
+                    },
+                    "ICC 2022": {
+                        "Classification": res["icc_class"],
+                        "Derivation": res["icc_derivation"]
                     }
+                }
 
-                    # Bottom row for AI review buttons and Download Report.
-                    col1, col2, col3, col4, col5 = st.columns(5)
-                    with col1:
-                        if st.button("🧪 MRD Review"):
-                            st.session_state["aml_busy"] = True
-                            with st.spinner("Compiling MRD review..."):
-                                mrd_review = get_gpt4_review_aml_mrd(classification_dict, res["parsed_data"])
-                                st.session_state["aml_manual_mrd_review"] = mrd_review
-                                st.session_state["expanded_aml_section"] = "mrd_review"
-                            st.session_state["aml_busy"] = False
-                    with col2:
-                        if st.button("🧬 Gene Review"):
-                            st.session_state["aml_busy"] = True
-                            with st.spinner("Compiling Gene review..."):
-                                gene_review = get_gpt4_review_aml_genes(classification_dict, res["parsed_data"])
-                                st.session_state["aml_manual_gene_review"] = gene_review
-                                st.session_state["expanded_aml_section"] = "gene_review"
-                            st.session_state["aml_busy"] = False
-                    with col3:
-                        if st.button("📄 Further Comments"):
-                            st.session_state["aml_busy"] = True
-                            with st.spinner("Compiling further comments..."):
-                                add_comments = get_gpt4_review_aml_additional_comments(classification_dict, res["parsed_data"])
-                                st.session_state["aml_manual_additional_comments"] = add_comments
-                                st.session_state["expanded_aml_section"] = "comments"
-                            st.session_state["aml_busy"] = False
-                    with col4:
-                        pass
-                    with col5:
-                        if "show_pdf_form" not in st.session_state:
-                            st.session_state.show_pdf_form = False
-                        if st.button("Download Report 📄⬇️"):
-                            st.session_state.show_pdf_form = True
-                        if st.session_state.show_pdf_form:
-                            with st.form(key="pdf_info_form"):
-                                patient_name = st.text_input("Enter Patient Name:")
-                                patient_dob = st.date_input("Enter Date of Birth:")
-                                submit_pdf = st.form_submit_button("Submit")
-                            if submit_pdf:
-                                if not patient_name:
-                                    st.error("Please enter the patient name.")
-                                else:
-                                    pdf_bytes = create_beautiful_pdf(patient_name, patient_dob)
-                                    pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-                                    download_html = f'''
-                                        <a id="pdf_download" href="data:application/pdf;base64,{pdf_base64}" download="diagnostic_report.pdf"></a>
-                                        <script>
-                                            setTimeout(function() {{
-                                                document.getElementById("pdf_download").click();
-                                            }}, 100);
-                                        </script>
-                                    '''
-                                    components.html(download_html, height=0)
-                                    st.session_state.show_pdf_form = False
+                # Bottom row for AI review buttons and Download Report.
+                col1, col2, col3, col4, col5 = st.columns(5)
+                with col1:
+                    if st.button("🧪 MRD Review"):
+                        st.session_state["aml_busy"] = True
+                        with st.spinner("Compiling MRD review..."):
+                            mrd_review = get_gpt4_review_aml_mrd(classification_dict, res["parsed_data"])
+                            st.session_state["aml_manual_mrd_review"] = mrd_review
+                            st.session_state["expanded_aml_section"] = "mrd_review"
+                        st.session_state["aml_busy"] = False
+                with col2:
+                    if st.button("🧬 Gene Review"):
+                        st.session_state["aml_busy"] = True
+                        with st.spinner("Compiling Gene review..."):
+                            gene_review = get_gpt4_review_aml_genes(classification_dict, res["parsed_data"])
+                            st.session_state["aml_manual_gene_review"] = gene_review
+                            st.session_state["expanded_aml_section"] = "gene_review"
+                        st.session_state["aml_busy"] = False
+                with col3:
+                    if st.button("📄 Further Comments"):
+                        st.session_state["aml_busy"] = True
+                        with st.spinner("Compiling further comments..."):
+                            add_comments = get_gpt4_review_aml_additional_comments(classification_dict, res["parsed_data"])
+                            st.session_state["aml_manual_additional_comments"] = add_comments
+                            st.session_state["expanded_aml_section"] = "comments"
+                        st.session_state["aml_busy"] = False
+                with col4:
+                    pass
+                with col5:
+                    if "show_pdf_form" not in st.session_state:
+                        st.session_state.show_pdf_form = False
+                    if st.button("Download Report 📄⬇️"):
+                        st.session_state.show_pdf_form = True
+                    if st.session_state.show_pdf_form:
+                        with st.form(key="pdf_info_form"):
+                            patient_name = st.text_input("Enter Patient Name:")
+                            patient_dob = st.date_input("Enter Date of Birth:")
+                            submit_pdf = st.form_submit_button("Submit")
+                        if submit_pdf:
+                            if not patient_name:
+                                st.error("Please enter the patient name.")
+                            else:
+                                pdf_bytes = create_beautiful_pdf(patient_name, patient_dob)
+                                pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                                download_html = f'''
+                                    <a id="pdf_download" href="data:application/pdf;base64,{pdf_base64}" download="diagnostic_report.pdf"></a>
+                                    <script>
+                                        setTimeout(function() {{
+                                            document.getElementById("pdf_download").click();
+                                        }}, 100);
+                                    </script>
+                                '''
+                                components.html(download_html, height=0)
+                                st.session_state.show_pdf_form = False
 
-                    # Display additional review expanders.
-                    if "aml_manual_gene_review" in st.session_state:
-                        with st.expander("Gene Analysis", expanded=(st.session_state["expanded_aml_section"] == "gene_review")):
-                            st.markdown(st.session_state["aml_manual_gene_review"])
-                    if "aml_manual_mrd_review" in st.session_state:
-                        with st.expander("MRD Review", expanded=(st.session_state["expanded_aml_section"] == "mrd_review")):
-                            st.markdown(st.session_state["aml_manual_mrd_review"])
-                    if "aml_manual_additional_comments" in st.session_state:
-                        with st.expander("Additional Comments", expanded=(st.session_state["expanded_aml_section"] == "comments")):
-                            st.markdown(st.session_state["aml_manual_additional_comments"])
+                # Display additional review expanders.
+                if "aml_manual_gene_review" in st.session_state:
+                    with st.expander("Gene Analysis", expanded=(st.session_state["expanded_aml_section"] == "gene_review")):
+                        st.markdown(st.session_state["aml_manual_gene_review"])
+                if "aml_manual_mrd_review" in st.session_state:
+                    with st.expander("MRD Review", expanded=(st.session_state["expanded_aml_section"] == "mrd_review")):
+                        st.markdown(st.session_state["aml_manual_mrd_review"])
+                if "aml_manual_additional_comments" in st.session_state:
+                    with st.expander("Additional Comments", expanded=(st.session_state["expanded_aml_section"] == "comments")):
+                        st.markdown(st.session_state["aml_manual_additional_comments"])
 
-                # ---------------- "Risk" TAB ----------------
-                elif sub_tab == "Risk":
-                    if "aml_manual_result" in st.session_state:
-                        res = st.session_state["aml_manual_result"]
-                    elif "aml_ai_result" in st.session_state:
-                        res = st.session_state["aml_ai_result"]
-                    else:
-                        st.info("No AML results available. Please classify AML first.")
-                        res = None
+            # ---------------- "Risk" TAB ----------------
+            elif sub_tab == "Risk":
+                if "aml_manual_result" in st.session_state:
+                    res = st.session_state["aml_manual_result"]
+                elif "aml_ai_result" in st.session_state:
+                    res = st.session_state["aml_ai_result"]
+                else:
+                    st.info("No AML results available. Please classify AML first.")
+                    res = None
 
-                    if res:
-                        st.markdown("### ELN 2022 Risk Classification")
-                        st.markdown(f"**Risk Category:** {res['eln_class']}")
-                        with st.expander("View ELN Derivation"):
-                            for i, step in enumerate(res["eln_derivation"], start=1):
-                                st.markdown(f"- {step}")
+                if res:
+                    st.markdown("### ELN 2022 Risk Classification")
+                    st.markdown(f"**Risk Category:** {res['eln_class']}")
+                    with st.expander("View ELN Derivation"):
+                        for i, step in enumerate(res["eln_derivation"], start=1):
+                            st.markdown(f"- {step}")
 
 
         # --------------------------------------------------------------
