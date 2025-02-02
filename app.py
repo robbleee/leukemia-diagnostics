@@ -853,7 +853,7 @@ def app_main():
                 manual_data = build_manual_aml_data()
 
                 # Button to classify AML (Manual)
-                if st.button("Classify AML (Manual)"):
+                if st.button("Analyse Genetics"):
                     st.session_state["aml_busy"] = True
                     with st.spinner("Compiling results. Please wait..."):
                         # Clear old session data
@@ -911,7 +911,7 @@ def app_main():
                     st.text_area("Genetics Report:", height=100, key="genetics_report")
                     st.text_area("Cytogenetics Report:", height=100, key="cytogenetics_report")
 
-                if st.button("Parse & Classify AML"):
+                if st.button("Analyse Genetics"):
                     # Clear old session data
                     for key in [
                         "aml_manual_result", "aml_manual_class_review", "aml_manual_mrd_review",
@@ -980,7 +980,7 @@ def app_main():
             if "aml_manual_result" in st.session_state or "aml_ai_result" in st.session_state:
                 # Create a sub-menu (tabs) AFTER classification
                 sub_tab = option_menu(
-                    menu_title=None,
+                    menu_title="Results",
                     options=["Classification", "Risk"],
                     default_index=0,
                     orientation="horizontal"
