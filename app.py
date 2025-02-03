@@ -395,17 +395,19 @@ def build_manual_mds_data_compact() -> dict:
     with st.expander("Manual MDS Input Area", expanded=True):
         st.markdown("### Manual MDS Data Entry")
 
-        c1, c2, c3 = st.columns(3)
+        c1, c2 = st.columns(2)
         with c1:
-            blasts = st.number_input(
-                "Blasts (%)", 
-                min_value=0.0, max_value=100.0, value=0.0, 
-                key="mds_blasts_percentage"
-            )
-        with c2:
             fibrotic = st.checkbox("Fibrotic marrow?", key="mds_fibrotic")
-        with c3:
+        with c2:
             hypoplasia = st.checkbox("Hypoplastic MDS?", key="mds_hypoplasia")
+
+                
+      
+        blasts = st.number_input(
+            "Blasts (%)", 
+            min_value=0.0, max_value=100.0, value=0.0, 
+            key="mds_blasts_percentage"
+        )
 
         dys_lineages = st.number_input(
             "Number of Dysplastic Lineages (0-3)",
@@ -431,11 +433,10 @@ def build_manual_mds_data_compact() -> dict:
         del_5q = st.checkbox("del(5q) / isolated 5q-", key="mds_del_5q")
 
         st.markdown("#### Qualifiers")
-        ql1, ql2 = st.columns(2)
-        with ql1:
-            prev_cytotx = st.checkbox("Previous cytotoxic therapy?", key="mds_prev_cytotx")
-        with ql2:
-            germ_variant = st.text_input("Predisposing germline variant", value="None", key="mds_germ_variant")
+
+        prev_cytotx = st.checkbox("Previous cytotoxic therapy?", key="mds_prev_cytotx")
+
+        germ_variant = st.text_input("Predisposing germline variant", value="None", key="mds_germ_variant")
 
     return {
         "blasts_percentage": blasts,
@@ -563,17 +564,9 @@ def display_mds_classification_results(parsed_fields, classification_who, deriva
     with st.expander("View Parsed MDS Values", expanded=False):
         st.json(parsed_fields)
     
-    st.markdown("""
-                <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
-                    <h3 style='color: #0f5132;'>Results</h3>
-                </div>
-                """, unsafe_allow_html=True)
 
-    st.markdown("""
-    <div style='background-color: #d1e7dd; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>
-        <h3 style='color: #0f5132;'>Results</h3>
-    </div>
-    """, unsafe_allow_html=True)
+
+
 
     col1, col2 = st.columns(2)
     with col1:
@@ -1210,7 +1203,7 @@ def app_main():
                 mds_tab = option_menu(
                     menu_title=None,
                     options=["Classification", "Gene Review", "Additional Comments"],
-                    icons=["clipboard", "dna", "comment"],
+                    icons=["clipboard", "bar-chart", "chat-left-text"],
                     default_index=0,
                     orientation="horizontal"
                 )
