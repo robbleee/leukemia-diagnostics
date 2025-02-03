@@ -1018,7 +1018,7 @@ def app_main():
                 sub_tab = option_menu(
                     menu_title=None,
                     options=["Classification","Risk", "MRD Review", "Gene Review", "Additional Comments"],
-                    icons=["clipboard", "graph-up-arrow" "recycle", "bar-chart", "chat-left-text"],
+                    icons=["clipboard", "graph-up-arrow", "recycle", "bar-chart", "chat-left-text"],
                     default_index=0,
                     orientation="horizontal"
                 )
