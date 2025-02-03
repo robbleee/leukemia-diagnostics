@@ -1017,8 +1017,8 @@ def app_main():
 
                 sub_tab = option_menu(
                     menu_title=None,
-                    options=["Classification", "MRD Review", "Gene Review", "Additional Comments", "Risk"],
-                    icons=["clipboard", "recycle", "bar-chart", "chat-left-text", "graph-up-arrow"],
+                    options=["Classification","Risk", "MRD Review", "Gene Review", "Additional Comments"],
+                    icons=["clipboard", "graph-up-arrow" "recycle", "bar-chart", "chat-left-text"],
                     default_index=0,
                     orientation="horizontal"
                 )
@@ -1091,7 +1091,7 @@ def app_main():
                 # --- PDF Download ---
                 if "show_pdf_form" not in st.session_state:
                     st.session_state.show_pdf_form = False
-                if st.button("Download Report 📄⬇️"):
+                if st.button("Download Report"):
                     st.session_state.show_pdf_form = True
                 if st.session_state.show_pdf_form:
                     with st.form(key="pdf_info_form"):
