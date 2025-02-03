@@ -804,43 +804,73 @@ def create_beautiful_pdf(patient_name: str, patient_dob: datetime.date) -> bytes
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Add a Patient Information section at the top.
+    # Patient Information Section
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, f"Patient Name: {patient_name}", ln=1)
     pdf.cell(0, 10, f"Date of Birth: {patient_dob.strftime('%B %d, %Y')}", ln=1)
     pdf.ln(10)
 
-    # Add diagnostic sections (for AML and MDS if available)
-    add_diagnostic_section(pdf, "AML")
-    add_diagnostic_section(pdf, "MDS")
+    # ----- AML Section -----
+    aml_result = st.session_state.get("aml_manual_result") or st.session_state.get("aml_ai_result")
+    if aml_result:
+        # This function adds classification and review sections if the appropriate keys exist.
+        add_diagnostic_section(pdf, "AML")
+        
+        # Explicitly add individual review sections if needed
+        for section_name, key in [
+            ("Classification Review", "aml_class_review"),
+            ("MRD Review", "aml_mrd_review"),
+            ("Gene Review", "aml_gene_review"),
+            ("Additional Comments", "aml_additional_comments")
+        ]:
+            if key in st.session_state:
+                add_section_title(pdf, section_name)
+                output_review_text(pdf, st.session_state[key], section_name)
+                pdf.ln(4)
+                
+        # Add the Risk Section using the AML result (whether manual or AI)
+        if aml_result.get("eln_class"):
+            risk_data = {
+                "eln_class": aml_result.get("eln_class", "N/A"),
+                "eln_derivation": aml_result.get("eln_derivation", [])
+            }
+            add_risk_section(pdf, risk_data)
 
-    # If ELN risk classification is available in the session state, add the risk section.
-    if "aml_manual_result" in st.session_state:
-        risk_data = {
-            "eln_class": st.session_state["aml_manual_result"].get("eln_class", "N/A"),
-            "eln_derivation": st.session_state["aml_manual_result"].get("eln_derivation", [])
-        }
-        add_risk_section(pdf, risk_data)
+    # ----- MDS Section -----
+    mds_result = st.session_state.get("mds_manual_result") or st.session_state.get("mds_ai_result")
+    if mds_result:
+        pdf.add_page()  # Start a new page for MDS diagnostics.
+        add_section_title(pdf, "MDS Diagnostics")
+        add_diagnostic_section(pdf, "MDS")
+        for section_name, key in [
+            ("Classification Review", "mds_class_review"),
+            ("Gene Review", "mds_gene_review"),
+            ("Additional Comments", "mds_additional_comments")
+        ]:
+            if key in st.session_state:
+                add_section_title(pdf, section_name)
+                output_review_text(pdf, st.session_state[key], section_name)
+                pdf.ln(4)
 
     return pdf.output(dest="S").encode("latin1")
 
 
 
-
-
-   
-import streamlit as st
-from streamlit_option_menu import option_menu
-import base64
-import datetime
-import streamlit.components.v1 as components
-
+##################################
+# APP MAIN
+##################################
 def app_main():
-    # Initialize expanders if not present
+    # Initialize expander and section state variables if not present
     if "expanded_aml_section" not in st.session_state:
         st.session_state["expanded_aml_section"] = None
     if "expanded_mds_section" not in st.session_state:
         st.session_state["expanded_mds_section"] = None
+
+    # Session state for free-text expander visibility
+    if "aml_free_text_expanded" not in st.session_state:
+        st.session_state["aml_free_text_expanded"] = True
+    if "mds_free_text_expanded" not in st.session_state:
+        st.session_state["mds_free_text_expanded"] = True
 
     if st.session_state.get("authenticated", False):
 
@@ -899,7 +929,7 @@ def app_main():
 
             # --- FREE TEXT MODE ---
             else:
-                with st.expander("Free Text Input Area", expanded=True):
+                with st.expander("Free Text Input Area", expanded=st.session_state["aml_free_text_expanded"]):
                     col1, col2 = st.columns(2)
                     with col1:
                         st.text_input("Blasts % (Override)", placeholder="25", key="blasts_override")
@@ -910,6 +940,9 @@ def app_main():
                     st.text_area("Cytogenetics Report:", height=100, key="cytogenetics_report")
 
                 if st.button("Analyse Genetics"):
+                    # Collapse the free text input area on classification
+                    st.session_state["aml_free_text_expanded"] = False
+
                     for key in [
                         "aml_manual_result",
                         "aml_ai_result",
@@ -985,11 +1018,10 @@ def app_main():
                 sub_tab = option_menu(
                     menu_title=None,
                     options=["Classification", "MRD Review", "Gene Review", "Additional Comments", "Risk"],
-                    icons=["clipboard", "recycle", "bar-chart", "chat-left-text", "graph-up-arrow"],  # Fixed icons
+                    icons=["clipboard", "recycle", "bar-chart", "chat-left-text", "graph-up-arrow"],
                     default_index=0,
                     orientation="horizontal"
                 )
-
 
                 # 1) Classification (show derivation + classification review here!)
                 if sub_tab == "Classification":
@@ -1005,7 +1037,6 @@ def app_main():
 
                     # Then show the classification review beneath
                     if "aml_class_review" not in st.session_state:
-                        # Generate the classification review on demand
                         with st.spinner("Generating Classification Review..."):
                             st.session_state["aml_class_review"] = get_gpt4_review_aml_classification(
                                 classification_dict,
@@ -1111,12 +1142,15 @@ def app_main():
 
             # --- FREE TEXT MODE ---
             else:
-                with st.expander("MDS Free Text Input Area", expanded=True):
+                with st.expander("MDS Free Text Input Area", expanded=st.session_state["mds_free_text_expanded"]):
                     st.markdown("Paste your free-text MDS genetics/cytogenetics data below:")
                     st.text_input("Blasts (%) Override", placeholder="e.g. 8", key="mds_blasts_input")
                     st.text_area("Genetics (MDS)", height=100, key="mds_genetics_report")
                     st.text_area("Cytogenetics (MDS)", height=100, key="mds_cytogenetics_report")
                 if st.button("Parse & Classify MDS"):
+                    # Collapse the free text input area for MDS upon classification
+                    st.session_state["mds_free_text_expanded"] = False
+
                     for key in [
                         "mds_manual_result", 
                         "mds_class_review", 
