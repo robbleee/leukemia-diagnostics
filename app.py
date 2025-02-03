@@ -190,215 +190,6 @@ local_css()
 add_custom_css()
 
 
-##################################
-# PDF CONVERTER HELPERS
-##################################
-def clean_text(text: str) -> str:
-    # Replace the Unicode heavy arrow (➔) with a simple arrow.
-    text = text.replace('\u2794', '->')
-    # Remove common markdown tokens
-    text = re.sub(r'^\s*#{1,6}\s+', '', text, flags=re.MULTILINE)  # headings
-    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # bold
-    text = re.sub(r'__(.*?)__', r'\1', text)        # bold alternate
-    text = re.sub(r'\*(.*?)\*', r'\1', text)          # italic
-    text = re.sub(r'_(.*?)_', r'\1', text)            # italic alternate
-    text = re.sub(r'`{1,3}', '', text)                # inline code
-    return text.strip()
-
-def write_line_with_keywords(pdf: FPDF, line: str, line_height: float = 8):
-    """
-    Writes a line to the PDF, but forces certain keywords to be in bold.
-    """
-    bold_keywords = ["Classification Review", "Sample Quality:", "Derivation Steps:", "Classification:", "Other Genes"]
-    occurrences = []
-    for kw in bold_keywords:
-        start = line.find(kw)
-        if start != -1:
-            occurrences.append((start, kw))
-    occurrences.sort(key=lambda x: x[0])
-    
-    current = 0
-    if not occurrences:
-        pdf.set_font("Arial", "", 10)
-        pdf.write(line_height, line)
-        pdf.ln(line_height)
-        return
-    
-    for start, kw in occurrences:
-        if start > current:
-            pdf.set_font("Arial", "", 10)
-            pdf.write(line_height, line[current:start])
-        pdf.set_font("Arial", "B", 10)
-        pdf.write(line_height, kw)
-        current = start + len(kw)
-    if current < len(line):
-        pdf.set_font("Arial", "", 10)
-        pdf.write(line_height, line[current:])
-    pdf.ln(line_height)
-
-def output_review_text(pdf: FPDF, review_text: str, section: str):
-    """
-    Splits review_text into lines and outputs each line.
-    
-    For sections "MRD Review", "Gene Review", and "Additional Comments", if a line is short
-    and entirely uppercase, it is rendered as a subheading (bold, larger font).
-    Otherwise, each line is output using write_line_with_keywords() so that specific keywords
-    are automatically rendered in bold.
-    
-    For other sections (for example, "Classification Review"), all lines are output via write_line_with_keywords().
-    """
-    DUPLICATE_HEADINGS = {
-        "MRD Review": ["MRD Strategy", "MRD Review", "MRD Review:"],
-        "Gene Review": ["Genetics Review", "Gene Review", "Genetics Review:"],
-        "Additional Comments": ["Additional Considerations", "Additional Considerations:"]
-    }
-    dup_list = DUPLICATE_HEADINGS.get(section, [])
-    lines = review_text.splitlines()
-    
-    for line in lines:
-        cleaned_line = clean_text(line)
-        if not cleaned_line:
-            pdf.ln(4)
-            continue
-        if dup_list and any(cleaned_line.lower() == dup.lower() for dup in dup_list):
-            continue
-        if section in ["MRD Review", "Gene Review", "Additional Comments"]:
-            if len(cleaned_line) < 30 and cleaned_line.isupper():
-                pdf.set_font("Arial", "B", 12)
-                pdf.cell(0, 10, cleaned_line, ln=1)
-                pdf.set_font("Arial", "", 10)
-            else:
-                write_line_with_keywords(pdf, cleaned_line)
-        else:
-            write_line_with_keywords(pdf, cleaned_line)
-
-class PDF(FPDF):
-    def header(self):
-        if self.page_no() == 1:
-            self.set_font("Arial", "B", 14)
-            self.set_text_color(0, 70, 140)
-            self.cell(0, 8, "Diagnostic Report", ln=1, align="C")
-            self.set_font("Arial", "", 10)
-            self.set_text_color(100, 100, 100)
-            self.cell(0, 5, datetime.datetime.now().strftime("%B %d, %Y"), ln=1, align="C")
-            self.ln(4)
-
-    def footer(self):
-        self.set_y(-15)
-        self.set_font("Arial", "I", 8)
-        self.set_text_color(150, 150, 150)
-        self.cell(0, 10, f"Page {self.page_no()}", align="C")
-
-def add_section_title(pdf: PDF, title: str):
-    pdf.set_font("Arial", "B", 12)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_fill_color(0, 70, 140)
-    pdf.cell(0, 10, clean_text(title), ln=1, fill=True)
-    pdf.ln(2)
-    pdf.set_text_color(0, 0, 0)
-
-def add_classification_section(pdf: PDF, classification_data: dict):
-    line_height = 8
-    # WHO 2022 Section
-    pdf.set_font("Arial", "B", 11)
-    pdf.cell(0, line_height, "WHO 2022", ln=1, border='B')
-    pdf.set_font("Arial", "", 10)
-    pdf.multi_cell(0, line_height, f"Classification: {clean_text(classification_data['WHO']['classification'])}")
-    pdf.multi_cell(0, line_height, "Derivation Steps:")
-    for i, step in enumerate(classification_data["WHO"]["derivation"], start=1):
-        pdf.multi_cell(0, line_height, f"  {i}. {clean_text(step)}")
-    pdf.ln(4)
-    # ICC 2022 Section
-    pdf.set_font("Arial", "B", 11)
-    pdf.cell(0, line_height, "ICC 2022", ln=1, border='B')
-    pdf.set_font("Arial", "", 10)
-    pdf.multi_cell(0, line_height, f"Classification: {clean_text(classification_data['ICC']['classification'])}")
-    pdf.multi_cell(0, line_height, "Derivation Steps:")
-    for i, step in enumerate(classification_data["ICC"]["derivation"], start=1):
-        pdf.multi_cell(0, line_height, f"  {i}. {clean_text(step)}")
-    pdf.ln(6)
-
-def add_risk_section(pdf: PDF, risk_data: dict):
-    """
-    Adds an ELN 2022 Risk Classification section to the PDF.
-    Expects risk_data to contain keys 'eln_class' and 'eln_derivation'.
-    """
-    add_section_title(pdf, "ELN 2022 Risk Classification")
-    pdf.set_font("Arial", "", 10)
-    pdf.multi_cell(0, 8, f"Risk Category: {risk_data.get('eln_class', 'N/A')}")
-    pdf.ln(2)
-    pdf.multi_cell(0, 8, "Derivation Steps:")
-    for i, step in enumerate(risk_data.get("eln_derivation", []), start=1):
-        pdf.multi_cell(0, 8, f"  {i}. {clean_text(step)}")
-    pdf.ln(4)
-
-def add_diagnostic_section(pdf: PDF, diag_type: str):
-    """
-    diag_type: "AML" or "MDS"
-    """
-    manual_key = diag_type.lower() + "_manual_result"
-    ai_key = diag_type.lower() + "_ai_result"
-    if manual_key in st.session_state:
-        data = st.session_state[manual_key]
-        prefix = diag_type.lower() + "_manual"
-    elif ai_key in st.session_state:
-        data = st.session_state[ai_key]
-        prefix = diag_type.lower() + "_ai"
-    else:
-        return
-
-    classification_data = {
-        "WHO": {
-            "classification": data["who_class"],
-            "derivation": data["who_derivation"]
-        },
-        "ICC": {
-            "classification": data["icc_class"],
-            "derivation": data["icc_derivation"]
-        }
-    }
-
-    add_section_title(pdf, f"{diag_type} Classification Results")
-    add_classification_section(pdf, classification_data)
-
-    review_sections = [
-        ("Classification Review", prefix + "_class_review"),
-        ("MRD Review", prefix + "_mrd_review"),
-        ("Gene Review", prefix + "_gene_review"),
-        ("Additional Comments", prefix + "_additional_comments")
-    ]
-    for section_name, key in review_sections:
-        if key in st.session_state:
-            add_section_title(pdf, section_name)
-            output_review_text(pdf, st.session_state[key], section_name)
-            pdf.ln(4)
-
-def create_beautiful_pdf(patient_name: str, patient_dob: datetime.date) -> bytes:
-    pdf = PDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-
-    # Add a Patient Information section at the top.
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, f"Patient Name: {patient_name}", ln=1)
-    pdf.cell(0, 10, f"Date of Birth: {patient_dob.strftime('%B %d, %Y')}", ln=1)
-    pdf.ln(10)
-
-    # Add diagnostic sections (for AML and MDS if available)
-    add_diagnostic_section(pdf, "AML")
-    add_diagnostic_section(pdf, "MDS")
-
-    # If ELN risk classification is available in the session state, add the risk section.
-    if "aml_manual_result" in st.session_state:
-        risk_data = {
-            "eln_class": st.session_state["aml_manual_result"].get("eln_class", "N/A"),
-            "eln_derivation": st.session_state["aml_manual_result"].get("eln_derivation", [])
-        }
-        add_risk_section(pdf, risk_data)
-
-    return pdf.output(dest="S").encode("latin1")
-
-
 
 ##################################
 # FORMS & PARSING HELPERS
@@ -823,63 +614,343 @@ def display_aml_response_results(parsed_data, response, derivation, mode="manual
         derivation_text = "\n\n".join([f"**Step {i}**: {step}" for i, step in enumerate(derivation, start=1)])
         st.markdown(derivation_text)
 
-   
 
-# =============================================================================
-# MAIN APP - AML Diagnostics Section Only
-# =============================================================================
+
+
+
+import streamlit as st
+from fpdf import FPDF
+import re
+import datetime
+import base64
+import streamlit.components.v1 as components
+from streamlit_option_menu import option_menu
+
+##############################################################################
+# PDF HELPER FUNCTIONS
+##############################################################################
+def clean_text(text: str) -> str:
+    """
+    Replace or remove problematic Unicode characters so that the PDF will not crash
+    under latin-1 encoding. Also strip common markdown tokens.
+    """
+    # Replace the Unicode heavy arrow (➔) with a simple arrow.
+    text = text.replace('\u2794', '->')
+    # Remove common markdown tokens
+    text = re.sub(r'^\s*#{1,6}\s+', '', text, flags=re.MULTILINE)  # headings
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # bold
+    text = re.sub(r'__(.*?)__', r'\1', text)      # bold alternate
+    text = re.sub(r'\*(.*?)\*', r'\1', text)      # italic
+    text = re.sub(r'_(.*?)_', r'\1', text)        # italic alternate
+    text = re.sub(r'`{1,3}', '', text)            # inline code
+    return text.strip()
+
+def write_line_with_keywords(pdf: FPDF, line: str, line_height: float = 8):
+    """
+    Writes a line to the PDF, making certain keywords bold.
+    """
+    bold_keywords = ["Classification Review", "Sample Quality:", "Derivation Steps:", "Classification:", "Other Genes"]
+    occurrences = []
+    for kw in bold_keywords:
+        start = line.find(kw)
+        if start != -1:
+            occurrences.append((start, kw))
+    occurrences.sort(key=lambda x: x[0])
+
+    current = 0
+    if not occurrences:
+        pdf.set_font("Arial", "", 10)
+        pdf.write(line_height, line)
+        pdf.ln(line_height)
+        return
+
+    # Build each segment with or without bold
+    for start, kw in occurrences:
+        if start > current:
+            pdf.set_font("Arial", "", 10)
+            pdf.write(line_height, line[current:start])
+        pdf.set_font("Arial", "B", 10)
+        pdf.write(line_height, kw)
+        current = start + len(kw)
+    if current < len(line):
+        pdf.set_font("Arial", "", 10)
+        pdf.write(line_height, line[current:])
+    pdf.ln(line_height)
+
+def output_review_text(pdf: FPDF, review_text: str, section: str):
+    """
+    Splits review_text into lines and outputs each line.
+
+    For sections like "MRD Review", "Gene Review", and "Additional Comments":
+       - if a line is short and all-uppercase, treat it as a subheading
+       - otherwise use write_line_with_keywords()
+
+    For other sections (e.g., "Classification Review"), all lines are output
+    via write_line_with_keywords().
+    """
+    DUPLICATE_HEADINGS = {
+        "MRD Review": ["MRD Strategy", "MRD Review", "MRD Review:"],
+        "Gene Review": ["Genetics Review", "Gene Review", "Genetics Review:"],
+        "Additional Comments": ["Additional Considerations", "Additional Considerations:"]
+    }
+    dup_list = DUPLICATE_HEADINGS.get(section, [])
+    lines = review_text.splitlines()
+
+    for line in lines:
+        cleaned_line = clean_text(line)
+        if not cleaned_line:
+            pdf.ln(4)
+            continue
+        # Skip any lines that exactly match known duplicated headings
+        if any(cleaned_line.lower() == dup.lower() for dup in dup_list):
+            continue
+
+        if section in ["MRD Review", "Gene Review", "Additional Comments"]:
+            if len(cleaned_line) < 30 and cleaned_line.isupper():
+                # subheading
+                pdf.set_font("Arial", "B", 12)
+                pdf.cell(0, 10, cleaned_line, ln=1)
+                pdf.set_font("Arial", "", 10)
+            else:
+                write_line_with_keywords(pdf, cleaned_line)
+        else:
+            # "Classification Review" or others
+            write_line_with_keywords(pdf, cleaned_line)
+
+class PDF(FPDF):
+    def header(self):
+        if self.page_no() == 1:
+            self.set_font("Arial", "B", 14)
+            self.set_text_color(0, 70, 140)
+            self.cell(0, 8, "Diagnostic Report", ln=1, align="C")
+            self.set_font("Arial", "", 10)
+            self.set_text_color(100, 100, 100)
+            self.cell(0, 5, datetime.datetime.now().strftime("%B %d, %Y"), ln=1, align="C")
+            self.ln(4)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font("Arial", "I", 8)
+        self.set_text_color(150, 150, 150)
+        self.cell(0, 10, f"Page {self.page_no()}", align="C")
+
+def add_section_title(pdf: PDF, title: str):
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_fill_color(0, 70, 140)
+    pdf.cell(0, 10, clean_text(title), ln=1, fill=True)
+    pdf.ln(2)
+    pdf.set_text_color(0, 0, 0)
+
+def add_classification_section(pdf: PDF, classification_data: dict):
+    """
+    classification_data = {
+      "WHO": {
+        "classification": <str>,
+        "derivation": [<str>, ...]
+      },
+      "ICC": {
+        "classification": <str>,
+        "derivation": [<str>, ...]
+      }
+    }
+    """
+    line_height = 8
+    # WHO 2022
+    pdf.set_font("Arial", "B", 11)
+    pdf.cell(0, line_height, "WHO 2022", ln=1, border='B')
+    pdf.set_font("Arial", "", 10)
+    pdf.multi_cell(0, line_height, f"Classification: {clean_text(classification_data['WHO']['classification'])}")
+    pdf.multi_cell(0, line_height, "Derivation Steps:")
+    for i, step in enumerate(classification_data["WHO"]["derivation"], start=1):
+        pdf.multi_cell(0, line_height, f"  {i}. {clean_text(step)}")
+    pdf.ln(4)
+
+    # ICC 2022
+    pdf.set_font("Arial", "B", 11)
+    pdf.cell(0, line_height, "ICC 2022", ln=1, border='B')
+    pdf.set_font("Arial", "", 10)
+    pdf.multi_cell(0, line_height, f"Classification: {clean_text(classification_data['ICC']['classification'])}")
+    pdf.multi_cell(0, line_height, "Derivation Steps:")
+    for i, step in enumerate(classification_data["ICC"]["derivation"], start=1):
+        pdf.multi_cell(0, line_height, f"  {i}. {clean_text(step)}")
+    pdf.ln(6)
+
+def add_risk_section(pdf: PDF, risk_data: dict):
+    """
+    Adds an ELN 2022 Risk Classification section to the PDF.
+    Expects risk_data to contain keys "eln_class" and "eln_derivation".
+    """
+    add_section_title(pdf, "ELN 2022 Risk Classification")
+    pdf.set_font("Arial", "", 10)
+    pdf.multi_cell(0, 8, f"Risk Category: {risk_data.get('eln_class', 'N/A')}")
+    pdf.ln(2)
+    pdf.multi_cell(0, 8, "Derivation Steps:")
+    for i, step in enumerate(risk_data.get("eln_derivation", []), start=1):
+        pdf.multi_cell(0, 8, f"  {i}. {clean_text(step)}")
+    pdf.ln(4)
+
+def add_diagnostic_section(pdf: PDF, diag_type: str):
+    """
+    diag_type: "AML" or "MDS"
+    
+    We look for either <diag_type>_manual_result or <diag_type>_ai_result in st.session_state.
+    Then we add the classification details (WHO & ICC) plus any reviews that exist:
+      - <diag_type>_class_review
+      - <diag_type>_mrd_review (AML only)
+      - <diag_type>_gene_review
+      - <diag_type>_additional_comments
+    """
+    # Figure out which results exist.
+    manual_key = diag_type.lower() + "_manual_result"
+    ai_key = diag_type.lower() + "_ai_result"
+    if manual_key in st.session_state:
+        data = st.session_state[manual_key]
+    elif ai_key in st.session_state:
+        data = st.session_state[ai_key]
+    else:
+        return  # No data to display
+
+    # Build classification_data
+    classification_data = {
+        "WHO": {
+            "classification": data["who_class"],
+            "derivation": data["who_derivation"]
+        },
+        "ICC": {
+            "classification": data["icc_class"],
+            "derivation": data["icc_derivation"]
+        }
+    }
+
+    add_section_title(pdf, f"{diag_type} Classification Results")
+    add_classification_section(pdf, classification_data)
+
+    # Add whichever reviews exist in session_state.
+    # For AML, we might have: aml_class_review, aml_mrd_review, aml_gene_review, aml_additional_comments
+    # For MDS, we might have: mds_class_review, mds_gene_review, mds_additional_comments
+    diag_prefix = diag_type.lower()  # "aml" or "mds"
+    # We'll check for existence in st.session_state and add if present.
+
+    # 1) Classification Review
+    class_review_key = diag_prefix + "_class_review"
+    if class_review_key in st.session_state:
+        add_section_title(pdf, "Classification Review")
+        output_review_text(pdf, st.session_state[class_review_key], "Classification Review")
+        pdf.ln(4)
+
+    # 2) MRD Review (AML only)
+    # If diag_type is AML, check for "aml_mrd_review"
+    if diag_type == "AML":
+        mrd_key = diag_prefix + "_mrd_review"
+        if mrd_key in st.session_state:
+            add_section_title(pdf, "MRD Review")
+            output_review_text(pdf, st.session_state[mrd_key], "MRD Review")
+            pdf.ln(4)
+
+    # 3) Gene Review
+    gene_review_key = diag_prefix + "_gene_review"
+    if gene_review_key in st.session_state:
+        add_section_title(pdf, "Gene Review")
+        output_review_text(pdf, st.session_state[gene_review_key], "Gene Review")
+        pdf.ln(4)
+
+    # 4) Additional Comments
+    add_comments_key = diag_prefix + "_additional_comments"
+    if add_comments_key in st.session_state:
+        add_section_title(pdf, "Additional Comments")
+        output_review_text(pdf, st.session_state[add_comments_key], "Additional Comments")
+        pdf.ln(4)
+
+def create_beautiful_pdf(patient_name: str, patient_dob: datetime.date) -> bytes:
+    pdf = PDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # Add a Patient Information section
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, f"Patient Name: {patient_name}", ln=1)
+    pdf.cell(0, 10, f"Date of Birth: {patient_dob.strftime('%B %d, %Y')}", ln=1)
+    pdf.ln(10)
+
+    # Add AML or MDS classification details if present
+    add_diagnostic_section(pdf, "AML")
+    add_diagnostic_section(pdf, "MDS")
+
+    # If either AML manual or AI result is present, we add the Risk section
+    # (which depends on "eln_class" and "eln_derivation").
+    # NOTE: If you want to unify risk for both manual and AI, we just check which one is present.
+    risk_data = None
+    if "aml_manual_result" in st.session_state:
+        # Use manual result if it exists:
+        risk_data = {
+            "eln_class": st.session_state["aml_manual_result"].get("eln_class", "N/A"),
+            "eln_derivation": st.session_state["aml_manual_result"].get("eln_derivation", [])
+        }
+    elif "aml_ai_result" in st.session_state:
+        # Or, if only AI result is present:
+        risk_data = {
+            "eln_class": st.session_state["aml_ai_result"].get("eln_class", "N/A"),
+            "eln_derivation": st.session_state["aml_ai_result"].get("eln_derivation", [])
+        }
+
+    if risk_data:
+        add_risk_section(pdf, risk_data)
+
+    # Return the PDF as bytes, with 'replace' to avoid encoding errors
+    return pdf.output(dest="S").encode("latin1", errors="replace")
+
+##############################################################################
+# MAIN APP - AML & MDS Diagnostics Section
+##############################################################################
 def app_main():
-    # Initialize session state variables for expanders if not present
+    # Initialize expanders if not present
     if "expanded_aml_section" not in st.session_state:
         st.session_state["expanded_aml_section"] = None
+    if "expanded_mds_section" not in st.session_state:
+        st.session_state["expanded_mds_section"] = None
 
-    # Only show classification features if authenticated
     if st.session_state.get("authenticated", False):
 
-        # Top-level menu for AML vs. MDS Diagnostics (we only show AML here)
+        # Top-level menu
         selected_tab = option_menu(
             menu_title=None,
             options=["AML Diagnostics", "MDS Diagnostics"],
-            icons=["droplet", "droplet"],  # adjust icons as desired
+            icons=["droplet", "droplet"],
             default_index=0,
             orientation="horizontal"
         )
 
-        # --------------------------------------------------------------
-        # AML CLASSIFICATION
-        # --------------------------------------------------------------
+        # -----------------------------------------------------------
+        # AML Diagnostics
+        # -----------------------------------------------------------
         if selected_tab == "AML Diagnostics":
             st.subheader("Acute Myeloid Leukemia (AML)")
-
-            # A checkbox to toggle between Manual and Free Text mode.
             aml_mode_toggle = st.checkbox("Free Text Mode", key="aml_mode_toggle")
-            
-            # Make sure busy flag exists.
+
             if "aml_busy" not in st.session_state:
                 st.session_state["aml_busy"] = False
 
-            #################### MANUAL MODE ####################
+            # -------------- MANUAL MODE --------------
             if not aml_mode_toggle:
                 manual_data = build_manual_aml_data()
-
                 if st.button("Analyse Genetics"):
                     st.session_state["aml_busy"] = True
                     with st.spinner("Compiling results. Please wait..."):
-                        # Clear old AML session state keys.
+                        # Clear old AML keys
                         for key in [
-                            "aml_manual_result", "aml_manual_class_review", "aml_manual_mrd_review",
-                            "aml_manual_gene_review", "aml_manual_additional_comments",
-                            "aml_ai_result", "aml_ai_class_review", "aml_ai_mrd_review",
-                            "aml_ai_gene_review", "aml_ai_additional_comments"
+                            "aml_manual_result", 
+                            "aml_ai_result",
+                            "aml_class_review", "aml_mrd_review",
+                            "aml_gene_review", "aml_additional_comments"
                         ]:
                             st.session_state.pop(key, None)
-
-                        # Perform classification using manual data.
+                        
+                        # Classification
                         classification_who, who_derivation = classify_AML_WHO2022(manual_data)
                         classification_icc, icc_derivation = classify_AML_ICC2022(manual_data)
                         classification_eln, eln_derivation = classify_ELN2022(manual_data)
-
-                        # Save results in session state.
+                        
                         st.session_state["aml_manual_result"] = {
                             "parsed_data": manual_data,
                             "who_class": classification_who,
@@ -887,30 +958,14 @@ def app_main():
                             "icc_class": classification_icc,
                             "icc_derivation": icc_derivation,
                             "eln_class": classification_eln,
-                            "eln_derivation": eln_derivation,
+                            "eln_derivation": eln_derivation
                         }
-
-                        # Generate AI classification review (e.g., via GPT-4)
-                        classification_dict = {
-                            "WHO 2022": {
-                                "Classification": classification_who,
-                                "Derivation": who_derivation
-                            },
-                            "ICC 2022": {
-                                "Classification": classification_icc,
-                                "Derivation": icc_derivation
-                            }
-                        }
-                        class_review = get_gpt4_review_aml_classification(classification_dict, manual_data)
-                        st.session_state["aml_manual_class_review"] = class_review
                         st.session_state["expanded_aml_section"] = "classification"
                     st.session_state["aml_busy"] = False
 
-            #################### FREE TEXT MODE #######################
+            # -------------- FREE TEXT MODE --------------
             else:
                 with st.expander("Free Text Input Area", expanded=True):
-                    st.markdown("**Free Text Mode:** Paste your free-text genetics reports and other findings.")
-                    # Use columns for two inputs side-by-side
                     col1, col2 = st.columns(2)
                     with col1:
                         st.text_input("Blasts % (Override)", placeholder="25", key="blasts_override")
@@ -921,47 +976,40 @@ def app_main():
                     st.text_area("Cytogenetics Report:", height=100, key="cytogenetics_report")
 
                 if st.button("Analyse Genetics"):
-                    # Clear old free-text results from session state.
                     for key in [
-                        "aml_manual_result", "aml_manual_class_review", "aml_manual_mrd_review",
-                        "aml_manual_gene_review", "aml_manual_additional_comments",
-                        "aml_ai_result", "aml_ai_class_review", "aml_ai_mrd_review",
-                        "aml_ai_gene_review", "aml_ai_additional_comments"
+                        "aml_manual_result",
+                        "aml_ai_result",
+                        "aml_class_review", "aml_mrd_review",
+                        "aml_gene_review", "aml_additional_comments"
                     ]:
                         st.session_state.pop(key, None)
 
-                    # Retrieve free text input values.
                     blasts_override = st.session_state.get("blasts_override", "")
                     diff_override = st.session_state.get("diff_override", "")
                     morph_input = st.session_state.get("morph_input", "")
                     genetics_report = st.session_state.get("genetics_report", "")
                     cytogenetics_report = st.session_state.get("cytogenetics_report", "")
-                    
-                    # Combine the genetics and cytogenetics reports.
+
                     combined = f"{genetics_report}\n\n{cytogenetics_report}"
-                    
+
                     if combined.strip():
                         with st.spinner("Parsing & classifying ..."):
-                            # Parse the free-text input into a structured dictionary.
                             parsed_data = parse_genetics_report_aml(combined)
-                            
-                            # Merge overrides if provided.
                             if blasts_override.strip():
                                 try:
                                     parsed_data["blasts_percentage"] = float(blasts_override.strip())
-                                except ValueError:
-                                    st.warning("Invalid blasts override.")
+                                except:
+                                    st.warning("Invalid blasts override")
                             if diff_override.strip():
                                 parsed_data["AML_differentiation"] = diff_override.strip()
                             if morph_input.strip():
                                 parsed_data["morphology_clinical"] = morph_input.strip()
-                            
-                            # Perform classifications.
+
+                            # Classify
                             who_class, who_deriv = classify_AML_WHO2022(parsed_data)
                             icc_class, icc_deriv = classify_AML_ICC2022(parsed_data)
                             eln_class, eln_deriv = classify_ELN2022(parsed_data)
-                            
-                            # Store all free-text classification results.
+
                             st.session_state["aml_ai_result"] = {
                                 "parsed_data": parsed_data,
                                 "who_class": who_class,
@@ -972,69 +1020,18 @@ def app_main():
                                 "eln_derivation": eln_deriv,
                                 "free_text_input": combined
                             }
-                            
-                            # Generate AI classification review (automatically, as in manual mode).
-                            classification_dict = {
-                                "WHO 2022": {
-                                    "Classification": who_class,
-                                    "Derivation": who_deriv
-                                },
-                                "ICC 2022": {
-                                    "Classification": icc_class,
-                                    "Derivation": icc_deriv
-                                }
-                            }
-                            class_review = get_gpt4_review_aml_classification(
-                                classification_dict,
-                                parsed_data,
-                                free_text_input=combined
-                            )
-                            st.session_state["aml_ai_class_review"] = class_review
                             st.session_state["expanded_aml_section"] = "classification"
                     else:
                         st.error("No AML data provided.")
 
-        # ------------------------------------------------------------------
-        # Display Sub-Tabs if classification results exist (manual or free text)
-        # ------------------------------------------------------------------
-        if "aml_manual_result" in st.session_state or "aml_ai_result" in st.session_state:
-            # Create sub-menu (tabs) for "Classification" and "Risk"
-            sub_tab = option_menu(
-                menu_title="Results",
-                options=["Classification", "Risk"],
-                icons=["funnel", "graph-up-arrow"],
-                default_index=0,
-                orientation="horizontal",
-                menu_icon="clipboard"
-            )
-
-            # ---------------- "Classification" TAB ----------------
-            if sub_tab == "Classification":
-                # Prefer manual results if available; otherwise, use free-text (AI) results.
+            # ---------- If we have AML results, show reviews ----------
+            if "aml_manual_result" in st.session_state or "aml_ai_result" in st.session_state:
                 if "aml_manual_result" in st.session_state:
                     res = st.session_state["aml_manual_result"]
+                    mode = "manual"
                 else:
                     res = st.session_state["aml_ai_result"]
-
-                # Display WHO & ICC classification results.
-                display_aml_classification_results(
-                    res["parsed_data"],
-                    res["who_class"],
-                    res["who_derivation"],
-                    res["icc_class"],
-                    res["icc_derivation"],
-                    mode="manual"
-                )
-
-                # Display Classification Review.
-                if "aml_manual_class_review" in st.session_state:
-                    with st.expander("View Classification Review",
-                                    expanded=(st.session_state["expanded_aml_section"] == "classification")):
-                        st.markdown(st.session_state["aml_manual_class_review"])
-                elif "aml_ai_class_review" in st.session_state:
-                    with st.expander("View Classification Review",
-                                    expanded=(st.session_state["expanded_aml_section"] == "classification")):
-                        st.markdown(st.session_state["aml_ai_class_review"])
+                    mode = "ai"
 
                 classification_dict = {
                     "WHO 2022": {
@@ -1047,103 +1044,127 @@ def app_main():
                     }
                 }
 
-                # Bottom row for AI review buttons and Download Report.
-                col1, col2, col3, col4, col5 = st.columns(5)
-                with col1:
-                    if st.button("🧪 MRD Review"):
-                        st.session_state["aml_busy"] = True
-                        with st.spinner("Compiling MRD review..."):
-                            mrd_review = get_gpt4_review_aml_mrd(classification_dict, res["parsed_data"])
-                            st.session_state["aml_manual_mrd_review"] = mrd_review
-                            st.session_state["expanded_aml_section"] = "mrd_review"
-                        st.session_state["aml_busy"] = False
-                with col2:
-                    if st.button("🧬 Gene Review"):
-                        st.session_state["aml_busy"] = True
-                        with st.spinner("Compiling Gene review..."):
-                            gene_review = get_gpt4_review_aml_genes(classification_dict, res["parsed_data"])
-                            st.session_state["aml_manual_gene_review"] = gene_review
-                            st.session_state["expanded_aml_section"] = "gene_review"
-                        st.session_state["aml_busy"] = False
-                with col3:
-                    if st.button("📄 Further Comments"):
-                        st.session_state["aml_busy"] = True
-                        with st.spinner("Compiling further comments..."):
-                            add_comments = get_gpt4_review_aml_additional_comments(classification_dict, res["parsed_data"])
-                            st.session_state["aml_manual_additional_comments"] = add_comments
-                            st.session_state["expanded_aml_section"] = "comments"
-                        st.session_state["aml_busy"] = False
-                with col4:
-                    pass
-                with col5:
-                    if "show_pdf_form" not in st.session_state:
-                        st.session_state.show_pdf_form = False
-                    if st.button("Download Report 📄⬇️"):
-                        st.session_state.show_pdf_form = True
-                    if st.session_state.show_pdf_form:
-                        with st.form(key="pdf_info_form"):
-                            patient_name = st.text_input("Enter Patient Name:")
-                            patient_dob = st.date_input("Enter Date of Birth:")
-                            submit_pdf = st.form_submit_button("Submit")
-                        if submit_pdf:
-                            if not patient_name:
-                                st.error("Please enter the patient name.")
-                            else:
-                                pdf_bytes = create_beautiful_pdf(patient_name, patient_dob)
-                                pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-                                download_html = f'''
-                                    <a id="pdf_download" href="data:application/pdf;base64,{pdf_base64}" download="diagnostic_report.pdf"></a>
-                                    <script>
-                                        setTimeout(function() {{
-                                            document.getElementById("pdf_download").click();
-                                        }}, 100);
-                                    </script>
-                                '''
-                                components.html(download_html, height=0)
-                                st.session_state.show_pdf_form = False
+                sub_tab = option_menu(
+                    menu_title=None,
+                    options=["Classification", "Classification Review", "MRD Review", "Gene Review", "Additional Comments", "Risk"],
+                    icons=["clipboard", "chat-dots", "microscope", "dna", "comment", "graph-up-arrow"],
+                    default_index=0,
+                    orientation="horizontal"
+                )
 
-                # Display additional review expanders.
-                if "aml_manual_gene_review" in st.session_state:
-                    with st.expander("Gene Analysis", expanded=(st.session_state["expanded_aml_section"] == "gene_review")):
-                        st.markdown(st.session_state["aml_manual_gene_review"])
-                if "aml_manual_mrd_review" in st.session_state:
-                    with st.expander("MRD Review", expanded=(st.session_state["expanded_aml_section"] == "mrd_review")):
-                        st.markdown(st.session_state["aml_manual_mrd_review"])
-                if "aml_manual_additional_comments" in st.session_state:
-                    with st.expander("Additional Comments", expanded=(st.session_state["expanded_aml_section"] == "comments")):
-                        st.markdown(st.session_state["aml_manual_additional_comments"])
+                # Classification
+                if sub_tab == "Classification":
+                    display_aml_classification_results(
+                        res["parsed_data"],
+                        res["who_class"],
+                        res["who_derivation"],
+                        res["icc_class"],
+                        res["icc_derivation"],
+                        mode=mode
+                    )
 
-            # ---------------- "Risk" TAB ----------------
-            elif sub_tab == "Risk":
-                if "aml_manual_result" in st.session_state:
-                    res = st.session_state["aml_manual_result"]
-                elif "aml_ai_result" in st.session_state:
-                    res = st.session_state["aml_ai_result"]
-                else:
-                    st.info("No AML results available. Please classify AML first.")
-                    res = None
+                # Classification Review
+                elif sub_tab == "Classification Review":
+                    if "aml_class_review" not in st.session_state:
+                        with st.spinner("Generating Classification Review..."):
+                            st.session_state["aml_class_review"] = get_gpt4_review_aml_classification(
+                                classification_dict,
+                                res["parsed_data"],
+                                free_text_input=(res.get("free_text_input") if mode == "ai" else None)
+                            )
+                    with st.expander("Classification Review", expanded=True):
+                        st.markdown(st.session_state["aml_class_review"])
 
-                if res:
+                # MRD Review
+                elif sub_tab == "MRD Review":
+                    if "aml_mrd_review" not in st.session_state:
+                        with st.spinner("Generating MRD Review..."):
+                            st.session_state["aml_mrd_review"] = get_gpt4_review_aml_mrd(
+                                classification_dict,
+                                res["parsed_data"]
+                            )
+                    with st.expander("MRD Review", expanded=True):
+                        st.markdown(st.session_state["aml_mrd_review"])
+
+                # Gene Review
+                elif sub_tab == "Gene Review":
+                    if "aml_gene_review" not in st.session_state:
+                        with st.spinner("Generating Gene Review..."):
+                            st.session_state["aml_gene_review"] = get_gpt4_review_aml_genes(
+                                classification_dict,
+                                res["parsed_data"]
+                            )
+                    with st.expander("Gene Review", expanded=True):
+                        st.markdown(st.session_state["aml_gene_review"])
+
+                # Additional Comments
+                elif sub_tab == "Additional Comments":
+                    if "aml_additional_comments" not in st.session_state:
+                        with st.spinner("Generating Additional Comments..."):
+                            st.session_state["aml_additional_comments"] = get_gpt4_review_aml_additional_comments(
+                                classification_dict,
+                                res["parsed_data"]
+                            )
+                    with st.expander("Additional Comments", expanded=True):
+                        st.markdown(st.session_state["aml_additional_comments"])
+
+                # Risk
+                elif sub_tab == "Risk":
                     st.markdown("### ELN 2022 Risk Classification")
                     st.markdown(f"**Risk Category:** {res['eln_class']}")
-                    with st.expander("View ELN Derivation"):
+                    with st.expander("ELN Derivation", expanded=True):
                         for i, step in enumerate(res["eln_derivation"], start=1):
                             st.markdown(f"- {step}")
 
+                # ---------- PDF Download ----------
+                if "show_pdf_form" not in st.session_state:
+                    st.session_state.show_pdf_form = False
 
-        # --------------------------------------------------------------
-        # MDS CLASSIFICATION
-        # --------------------------------------------------------------
+                if st.button("Download Report 📄⬇️"):
+                    st.session_state.show_pdf_form = True
+
+                if st.session_state.show_pdf_form:
+                    with st.form(key="pdf_info_form"):
+                        patient_name = st.text_input("Enter Patient Name:")
+                        patient_dob = st.date_input("Enter Date of Birth:")
+                        submit_pdf = st.form_submit_button("Submit")
+
+                    if submit_pdf:
+                        if not patient_name:
+                            st.error("Please enter the patient name.")
+                        else:
+                            pdf_bytes = create_beautiful_pdf(patient_name, patient_dob)
+                            pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                            download_html = f'''
+                                <a id="pdf_download" href="data:application/pdf;base64,{pdf_base64}" download="diagnostic_report.pdf"></a>
+                                <script>
+                                    setTimeout(function() {{
+                                        document.getElementById("pdf_download").click();
+                                    }}, 100);
+                                </script>
+                            '''
+                            components.html(download_html, height=0)
+                            st.session_state.show_pdf_form = False
+
+        # -----------------------------------------------------------
+        # MDS Diagnostics
+        # -----------------------------------------------------------
         elif selected_tab == "MDS Diagnostics":
             st.subheader("Myelodysplastic Syndromes (MDS)")
             mds_mode_toggle = st.checkbox("Free Text Mode", key="mds_mode_toggle")
 
-            # --------------- MDS Manual ---------------
+            # -------------- MANUAL MODE --------------
             if not mds_mode_toggle:
-
                 manual_data = build_manual_mds_data_compact()
-
                 if st.button("Classify MDS (Manual)"):
+                    # Clear old MDS keys
+                    for key in [
+                        "mds_manual_result", 
+                        "mds_ai_result",
+                        "mds_class_review", "mds_gene_review", "mds_additional_comments"
+                    ]:
+                        st.session_state.pop(key, None)
+
                     who_class, who_deriv = classify_MDS_WHO2022(manual_data)
                     icc_class, icc_deriv = classify_MDS_ICC2022(manual_data)
 
@@ -1154,127 +1175,38 @@ def app_main():
                         "icc_class": icc_class,
                         "icc_derivation": icc_deriv
                     }
-
-                    classification_dict = {
-                        "WHO 2022": {
-                            "Classification": who_class,
-                            "Derivation": who_deriv
-                        },
-                        "ICC 2022": {
-                            "Classification": icc_class,
-                            "Derivation": icc_deriv
-                        }
-                    }
-                    class_rev = get_gpt4_review_mds_classification(
-                        classification_dict,
-                        manual_data
-                    )
-                    st.session_state["mds_manual_class_review"] = class_rev
                     st.session_state["expanded_mds_section"] = "classification"
 
-                if "mds_manual_result" in st.session_state:
-                    res = st.session_state["mds_manual_result"]
-                    display_mds_classification_results(
-                        res["parsed_data"],
-                        res["who_class"],
-                        res["who_derivation"],
-                        res["icc_class"],
-                        res["icc_derivation"],
-                        mode="manual"
-                    )
-
-                    if "mds_manual_class_review" in st.session_state:
-                        with st.expander(
-                            "### Classification Review",
-                            expanded=(st.session_state["expanded_mds_section"] == "classification")
-                        ):
-                            st.markdown(st.session_state["mds_manual_class_review"])
-
-                    classification_dict = {
-                        "WHO 2022": {
-                            "Classification": res["who_class"],
-                            "Derivation": res["who_derivation"]
-                        },
-                        "ICC 2022": {
-                            "Classification": res["icc_class"],
-                            "Derivation": res["icc_derivation"]
-                        }
-                    }
-
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("🧬 Gene Review"):
-                            gene_rev = get_gpt4_review_mds_genes(
-                                classification_dict,
-                                res["parsed_data"]
-                            )
-                            st.session_state["mds_manual_gene_review"] = gene_rev
-                            st.session_state["expanded_mds_section"] = "gene_review"
-
-                    with col2:
-                        if st.button("📄 Further Comments (MDS)"):
-                            add_comments = get_gpt4_review_mds_additional_comments(
-                                classification_dict,
-                                res["parsed_data"]
-                            )
-                            st.session_state["mds_manual_additional_comments"] = add_comments
-                            st.session_state["expanded_mds_section"] = "comments"
-
-                    if "mds_manual_additional_comments" in st.session_state:
-                        with st.expander(
-                            "### Additional Comments",
-                            expanded=(st.session_state["expanded_mds_section"] == "comments")
-                        ):
-                            st.markdown(st.session_state["mds_manual_additional_comments"])
-
-                    if "mds_manual_gene_review" in st.session_state:
-                        with st.expander(
-                            "### MDS Gene Analysis",
-                            expanded=(st.session_state["expanded_mds_section"] == "gene_review")
-                        ):
-                            st.markdown(st.session_state["mds_manual_gene_review"])
-
-
-            # --------------- MDS Free Text Mode ---------------
+            # -------------- FREE TEXT MODE --------------
             else:
-                # Put all free-text fields into an expander
                 with st.expander("MDS Free Text Input Area", expanded=True):
-                    st.markdown("Paste your free-text MDS genetics/cytogenetics data below:")
+                    st.text_input("Blasts (%) Override", placeholder="e.g. 8", key="mds_blasts_input")
+                    st.text_area("Genetics (MDS)", height=100, key="mds_genetics_report")
+                    st.text_area("Cytogenetics (MDS)", height=100, key="mds_cytogenetics_report")
 
-                    st.text_input("Blasts (%) Override", 
-                                placeholder="e.g. 8", 
-                                key="mds_blasts_input")
-
-                    st.text_area("Genetics (MDS)", 
-                                height=100, 
-                                key="mds_genetics_report")
-
-                    st.text_area("Cytogenetics (MDS)", 
-                                height=100, 
-                                key="mds_cytogenetics_report")
-
-                # Button to parse & classify MDS (outside the expander!)
                 if st.button("Parse & Classify MDS"):
-                    # Retrieve input values from session_state
+                    for key in [
+                        "mds_manual_result", 
+                        "mds_ai_result",
+                        "mds_class_review", "mds_gene_review", "mds_additional_comments"
+                    ]:
+                        st.session_state.pop(key, None)
+
                     blasts_input = st.session_state.get("mds_blasts_input", "")
                     genetics_report = st.session_state.get("mds_genetics_report", "")
                     cytogenetics_report = st.session_state.get("mds_cytogenetics_report", "")
-
                     combined = f"{genetics_report}\n\n{cytogenetics_report}"
+
                     if combined.strip():
                         with st.spinner("Parsing & classifying MDS..."):
                             parsed = parse_genetics_report_mds(combined)
-
-                            # Blasts override
                             if blasts_input.strip():
                                 try:
                                     parsed["blasts_percentage"] = float(blasts_input.strip())
                                 except ValueError:
-                                    st.warning("Invalid blasts override")
-
+                                    st.warning("Invalid blasts override.")
                             who_class, who_deriv = classify_MDS_WHO2022(parsed)
                             icc_class, icc_deriv = classify_MDS_ICC2022(parsed)
-
                             st.session_state["mds_ai_result"] = {
                                 "parsed_data": parsed,
                                 "who_class": who_class,
@@ -1282,93 +1214,83 @@ def app_main():
                                 "icc_class": icc_class,
                                 "icc_derivation": icc_deriv
                             }
-
-                            # Optionally get GPT-4 classification review
-                            classification_dict = {
-                                "WHO 2022": {
-                                    "Classification": who_class,
-                                    "Derivation": who_deriv
-                                },
-                                "ICC 2022": {
-                                    "Classification": icc_class,
-                                    "Derivation": icc_deriv
-                                }
-                            }
-                            class_rev = get_gpt4_review_mds_classification(classification_dict, parsed)
-                            st.session_state["mds_ai_class_review"] = class_rev
                             st.session_state["expanded_mds_section"] = "classification"
                     else:
-                        st.error("Please provide MDS genetics/cytogenetics data.")
+                        st.error("Please provide MDS data.")
 
-                # --- Display classification results if any ---
-                if "mds_ai_result" in st.session_state:
+            # ---------- If we have MDS results, show reviews ----------
+            if "mds_manual_result" in st.session_state or "mds_ai_result" in st.session_state:
+                if "mds_manual_result" in st.session_state:
+                    res = st.session_state["mds_manual_result"]
+                    mode = "manual"
+                else:
                     res = st.session_state["mds_ai_result"]
+                    mode = "ai"
+
+                classification_dict = {
+                    "WHO 2022": {
+                        "Classification": res["who_class"],
+                        "Derivation": res["who_derivation"]
+                    },
+                    "ICC 2022": {
+                        "Classification": res["icc_class"],
+                        "Derivation": res["icc_derivation"]
+                    }
+                }
+
+                mds_tab = option_menu(
+                    menu_title=None,
+                    options=["Classification", "Classification Review", "Gene Review", "Additional Comments"],
+                    icons=["clipboard", "chat-dots", "dna", "comment"],
+                    default_index=0,
+                    orientation="horizontal"
+                )
+
+                if mds_tab == "Classification":
                     display_mds_classification_results(
                         res["parsed_data"],
                         res["who_class"],
                         res["who_derivation"],
                         res["icc_class"],
                         res["icc_derivation"],
-                        mode="ai"
+                        mode=mode
                     )
 
-                    # Classification Review
-                    if "mds_ai_class_review" in st.session_state:
-                        with st.expander(
-                            "### Classification Review",
-                            expanded=(st.session_state["expanded_mds_section"] == "classification")
-                        ):
-                            st.markdown(st.session_state["mds_ai_class_review"])
-
-                    classification_dict = {
-                        "WHO 2022": {
-                            "Classification": res["who_class"],
-                            "Derivation": res["who_derivation"]
-                        },
-                        "ICC 2022": {
-                            "Classification": res["icc_class"],
-                            "Derivation": res["icc_derivation"]
-                        }
-                    }
-
-                    col_f, col_g = st.columns(2)
-                    with col_f:
-                        if st.button("🧬 Gene Review"):
-                            gene_rev = get_gpt4_review_mds_genes(
+                elif mds_tab == "Classification Review":
+                    if "mds_class_review" not in st.session_state:
+                        with st.spinner("Generating MDS Classification Review..."):
+                            st.session_state["mds_class_review"] = get_gpt4_review_mds_classification(
                                 classification_dict,
                                 res["parsed_data"]
                             )
-                            st.session_state["mds_ai_gene_review"] = gene_rev
-                            st.session_state["expanded_mds_section"] = "gene_review"
+                    with st.expander("Classification Review", expanded=True):
+                        st.markdown(st.session_state["mds_class_review"])
 
-                    with col_g:
-                        if st.button("📄 Further Comments"):
-                            add_comments = get_gpt4_review_mds_additional_comments(
+                elif mds_tab == "Gene Review":
+                    if "mds_gene_review" not in st.session_state:
+                        with st.spinner("Generating Gene Review..."):
+                            st.session_state["mds_gene_review"] = get_gpt4_review_mds_genes(
                                 classification_dict,
                                 res["parsed_data"]
                             )
-                            st.session_state["mds_ai_additional_comments"] = add_comments
-                            st.session_state["expanded_mds_section"] = "comments"
+                    with st.expander("Gene Review", expanded=True):
+                        st.markdown(st.session_state["mds_gene_review"])
 
-                    # Additional Comments
-                    if "mds_ai_additional_comments" in st.session_state:
-                        with st.expander(
-                            "### Additional Comments",
-                            expanded=(st.session_state["expanded_mds_section"] == "comments")
-                        ):
-                            st.markdown(st.session_state["mds_ai_additional_comments"])
-
-                    # Gene Review
-                    if "mds_ai_gene_review" in st.session_state:
-                        with st.expander(
-                            "### MDS Gene Analysis",
-                            expanded=(st.session_state["expanded_mds_section"] == "gene_review")
-                        ):
-                            st.markdown(st.session_state["mds_ai_gene_review"])
-
+                elif mds_tab == "Additional Comments":
+                    if "mds_additional_comments" not in st.session_state:
+                        with st.spinner("Generating Additional Comments..."):
+                            st.session_state["mds_additional_comments"] = get_gpt4_review_mds_additional_comments(
+                                classification_dict,
+                                res["parsed_data"]
+                            )
+                    with st.expander("Additional Comments", expanded=True):
+                        st.markdown(st.session_state["mds_additional_comments"])
 
     else:
         st.info("🔒 **Log in** to use the classification features.")
+
+
+
 
 
 def main():
