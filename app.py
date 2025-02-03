@@ -813,7 +813,6 @@ def create_beautiful_pdf(patient_name: str, patient_dob: datetime.date) -> bytes
     # ----- AML Section -----
     aml_result = st.session_state.get("aml_manual_result") or st.session_state.get("aml_ai_result")
     if aml_result:
-        add_section_title(pdf, "AML Diagnostics")
         # This function adds classification and review sections if the appropriate keys exist.
         add_diagnostic_section(pdf, "AML")
         
