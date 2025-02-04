@@ -191,9 +191,9 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
             derivation.append("AML_differentiation is invalid or missing => 'Acute myeloid leukaemia, unknown differentiation'.")
 
     # Append "(WHO 2022)" if not already present
-    if "(WHO 2022)" not in classification:
+    if "Not AML" not in classification:
         classification += " (WHO 2022)"
-        derivation.append(f"Final classification => {classification}")
+    derivation.append(f"Final classification => {classification}")
 
     return classification, derivation
 
