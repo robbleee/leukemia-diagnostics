@@ -66,10 +66,9 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     if not true_aml_genes:
         derivation.append("All AML-defining recurrent genetic abnormality flags are false.")
         if blasts_percentage < 20.0:
-                classification = "Not AML, consider MDS classification"
-                derivation.append("No AML defining abnormalities and blasts < 20% => 'Consider reclassification as MDS'.")
+            classification = "Not AML, consider MDS classification"
+            derivation.append("No AML defining abnormalities and blasts < 20% => 'Consider reclassification as MDS'.")
     else:
-        # Attempt classification based on AML-defining genetic abnormalities
         derivation.append(f"Detected AML-defining abnormality flags: {', '.join(true_aml_genes)}")
         updated = False
         for gene, classif in aml_genetic_abnormalities_map.items():
@@ -82,6 +81,24 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
                     )
                     updated = True
                     break
+            elif gene in [
+                "PML::RARA", "NPM1", "RUNX1::RUNX1T1", "CBFB::MYH11",
+                "DEK::NUP214", "RBM15::MRTFA", "MLLT3::KMT2A",
+                "GATA2:: MECOM", "KMT2A", "MECOM", "NUP98"
+            ]:
+                # For these, require blasts > 5%
+                if aml_def_genetic.get(gene, False):
+                    if blasts_percentage > 5.0:
+                        classification = classif
+                        derivation.append(
+                            f"{gene} abnormality detected with blasts > 5% (blasts_percentage: {blasts_percentage}). Classification => {classification}"
+                        )
+                        updated = True
+                        break
+                    else:
+                        derivation.append(
+                            f"{gene} abnormality detected but blasts percentage ({blasts_percentage}%) is not > 5%. Skipping classification for {gene}."
+                        )
             else:
                 if aml_def_genetic.get(gene, False):
                     classification = classif
