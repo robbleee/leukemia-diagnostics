@@ -882,7 +882,6 @@ def app_main():
         if selected_tab == "AML Diagnostics":
             st.subheader("Acute Myeloid Leukemia (AML)")
 
-
             # Toggle switch for 'Free Text Mode'
             aml_mode_toggle = st.toggle("Free Text Mode", key="aml_mode_toggle", value=False)
 
@@ -925,7 +924,7 @@ def app_main():
 
             # --- FREE TEXT MODE ---
             else:
-                with st.expander("Free Text Input Area", expanded=st.session_state["aml_free_text_expanded"]):
+                with st.expander("Free Text Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
                     col1, col2 = st.columns(2)
                     with col1:
                         st.text_input("Blasts % (Override)", placeholder="25", key="blasts_override")
@@ -1011,9 +1010,12 @@ def app_main():
                     }
                 }
 
+                # Retrieve the free text input value if available (only in free text/ai mode)
+                free_text_input_value = res.get("free_text_input") if mode == "ai" else None
+
                 sub_tab = option_menu(
                     menu_title=None,
-                    options=["Classification","Risk", "MRD Review", "Gene Review", "Additional Comments"],
+                    options=["Classification", "Risk", "MRD Review", "Gene Review", "Additional Comments"],
                     icons=["clipboard", "graph-up-arrow", "recycle", "bar-chart", "chat-left-text"],
                     default_index=0,
                     orientation="horizontal"
@@ -1037,7 +1039,7 @@ def app_main():
                             st.session_state["aml_class_review"] = get_gpt4_review_aml_classification(
                                 classification_dict,
                                 res["parsed_data"],
-                                free_text_input=(res.get("free_text_input") if mode == "ai" else None)
+                                free_text_input=free_text_input_value
                             )
 
                     st.markdown("### Classification Review")
@@ -1049,7 +1051,8 @@ def app_main():
                         with st.spinner("Generating MRD Review..."):
                             st.session_state["aml_mrd_review"] = get_gpt4_review_aml_mrd(
                                 classification_dict,
-                                res["parsed_data"]
+                                res["parsed_data"],
+                                free_text_input=free_text_input_value
                             )
                     with st.expander("MRD Review", expanded=True):
                         st.markdown(st.session_state["aml_mrd_review"])
@@ -1060,7 +1063,8 @@ def app_main():
                         with st.spinner("Generating Gene Review..."):
                             st.session_state["aml_gene_review"] = get_gpt4_review_aml_genes(
                                 classification_dict,
-                                res["parsed_data"]
+                                res["parsed_data"],
+                                free_text_input=free_text_input_value
                             )
                     with st.expander("Gene Review", expanded=True):
                         st.markdown(st.session_state["aml_gene_review"])
@@ -1071,7 +1075,8 @@ def app_main():
                         with st.spinner("Generating Additional Comments..."):
                             st.session_state["aml_additional_comments"] = get_gpt4_review_aml_additional_comments(
                                 classification_dict,
-                                res["parsed_data"]
+                                res["parsed_data"],
+                                free_text_input=free_text_input_value
                             )
                     with st.expander("Additional Comments", expanded=True):
                         st.markdown(st.session_state["aml_additional_comments"])
