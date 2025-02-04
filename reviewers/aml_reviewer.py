@@ -262,20 +262,18 @@ def get_gpt4_review_aml_additional_comments(classification: dict,
 
 **Task**:
 	Provide a section called Additional Comments
-    For the list: Myeloid blast cells 60%; KRAS mutation VAF of 47% and p53 mutation (VAF 24%) and an NPM1 mutation with VAF 24%, cytogenetics normal.
 	Using "Additional Comments" as the main heading, please follow these rules:  
-	1. Use only gene lists from this input data. 
-	2. Use UK spelling.  Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other instruction.
-	3. Use the subtitle: "Possible germline origin of mutations:" answer the following query: This is a bone marrow sample and the patient is known to have acute myeloid leukaemia. You are offering advice to an expert haematologist. Do not discuss treatment and make your answer concise using no subheadings and fewer than 150 words and a single paragraph without underlining any words. For any gene where a germline mutation is possible and the VAF % could support a germline mutation then discuss likelihood of this for that gene or genes only. Do not offer advice on further testing. 
-	4. For the same gene list and VAF use a new paragraph titled: "Possibility of lymphoid clonality within the sample:" Identify any genes that have recognised mutation in lymphoid cells. Using the overall VAF levels consider whether there is a significant possibility of lymphoid gene mutation being present in the bone marrow sample.
+	1. Use UK spelling.  Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other instruction.
+	2. Use the subtitle: "Possible germline origin of mutations:" answer the following query: This is a bone marrow sample and the patient is known to have acute myeloid leukaemia. You are offering advice to an expert haematologist. Do not discuss treatment and make your answer concise using no subheadings and fewer than 150 words and a single paragraph without underlining any words. For any gene where a germline mutation is possible and the VAF % could support a germline mutation then discuss likelihood of this for that gene or genes only. Do not offer advice on further testing [VERY IPORTANT - COMMENT ON VAF SPECIFICALLY MENTIONING THE % VAF]
+	3. For the same gene list and VAF use a new paragraph titled: "Possibility of lymphoid clonality within the sample:" Identify any genes that have recognised mutation in lymphoid cells. Using the overall VAF levels consider whether there is a significant possibility of lymphoid gene mutation being present in the bone marrow sample [VERY IPORTANT - COMMENT ON VAF SPECIFICALLY MENTIONING THE % VAF]
 
 **Response**:
-- Structure your answer beautifully in markdown with smaller headings (**<heading**>) for a Streamlit UI..
-- Make sure that the individual gene headers are on their own line
-- Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:"
-- Do not attempt to provide an overview summary after the written sections
-- Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD
-- When structuring your response place those mutations that are suitable for MRD monitoring first in your output
+    - Structure your answer beautifully in markdown with smaller headings (**<heading**>) for a Streamlit UI..
+    - Make sure that the individual gene headers are on their own line
+    - Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:"
+    - Do not attempt to provide an overview summary after the written sections
+    - Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD
+    - When structuring your response place those mutations that are suitable for MRD monitoring first in your output
 """
 
     # Call OpenAI

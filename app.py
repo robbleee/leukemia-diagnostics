@@ -1258,11 +1258,8 @@ def app_main():
     else:
         st.info("🔒 **Log in** to use the classification features.")
 
-
-
 def main():
     app_main()
-
 
 if __name__ == "__main__":
     main()
