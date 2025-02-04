@@ -4,6 +4,7 @@ import json
 import datetime
 from openai import OpenAI
 from streamlit_option_menu import option_menu
+import streamlit_toggle as tog
 from fpdf import FPDF
 import re
 import base64
@@ -882,7 +883,10 @@ def app_main():
         if selected_tab == "AML Diagnostics":
             st.subheader("Acute Myeloid Leukemia (AML)")
 
-            aml_mode_toggle = st.checkbox("Free Text Mode", key="aml_mode_toggle")
+
+            # Toggle switch for 'Free Text Mode'
+            aml_mode_toggle = st.toggle("Free Text Mode", key="aml_mode_toggle", value=False)
+
             if "aml_busy" not in st.session_state:
                 st.session_state["aml_busy"] = False
 
@@ -1113,7 +1117,8 @@ def app_main():
         # -----------------------------------------------------------
         elif selected_tab == "MDS Diagnostics":
             st.subheader("Myelodysplastic Syndromes (MDS)")
-            mds_mode_toggle = st.checkbox("Free Text Mode", key="mds_mode_toggle")
+            mds_mode_toggle = st.toggle("Free Text Mode", key="mds_mode_toggle", value=False)
+
 
             # --- MANUAL MODE ---
             if not mds_mode_toggle:

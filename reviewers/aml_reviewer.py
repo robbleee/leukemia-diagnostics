@@ -202,7 +202,7 @@ Provide a section called MRD strategy
 Please follow these rules: 
 1. Use only the gene and cytogenetic lists from this input data. 
 2. Use UK spelling. Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other instruction. 
-2. Discuss only those genes from the list that are suitable for monitoring minimal residual disease in the UK. 
+2. Discuss only those genes from the list that are suitable for monitoring minimal residual disease in the UK [VERY IMPORTANT - ONLY INCLUDE GENES THAT CAN BE USED IN THE UK]. 
 3. Then for any gene that can be used to monitor MRD advise the appropriate monitoring recommendations used in the UK. The advice should be provided for a well-informed doctor wishing to monitor the patient and should be succinct but include time intervals and sample types. This should be performed separately for each identified target gene or cytogenetic lesion. The monitoring recommendation should use European LeukemiaNet MRD Working Party recommendations 2021 described in Blood. 2021 Dec 30;138(26):2753–2767. The summary for each gene should use fewer than 200 words and be written to inform a medical professional using succinct language and only using peer reviewed content. Do not mention genes present in the list but not detected in this case. 
 4. If a cytogenetic lesion is recommended for monitoring as a marker of disease response or can be used as such then discuss that cytogenetic lesion too. 
 5. Provide a maximum of 2 references that have high citation for each recommendation. 
@@ -261,17 +261,13 @@ def get_gpt4_review_aml_additional_comments(classification: dict,
 **Classification Result**: {classification}
 
 **Task**:
-Provide a section called Additional Considerations
-Please follow these rules: 
-1. Use only genes only listed in the input data. 
-2. Use UK spelling.  Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other instruction.
-3. If the list does not detect any mutated genes simply state that there are no genes to review. 
-4. If mutated genes are detected do the following for each gene using concise language and <150 words:
-a. State how frequently the gene is mutated in acute myeloid leukaemia
-b. if the VAF levels are significantly lower than other mutated genes consider if the mutated gene may be a subclone. If it is unlikely to be a subclone do mention this in the review.
-C. If any mutated gene is frequently associated with germline mutation state whether the VAF supports this and advise appropriately.
-d. If TP53 has a single allele mutated consider whether there is also a 17p deletion present when interpreting the VAF result. If the case has biallelic mutations of TP53 then do not discuss the possibility of a 17p deletion.
-e. If mutation of the discussed gene is frequently seen in lymphoid cells then state this and advise on possible action. Do this only if the gene is frequently mutated in lymphoid cells.
+	Provide a section called Additional Comments
+    For the list: Myeloid blast cells 60%; KRAS mutation VAF of 47% and p53 mutation (VAF 24%) and an NPM1 mutation with VAF 24%, cytogenetics normal.
+	Using "Additional Comments" as the main heading, please follow these rules:  
+	1. Use only gene lists from this input data. 
+	2. Use UK spelling.  Whenever a gene name is used this should be stated in capital letters and italic text irrespective of any other instruction.
+	3. Use the subtitle: "Possible germline origin of mutations:" answer the following query: This is a bone marrow sample and the patient is known to have acute myeloid leukaemia. You are offering advice to an expert haematologist. Do not discuss treatment and make your answer concise using no subheadings and fewer than 150 words and a single paragraph without underlining any words. For any gene where a germline mutation is possible and the VAF % could support a germline mutation then discuss likelihood of this for that gene or genes only. Do not offer advice on further testing. 
+	4. For the same gene list and VAF use a new paragraph titled: "Possibility of lymphoid clonality within the sample:" Identify any genes that have recognised mutation in lymphoid cells. Using the overall VAF levels consider whether there is a significant possibility of lymphoid gene mutation being present in the bone marrow sample.
 
 **Response**:
 - Structure your answer beautifully in markdown with smaller headings (**<heading**>) for a Streamlit UI..
