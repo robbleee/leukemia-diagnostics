@@ -4,7 +4,6 @@ import json
 import datetime
 from openai import OpenAI
 from streamlit_option_menu import option_menu
-import streamlit_toggle as tog
 from fpdf import FPDF
 import re
 import base64
