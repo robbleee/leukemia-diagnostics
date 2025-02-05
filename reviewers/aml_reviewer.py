@@ -139,14 +139,13 @@ Please follow these rules:
 3. Where genetic or cytogenetic lesions are found summarise the clinical implications for each positive finding in the above list. This discussion should assume a proven diagnosis of AML. The summary for each gene should use fewer than 200 words and be written to inform a medical professional using succinct language and only using peer reviewed content. The summary should emphasise the role of the listed genes or cytogenetic change on clinical outcome. 
 4. If outcome effects may be modified by other genes indicate this in bold lettering (except for gene names which remain in italic capital text). This action should consider only the effects of any other genes on the provided input list. 
 6. Provide three references that have high citation for each gene. 
-7. For each gene, if it can be used to monitor minimal residual disease (MRD) in the UK, state this in bold lettering below the title (gene name) 
+
 
 **Response**:
 - Structure your answer beautifully in markdown with smaller headings (**<heading**>) for a Streamlit UI.
 - Make sure that the individual gene headers are on their own line
 - Do not ever include anything like this "Certainly, here is the Genetics Review based on the provided data:"
 - Do not attempt to provide an overview summary after the written sections
-- Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD
 - When structuring your response place those mutations that have greater clinical impact first in your output
 """
 
