@@ -190,6 +190,7 @@ local_css()
 add_custom_css()
 
 
+
 ##################################
 # FORMS & PARSING HELPERS
 ##################################
@@ -220,17 +221,14 @@ def build_manual_aml_data() -> dict:
             npm1 = st.checkbox("NPM1 mutation", key="aml_npm1_mutation")
             runx1_runx1t1 = st.checkbox("RUNX1::RUNX1T1 fusion", key="aml_runx1_runx1t1")
             cbfb_myh11 = st.checkbox("CBFB::MYH11 fusion", key="aml_cbfb_myh11")
-
         with c_aml2:
             dek_nup214 = st.checkbox("DEK::NUP214 fusion", key="aml_dek_nup214")
             rbm15_mrtfa = st.checkbox("RBM15::MRTFA fusion", key="aml_rbm15_mrtfa")
             mllt3_kmt2a = st.checkbox("MLLT3::KMT2A fusion", key="aml_mllt3_kmt2a")
-
         with c_aml3:
             kmt2a = st.checkbox("KMT2A rearrangement (other)", key="aml_kmt2a_other")
             mecom = st.checkbox("MECOM rearrangement", key="aml_mecom")
             nup98 = st.checkbox("NUP98 rearrangement", key="aml_nup98")
-
         with c_aml4:
             cebpa = st.checkbox("CEBPA mutation", key="aml_cebpa_mutation")
             bzip = st.checkbox("CEBPA bZIP mutation", key="aml_cebpa_bzip")
@@ -272,71 +270,95 @@ def build_manual_aml_data() -> dict:
         # ---------------------------------------------------------------------
         # Toggle switch for Additional / Uncommon AML Genetic Abnormalities
         # ---------------------------------------------------------------------
-
-
-        # Toggle switch for 'Free Text Mode'
         show_additional_genetics = st.toggle("Additional / Uncommon AML Genetic Abnormalities", key="show_additional_genetics", value=False)
 
         if show_additional_genetics:
             st.markdown("##### RARA-related Abnormalities")
-            # Arrange into two columns
-            col_rara1, col_rara2 = st.columns(2)
-            with col_rara1:
+            # Arrange the 8 checkboxes in 2 rows of 4 columns each.
+            col_rara_row1 = st.columns(4)
+            with col_rara_row1[0]:
                 irf2bp2_rara = st.checkbox("IRF2BP2::RARA", key="aml_irf2bp2_rara")
+            with col_rara_row1[1]:
                 npm1_rara = st.checkbox("NPM1::RARA", key="aml_npm1_rara")
+            with col_rara_row1[2]:
                 zbtb16_rara = st.checkbox("ZBTB16::RARA", key="aml_zbtb16_rara")
+            with col_rara_row1[3]:
                 stat5b_rara = st.checkbox("STAT5B::RARA", key="aml_stat5b_rara")
-            with col_rara2:
+
+            col_rara_row2 = st.columns(4)
+            with col_rara_row2[0]:
                 stat3_rara = st.checkbox("STAT3::RARA", key="aml_stat3_rara")
+            with col_rara_row2[1]:
                 rara_tbl1xr1 = st.checkbox("RARA::TBL1XR1", key="aml_rara_tbl1xr1")
+            with col_rara_row2[2]:
                 rara_fip1l1 = st.checkbox("RARA::FIP1L1", key="aml_rara_fip1l1")
+            with col_rara_row2[3]:
                 rara_bcor = st.checkbox("RARA::BCOR", key="aml_rara_bcor")
 
             st.markdown("##### KMT2A-/MECOM-related Abnormalities")
-            # Arrange into three columns
-            col_kmt1, col_kmt2, col_kmt3 = st.columns(3)
-            with col_kmt1:
+            # Arrange the 9 checkboxes in 3 rows (first two rows with 4 columns, last row with the remaining item).
+            col_kmt_row1 = st.columns(4)
+            with col_kmt_row1[0]:
                 aff1_kmt2a = st.checkbox("AFF1::KMT2A", key="aml_aff1_kmt2a")
+            with col_kmt_row1[1]:
                 afdn_kmt2a = st.checkbox("AFDN::KMT2A", key="aml_afdn_kmt2a")
-            with col_kmt2:
+            with col_kmt_row1[2]:
                 mllt10_kmt2a = st.checkbox("MLLT10::KMT2A", key="aml_mllt10_kmt2a")
+            with col_kmt_row1[3]:
                 tet1_kmt2a = st.checkbox("TET1::KMT2A", key="aml_tet1_kmt2a")
-            with col_kmt3:
+
+            col_kmt_row2 = st.columns(4)
+            with col_kmt_row2[0]:
                 kmt2a_ell = st.checkbox("KMT2A::ELL", key="aml_kmt2a_ell")
+            with col_kmt_row2[1]:
                 kmt2a_mllt1 = st.checkbox("KMT2A::MLLT1", key="aml_kmt2a_mllt1")
-            # Use a full-width row for the remaining MECOM-related abnormalities.
-            myc_mecom = st.checkbox("MYC::MECOM", key="aml_myc_mecom")
-            etv6_mecom = st.checkbox("ETV6::MECOM", key="aml_etv6_mecom")
-            mecom_runx1 = st.checkbox("MECOM::RUNX1", key="aml_mecom_runx1")
+            with col_kmt_row2[2]:
+                myc_mecom = st.checkbox("MYC::MECOM", key="aml_myc_mecom")
+            with col_kmt_row2[3]:
+                etv6_mecom = st.checkbox("ETV6::MECOM", key="aml_etv6_mecom")
 
-
-
-        # Toggle switch for 'Free Text Mode'
+            col_kmt_row3 = st.columns(4)
+            with col_kmt_row3[0]:
+                mecom_runx1 = st.checkbox("MECOM::RUNX1", key="aml_mecom_runx1")
+            # The remaining three columns in this row remain empty.
+        
+        # ---------------------------------------------------------------------
+        # Toggle switch for Other Rare Recurring Translocations
+        # ---------------------------------------------------------------------
         show_other_translocations = st.toggle("Other Rare Recurring Translocations", key="show_other_translocations", value=False)
-
 
         if show_other_translocations:
             st.markdown("##### NUP98-related Abnormalities")
-            col_nup1, col_nup2 = st.columns(2)
-            with col_nup1:
+            # Arrange the 2 checkboxes in one row of 4 columns.
+            col_nup = st.columns(4)
+            with col_nup[0]:
                 nup98_nsd1 = st.checkbox("NUP98::NSD1", key="aml_nup98_nsd1")
-            with col_nup2:
+            with col_nup[1]:
                 nup98_kmd5a = st.checkbox("NUP98::KMD5A", key="aml_nup98_kmd5a")
-            
-            st.markdown("##### Other Rare Abnormalities")
-            col_other1, col_other2, col_other3 = st.columns(3)
-            with col_other1:
-                prdm16_rpn1 = st.checkbox("PRDM16::RPN1", key="aml_prdm16_rpn1")
-                npm1_mlf1 = st.checkbox("NPM1::MLF1", key="aml_npm1_mlf1")
-            with col_other2:
-                etv6_mnx1 = st.checkbox("ETV6::MNX1", key="aml_etv6_mnx1")
-                kat6a_crebbp = st.checkbox("KAT6A::CREBBP", key="aml_kat6a_crebbp")
-            with col_other3:
-                picalm_mllt10 = st.checkbox("PICALM::MLLT10", key="aml_picalm_mllt10")
-                fus_erg = st.checkbox("FUS::ERG", key="aml_fus_erg")
-                runx1_cbfa2t3 = st.checkbox("RUNX1::CBFA2T3", key="aml_runx1_cbfa2t3")
-                cbfa2t3_glis2 = st.checkbox("CBFA2T3::GLIS2", key="aml_cbfa2t3_glis2")
+            # The other two columns remain empty.
 
+            st.markdown("##### Other Rare Abnormalities")
+            # Arrange the 8 checkboxes in 2 rows of 4 columns.
+            col_other_row1 = st.columns(4)
+            with col_other_row1[0]:
+                prdm16_rpn1 = st.checkbox("PRDM16::RPN1", key="aml_prdm16_rpn1")
+            with col_other_row1[1]:
+                npm1_mlf1 = st.checkbox("NPM1::MLF1", key="aml_npm1_mlf1")
+            with col_other_row1[2]:
+                etv6_mnx1 = st.checkbox("ETV6::MNX1", key="aml_etv6_mnx1")
+            with col_other_row1[3]:
+                kat6a_crebbp = st.checkbox("KAT6A::CREBBP", key="aml_kat6a_crebbp")
+            
+            col_other_row2 = st.columns(4)
+            with col_other_row2[0]:
+                picalm_mllt10 = st.checkbox("PICALM::MLLT10", key="aml_picalm_mllt10")
+            with col_other_row2[1]:
+                fus_erg = st.checkbox("FUS::ERG", key="aml_fus_erg")
+            with col_other_row2[2]:
+                runx1_cbfa2t3 = st.checkbox("RUNX1::CBFA2T3", key="aml_runx1_cbfa2t3")
+            with col_other_row2[3]:
+                cbfa2t3_glis2 = st.checkbox("CBFA2T3::GLIS2", key="aml_cbfa2t3_glis2")
+        
         # ---------------------------------------------------------------------
         # Biallelic TP53
         # ---------------------------------------------------------------------
