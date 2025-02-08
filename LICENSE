@@ -1,7 +1,49 @@
 Copyright 2025 Robert Lee
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+Blood Cancer Classifier Proprietary License Agreement
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+Effective Date: 08/02/2025
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+IMPORTANT – READ CAREFULLY: This Proprietary License Agreement (“Agreement”) is a legal contract between you (either an individual or a single entity, “Licensee”) and [Your Company Name] (“Licensor”) governing your use of the [Your Software Name] software (the “Software”). By installing, copying, or otherwise using the Software, you agree to be bound by the terms of this Agreement. If you do not agree to these terms, do not install or use the Software.
+
+1. Grant of License
+Subject to the terms and conditions of this Agreement, Licensor hereby grants Licensee a limited, non-exclusive, non-transferable, and revocable license to install and use the Software solely for internal business and operational purposes within a healthcare setting. Licensee’s use of the Software is restricted to its internal operations and must comply with all applicable laws and regulations.
+
+2. License Restrictions
+Licensee shall not:
+
+a. Copy, modify, or create derivative works of the Software.
+b. Decompile, reverse engineer, disassemble, or otherwise attempt to derive the source code of the Software.
+c. Distribute, lease, sublicense, rent, or transfer any rights under this Agreement to any third party.
+d. Use the Software for any purpose other than as expressly permitted by this Agreement.
+e. Remove or obscure any proprietary notices or labels on the Software.
+3. Ownership and Intellectual Property
+The Software, including any updates or modifications thereto, is the exclusive property of Licensor and is protected by intellectual property laws and international treaties. All rights not expressly granted to Licensee in this Agreement are reserved by Licensor. Licensee acknowledges that it obtains no ownership interest in the Software.
+
+4. Confidentiality
+Licensee agrees to maintain the confidentiality of all proprietary and confidential information disclosed in connection with the Software (“Confidential Information”). Confidential Information includes, but is not limited to, the Software’s source code, technical data, trade secrets, know-how, and any other information designated as confidential by Licensor. This obligation shall survive the termination of this Agreement.
+
+5. Warranty Disclaimer
+THE SOFTWARE IS PROVIDED “AS IS,” WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT. LICENSOR DOES NOT WARRANT THAT THE SOFTWARE WILL MEET LICENSEE’S REQUIREMENTS OR THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE.
+
+6. Limitation of Liability
+IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF PROFITS OR REVENUES, WHETHER INCURRED DIRECTLY OR INDIRECTLY, OR FOR ANY LOSS OF DATA, USE, OR OTHER INTANGIBLE LOSSES, ARISING OUT OF OR IN CONNECTION WITH LICENSEE’S USE OF OR INABILITY TO USE THE SOFTWARE, EVEN IF LICENSOR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+7. Indemnification
+Licensee agrees to indemnify, defend, and hold harmless Licensor and its officers, directors, employees, agents, and affiliates from and against any claims, losses, damages, liabilities, costs, or expenses (including reasonable attorneys’ fees) arising out of or relating to Licensee’s use of the Software or any breach of this Agreement.
+
+8. Term and Termination
+a. This Agreement is effective as of the Effective Date and shall remain in effect until terminated.
+b. Licensor may terminate this Agreement immediately upon written notice if Licensee breaches any term of this Agreement.
+c. Upon termination, Licensee shall immediately cease all use of the Software and destroy all copies in its possession or control.
+9. Governing Law and Jurisdiction
+This Agreement shall be governed by and construed in accordance with the laws of [Your Jurisdiction]. Any disputes arising under or in connection with this Agreement shall be subject to the exclusive jurisdiction of the courts located in [Your Jurisdiction].
+
+10. Medical Disclaimer
+THE SOFTWARE IS INTENDED TO ASSIST HEALTHCARE PROFESSIONALS IN MAKING DIAGNOSTIC AND TREATMENT DECISIONS. IT IS NOT A SUBSTITUTE FOR PROFESSIONAL MEDICAL ADVICE, DIAGNOSIS, OR TREATMENT. LICENSEE IS SOLELY RESPONSIBLE FOR THE CLINICAL APPLICATION OF THE SOFTWARE, AND LICENSOR SHALL NOT BE LIABLE FOR ANY ERRORS, OMISSIONS, OR MISAPPLICATIONS OF THE SOFTWARE IN A MEDICAL SETTING.
+
+11. Miscellaneous
+a. Entire Agreement: This Agreement constitutes the entire agreement between the parties with respect to the subject matter hereof and supersedes all prior or contemporaneous understandings or agreements.
+b. Amendment: No modification, amendment, or waiver of any provision of this Agreement shall be effective unless in writing and signed by both parties.
+c. Severability: If any provision of this Agreement is held invalid or unenforceable, the remaining provisions shall continue in full force and effect.
+BY INSTALLING, COPYING, OR USING THE SOFTWARE, LICENSEE ACKNOWLEDGES THAT IT HAS READ, UNDERSTOOD, AND AGREES TO BE BOUND BY THE TERMS AND CONDITIONS OF THIS AGREEMENT.
