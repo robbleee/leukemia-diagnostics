@@ -190,14 +190,14 @@ local_css()
 add_custom_css()
 
 
-
 ##################################
 # FORMS & PARSING HELPERS
 ##################################
 def build_manual_aml_data() -> dict:
-    # Wrap everything in a single expander
+    # Wrap the entire form in one top-level expander.
     with st.expander("Manual Input Area", expanded=True):
         st.markdown("### Manual AML Data Entry")
+        
         # ---------------------------------------------------------------------
         # Blasts
         # ---------------------------------------------------------------------
@@ -236,6 +236,107 @@ def build_manual_aml_data() -> dict:
             bzip = st.checkbox("CEBPA bZIP mutation", key="aml_cebpa_bzip")
             bcr_abl1 = st.checkbox("BCR::ABL1 fusion", key="aml_bcr_abl1")
 
+        # Pre-define additional variables (default values)
+        # Additional / Uncommon AML Genetic Abnormalities
+        irf2bp2_rara = False
+        npm1_rara = False
+        zbtb16_rara = False
+        stat5b_rara = False
+        stat3_rara = False
+        rara_tbl1xr1 = False
+        rara_fip1l1 = False
+        rara_bcor = False
+
+        aff1_kmt2a = False
+        afdn_kmt2a = False
+        mllt10_kmt2a = False
+        tet1_kmt2a = False
+        kmt2a_ell = False
+        kmt2a_mllt1 = False
+        myc_mecom = False
+        etv6_mecom = False
+        mecom_runx1 = False
+
+        # Other Rare Recurring Translocations
+        prdm16_rpn1 = False
+        npm1_mlf1 = False
+        nup98_nsd1 = False
+        nup98_kmd5a = False
+        etv6_mnx1 = False
+        kat6a_crebbp = False
+        picalm_mllt10 = False
+        fus_erg = False
+        runx1_cbfa2t3 = False
+        cbfa2t3_glis2 = False
+
+        # ---------------------------------------------------------------------
+        # Toggle switch for Additional / Uncommon AML Genetic Abnormalities
+        # ---------------------------------------------------------------------
+
+
+        # Toggle switch for 'Free Text Mode'
+        show_additional_genetics = st.toggle("Additional / Uncommon AML Genetic Abnormalities", key="show_additional_genetics", value=False)
+
+        if show_additional_genetics:
+            st.markdown("##### RARA-related Abnormalities")
+            # Arrange into two columns
+            col_rara1, col_rara2 = st.columns(2)
+            with col_rara1:
+                irf2bp2_rara = st.checkbox("IRF2BP2::RARA", key="aml_irf2bp2_rara")
+                npm1_rara = st.checkbox("NPM1::RARA", key="aml_npm1_rara")
+                zbtb16_rara = st.checkbox("ZBTB16::RARA", key="aml_zbtb16_rara")
+                stat5b_rara = st.checkbox("STAT5B::RARA", key="aml_stat5b_rara")
+            with col_rara2:
+                stat3_rara = st.checkbox("STAT3::RARA", key="aml_stat3_rara")
+                rara_tbl1xr1 = st.checkbox("RARA::TBL1XR1", key="aml_rara_tbl1xr1")
+                rara_fip1l1 = st.checkbox("RARA::FIP1L1", key="aml_rara_fip1l1")
+                rara_bcor = st.checkbox("RARA::BCOR", key="aml_rara_bcor")
+
+            st.markdown("##### KMT2A-/MECOM-related Abnormalities")
+            # Arrange into three columns
+            col_kmt1, col_kmt2, col_kmt3 = st.columns(3)
+            with col_kmt1:
+                aff1_kmt2a = st.checkbox("AFF1::KMT2A", key="aml_aff1_kmt2a")
+                afdn_kmt2a = st.checkbox("AFDN::KMT2A", key="aml_afdn_kmt2a")
+            with col_kmt2:
+                mllt10_kmt2a = st.checkbox("MLLT10::KMT2A", key="aml_mllt10_kmt2a")
+                tet1_kmt2a = st.checkbox("TET1::KMT2A", key="aml_tet1_kmt2a")
+            with col_kmt3:
+                kmt2a_ell = st.checkbox("KMT2A::ELL", key="aml_kmt2a_ell")
+                kmt2a_mllt1 = st.checkbox("KMT2A::MLLT1", key="aml_kmt2a_mllt1")
+            # Use a full-width row for the remaining MECOM-related abnormalities.
+            myc_mecom = st.checkbox("MYC::MECOM", key="aml_myc_mecom")
+            etv6_mecom = st.checkbox("ETV6::MECOM", key="aml_etv6_mecom")
+            mecom_runx1 = st.checkbox("MECOM::RUNX1", key="aml_mecom_runx1")
+
+
+
+        # Toggle switch for 'Free Text Mode'
+        show_other_translocations = st.toggle("Other Rare Recurring Translocations", key="show_other_translocations", value=False)
+
+
+        if show_other_translocations:
+            st.markdown("##### NUP98-related Abnormalities")
+            col_nup1, col_nup2 = st.columns(2)
+            with col_nup1:
+                nup98_nsd1 = st.checkbox("NUP98::NSD1", key="aml_nup98_nsd1")
+            with col_nup2:
+                nup98_kmd5a = st.checkbox("NUP98::KMD5A", key="aml_nup98_kmd5a")
+            
+            st.markdown("##### Other Rare Abnormalities")
+            col_other1, col_other2, col_other3 = st.columns(3)
+            with col_other1:
+                prdm16_rpn1 = st.checkbox("PRDM16::RPN1", key="aml_prdm16_rpn1")
+                npm1_mlf1 = st.checkbox("NPM1::MLF1", key="aml_npm1_mlf1")
+            with col_other2:
+                etv6_mnx1 = st.checkbox("ETV6::MNX1", key="aml_etv6_mnx1")
+                kat6a_crebbp = st.checkbox("KAT6A::CREBBP", key="aml_kat6a_crebbp")
+            with col_other3:
+                picalm_mllt10 = st.checkbox("PICALM::MLLT10", key="aml_picalm_mllt10")
+                fus_erg = st.checkbox("FUS::ERG", key="aml_fus_erg")
+                runx1_cbfa2t3 = st.checkbox("RUNX1::CBFA2T3", key="aml_runx1_cbfa2t3")
+                cbfa2t3_glis2 = st.checkbox("CBFA2T3::GLIS2", key="aml_cbfa2t3_glis2")
+
         # ---------------------------------------------------------------------
         # Biallelic TP53
         # ---------------------------------------------------------------------
@@ -255,7 +356,6 @@ def build_manual_aml_data() -> dict:
         # ---------------------------------------------------------------------
         st.markdown("#### MDS-related Mutations")
         col_a1, col_a2, col_a3, col_a4 = st.columns(4)
-
         with col_a1:
             asxl1 = st.checkbox("ASXL1", key="aml_asxl1")
             bcor = st.checkbox("BCOR", key="aml_bcor")
@@ -275,7 +375,6 @@ def build_manual_aml_data() -> dict:
         # ---------------------------------------------------------------------
         st.markdown("#### MDS-related Cytogenetics")
         col_b1, col_b2, col_b3, col_b4 = st.columns(4)
-
         with col_b1:
             complex_kary = st.checkbox("Complex karyotype", key="aml_complex_karyotype")
             del_5q = st.checkbox("del(5q)", key="aml_del_5q")
@@ -338,14 +437,42 @@ def build_manual_aml_data() -> dict:
             "NUP98": nup98,
             "CEBPA": cebpa,
             "bZIP": bzip,
-            "BCR::ABL1": bcr_abl1
+            "BCR::ABL1": bcr_abl1,
+            # Additional / Uncommon Abnormalities:
+            "IRF2BP2::RARA": irf2bp2_rara,
+            "NPM1::RARA": npm1_rara,
+            "ZBTB16::RARA": zbtb16_rara,
+            "STAT5B::RARA": stat5b_rara,
+            "STAT3::RARA": stat3_rara,
+            "RARA::TBL1XR1": rara_tbl1xr1,
+            "RARA::FIP1L1": rara_fip1l1,
+            "RARA::BCOR": rara_bcor,
+            "AFF1::KMT2A": aff1_kmt2a,
+            "AFDN::KMT2A": afdn_kmt2a,
+            "MLLT10::KMT2A": mllt10_kmt2a,
+            "TET1::KMT2A": tet1_kmt2a,
+            "KMT2A::ELL": kmt2a_ell,
+            "KMT2A::MLLT1": kmt2a_mllt1,
+            "MYC::MECOM": myc_mecom,
+            "ETV6::MECOM": etv6_mecom,
+            "MECOM::RUNX1": mecom_runx1,
+            # Other Rare Recurring Translocations:
+            "PRDM16::RPN1": prdm16_rpn1,
+            "NPM1::MLF1": npm1_mlf1,
+            "NUP98::NSD1": nup98_nsd1,
+            "NUP98::KMD5A": nup98_kmd5a,
+            "ETV6::MNX1": etv6_mnx1,
+            "KAT6A::CREBBP": kat6a_crebbp,
+            "PICALM::MLLT10": picalm_mllt10,
+            "FUS::ERG": fus_erg,
+            "RUNX1::CBFA2T3": runx1_cbfa2t3,
+            "CBFA2T3::GLIS2": cbfa2t3_glis2
         },
         "Biallelic_TP53_mutation": {
             "2_x_TP53_mutations": two_tp53,
             "1_x_TP53_mutation_del_17p": one_tp53_del17p,
             "1_x_TP53_mutation_LOH": one_tp53_loh,
             "1_x_TP53_mutation_10_percent_vaf": one_tp53_10_vaf
-
         },
         "MDS_related_mutation": {
             "ASXL1": asxl1,

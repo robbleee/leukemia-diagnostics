@@ -246,20 +246,53 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     # -----------------------------
     # STEP 1: AML-defining Recurrent Genetic Abnormalities (ICC)
     # -----------------------------
+    # Updated mapping to include both common and uncommon genetic abnormalities:
     aml_genetic_abnormalities_map = {
-        "PML::RARA": "APL with t(15;17)(q24.1;q21.2)/PML::RARA",
+        # Main set (common)
+        "PML::RARA": "APL with t(15;17)(q24.1;q21.2)/PML::RARA (including infrequent forms)",
         "NPM1": "AML with mutated NPM1",
         "RUNX1::RUNX1T1": "AML with t(8;21)(q22;q22.1)/RUNX1::RUNX1T1",
         "CBFB::MYH11": "AML with inv(16)(p13.1q22) or t(16;16)(p13.1;q22)/CBFB::MYH11",
         "DEK::NUP214": "AML with t(6;9)(p22.3;q34.1)/DEK::NUP214",
-        "RBM15::MRTFA": "AML (megakaryoblastic) with t(1;22)(p13.3;q13.1)/RBM15::MRTF1",
-        "MLLT3::KMT2A": "AML with t(9;11)(p21.3;q23.3)/MLLT3::KMT2A",
-        "GATA2:: MECOM": "AML with inv(3)(q21.3q26.2) or t(3;3)(q21.3;q26.2)/GATA2; MECOM(EVI1)",
+        "RBM15::MRTFA": "AML (megakaryoblastic) with t(1;22)(p13.3;q13.1)/RBM15::MRTFA",
+        "MLLT3::KMT2A": "AML with t(9;11)(p21.3;q23.3)/MLLT3::KMT2A (plus infrequent forms)",
+        "GATA2::MECOM": "AML with inv(3)(q21.3q26.2) or t(3;3)(q21.3;q26.2)/GATA2, MECOM(EVI1) (plus infrequent forms)",
         "KMT2A": "AML with other KMT2A rearrangements",
         "MECOM": "AML with other MECOM rearrangements",
         "NUP98": "AML with NUP98 and other partners",
-        "bZIP": "AML with in-frame bZIP CEBPA mutations",
+        "bZIP": "AML with in-frame bZIP mutated CEBPA",
         "BCR::ABL1": "AML with t(9;22)(q34.1;q11.2)/BCR::ABL1",
+        # Uncommon recurring translocations involving RARA (infrequent forms, group 1)
+        "IRF2BP2::RARA": "APL with t(1;17)(q42.3;q21.2)/IRF2BP2::RARA",
+        "NPM1::RARA": "APL with t(5;17)(q35.1;q21.2)/NPM1::RARA",
+        "ZBTB16::RARA": "APL with t(11;17)(q23.2;q21.2)/ZBTB16::RARA",
+        "STAT5B::RARA": "APL with cryptic inv(17) or del(17)(q21.2q21.2)/STAT5B::RARA",
+        "STAT3::RARA": "APL with cryptic inv(17) or del(17)(q21.2q21.2)/STAT3::RARA",
+        "RARA::TBL1XR1": "APL with RARA::TBL1XR1 (rare rearrangement)",
+        "RARA::FIP1L1": "APL with RARA::FIP1L1 (rare rearrangement)",
+        "RARA::BCOR": "APL with RARA::BCOR (rare rearrangement)",
+        # Uncommon recurring translocations involving KMT2A (infrequent forms, group 2)
+        "AFF1::KMT2A": "AML with t(4;11)(q21.3;q23.3)/AFF1::KMT2A",
+        "AFDN::KMT2A": "AML with t(6;11)(q27;q23.3)/AFDN::KMT2A",
+        "MLLT10::KMT2A": "AML with t(10;11)(p12.3;q23.3)/MLLT10::KMT2A",
+        "TET1::KMT2A": "AML with t(10;11)(q21.3;q23.3)/TET1::KMT2A",
+        "KMT2A::ELL": "AML with t(11;19)(q23.3;p13.1)/KMT2A::ELL",
+        "KMT2A::MLLT1": "AML with t(11;19)(q23.3;p13.3)/KMT2A::MLLT1",
+        # Uncommon recurring translocations involving MECOM (infrequent forms, group 3)
+        "MYC::MECOM": "AML with t(3;8)(q26.2;q24.2)/MYC::MECOM",
+        "ETV6::MECOM": "AML with t(3;12)(q26.2;p13.2)/ETV6::MECOM",
+        "MECOM::RUNX1": "AML with t(3;21)(q26.2;q22.1)/MECOM::RUNX1",
+        # Rare recurring translocations (group 4)
+        "PRDM16::RPN1": "AML with t(1;3)(p36.3;q21.3)/PRDM16::RPN1",
+        "NPM1::MLF1": "AML with t(3;5)(q25.3;q35.1)/NPM1::MLF1",
+        "NUP98::NSD1": "AML with t(5;11)(q35.2;p15.4)/NUP98::NSD1",
+        "ETV6::MNX1": "AML with t(7;12)(q36.3;p13.2)/ETV6::MNX1",
+        "KAT6A::CREBBP": "AML with t(8;16)(p11.2;p13.3)/KAT6A::CREBBP",
+        "PICALM::MLLT10": "AML with t(10;11)(p12.3;q14.2)/PICALM::MLLT10",
+        "NUP98::KMD5A": "AML with t(11;12)(p15.4;p13.3)/NUP98::KMD5A",
+        "FUS::ERG": "AML with t(16;21)(p11.2;q22.2)/FUS::ERG",
+        "RUNX1::CBFA2T3": "AML with t(16;21)(q24.3;q22.1)/RUNX1::CBFA2T3",
+        "CBFA2T3::GLIS2": "AML with inv(16)(p13.3q24.3)/CBFA2T3::GLIS2",
     }
 
     # Check if any of the ICC AML-defining genetic abnormalities are present
@@ -269,8 +302,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         updated = False
         for gene, classif in aml_genetic_abnormalities_map.items():
             if aml_def_genetic.get(gene, False):
-                # For ICC 2022, if blasts >=10%, we typically consider AML
-                # (But final "MDS/AML" vs "Not AML" is decided in Step 5)
+                # For ICC 2022, if blasts >=10%, we typically consider AML.
                 if blasts_percentage >= 10.0:
                     classification = classif
                     derivation.append(f"{gene} abnormality => provisional classification: {classification}")
@@ -318,7 +350,6 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     # STEP 4: MDS-related Cytogenetics
     # -----------------------------
     if classification == "AML, NOS":
-        # Define relevant cytogenetic abnormalities for ICC
         mrd_cytogenetics = [
             "Complex_karyotype", "del_5q", "t_5q", "add_5q", "-7", "del_7q",
             "del_12p", "t_12p", "add_12p", "i_17q", "idic_X_q13"
@@ -336,8 +367,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         if true_cytogenetics:
             classification = "AML with myelodysplasia related cytogenetic abnormality"
             derivation.append(
-                f"MDS-related cytogenetic abnormality(ies): {', '.join(true_cytogenetics)} => "
-                f"provisional classification: {classification}"
+                f"MDS-related cytogenetic abnormality(ies): {', '.join(true_cytogenetics)} => provisional classification: {classification}"
             )
         else:
             derivation.append("All MDS-related cytogenetic flags are false.")
@@ -345,7 +375,6 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     # -----------------------------
     # STEP 5: Final Blast-Count Check (AML vs MDS/AML vs Not AML)
     # -----------------------------
-    # These subtypes can become "MDS/AML" if blasts are 10–19%
     convertible_subtypes = {
         "AML with mutated TP53",
         "AML with myelodysplasia related gene mutation",
@@ -353,13 +382,11 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         "AML, NOS"
     }
 
-    # If the classification is one of the convertible subtypes:
     if classification in convertible_subtypes:
         if blasts_percentage < 10.0:
             classification = "Not AML, consider MDS classification"
             derivation.append("Blasts <10% => final classification: Not AML, consider MDS classification")
         elif 10.0 <= blasts_percentage < 20.0:
-            # Replace "AML" with "MDS/AML" (only the first occurrence)
             new_classification = classification.replace("AML", "MDS/AML", 1)
             derivation.append(
                 "Blasts 10–19% => replaced 'AML' with 'MDS/AML'. Final classification: "
@@ -369,8 +396,6 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         else:
             derivation.append("Blasts >=20% => remain AML.")
     else:
-        # If we are in some other special genetically-defined AML group but blasts <10 => Not AML
-        # (Typically won't happen for standard AML-defining rearrangements, but just in case)
         if blasts_percentage < 10.0:
             classification = "Not AML, consider MDS classification"
             derivation.append("Blasts <10% => final classification: Not AML, consider MDS classification")
@@ -392,14 +417,11 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         qualifier_descriptions.append("therapy related")
         derivation.append("Detected qualifier: therapy related")
 
-    # Append qualifiers (and always add " (ICC 2022)" at the end)
     if qualifier_descriptions and "Not AML" not in classification:
-        # If final classification is "Not AML," we typically don't tack on qualifiers.
         qualifiers_str = ", ".join(qualifier_descriptions)
         classification += f", {qualifiers_str} (ICC 2022)"
         derivation.append(f"Qualifiers appended => {classification}")
     else:
-        # If "Not AML," or if no qualifiers found, just add the ICC 2022 parenthetical
         if "Not AML" not in classification:
             classification += " (ICC 2022)"
         derivation.append(f"Final classification => {classification}")
