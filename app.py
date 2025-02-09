@@ -1032,7 +1032,7 @@ def app_main():
             st.subheader("Acute Myeloid Leukemia (AML)")
 
             # Toggle switch for 'Free Text Mode'
-            aml_mode_toggle = st.toggle("Free Text Mode", key="aml_mode_toggle", value=False)
+            aml_mode_toggle = st.toggle("Free Text Mode", key="aml_mode_toggle", value=True)
 
             if "aml_busy" not in st.session_state:
                 st.session_state["aml_busy"] = False
@@ -1074,14 +1074,12 @@ def app_main():
             # --- FREE TEXT MODE ---
             else:
                 with st.expander("Free Text Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.text_input("Blasts % (Override)", placeholder="25", key="blasts_override")
-                    with col2:
-                        st.text_input("AML Differentiation", placeholder="FAB M3", key="diff_override")
-                    st.text_input("Morphology/Clinical Info", placeholder="e.g. Dysplasia observed...", key="morph_input")
-                    st.text_area("Genetics Report:", height=100, key="genetics_report")
-                    st.text_area("Cytogenetics Report:", height=100, key="cytogenetics_report")
+                    full_report = st.text_area(
+                        "Full Report Input:",
+                        placeholder="Paste the entire AML report here (include blasts %, AML differentiation, morphology/clinical info, genetics, and cytogenetics details)...",
+                        key="full_text_input",
+                        height=200
+                    )
 
                 if st.button("Analyse Genetics"):
                     # Collapse the free text input area on classification
@@ -1097,28 +1095,14 @@ def app_main():
                     ]:
                         st.session_state.pop(key, None)
 
-                    # Gather inputs
-                    blasts_override = st.session_state.get("blasts_override", "")
-                    diff_override = st.session_state.get("diff_override", "")
-                    morph_input = st.session_state.get("morph_input", "")
-                    genetics_report = st.session_state.get("genetics_report", "")
-                    cytogenetics_report = st.session_state.get("cytogenetics_report", "")
-                    combined = f"{genetics_report}\n\n{cytogenetics_report}"
+                    full_report_text = st.session_state.get("full_text_input", "")
 
-                    if combined.strip():
+                    if full_report_text.strip():
                         with st.spinner("Parsing & classifying ..."):
-                            parsed_data = parse_genetics_report_aml(combined)
-                            if blasts_override.strip():
-                                try:
-                                    parsed_data["blasts_percentage"] = float(blasts_override.strip())
-                                except ValueError:
-                                    st.warning("Invalid blasts override.")
-                            if diff_override.strip():
-                                parsed_data["AML_differentiation"] = diff_override.strip()
-                            if morph_input.strip():
-                                parsed_data["morphology_clinical"] = morph_input.strip()
+                            # Pass the full report text to your parser
+                            parsed_data = parse_genetics_report_aml(full_report_text)
 
-                            # Classify
+                            # Classify using your classification functions
                             who_class, who_deriv = classify_AML_WHO2022(parsed_data)
                             icc_class, icc_deriv = classify_AML_ICC2022(parsed_data)
                             eln_class, eln_deriv = classify_ELN2022(parsed_data)
@@ -1131,7 +1115,7 @@ def app_main():
                                 "icc_derivation": icc_deriv,
                                 "eln_class": eln_class,
                                 "eln_derivation": eln_deriv,
-                                "free_text_input": combined
+                                "free_text_input": full_report_text
                             }
                             st.session_state["expanded_aml_section"] = "classification"
                     else:
@@ -1270,7 +1254,7 @@ def app_main():
         # -----------------------------------------------------------
         elif selected_tab == "MDS Diagnostics":
             st.subheader("Myelodysplastic Syndromes (MDS)")
-            mds_mode_toggle = st.toggle("Free Text Mode", key="mds_mode_toggle", value=False)
+            mds_mode_toggle = st.toggle("Free Text Mode", key="mds_mode_toggle", value=True)
 
 
             # --- MANUAL MODE ---

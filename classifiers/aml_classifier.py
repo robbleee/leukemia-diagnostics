@@ -249,14 +249,14 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     # Updated mapping to include both common and uncommon genetic abnormalities:
     aml_genetic_abnormalities_map = {
         # Main set (common)
-        "PML::RARA": "APL with t(15;17)(q24.1;q21.2)/PML::RARA (including infrequent forms)",
+        "PML::RARA": "APL with t(15;17)(q24.1;q21.2)/PML::RARA",
         "NPM1": "AML with mutated NPM1",
         "RUNX1::RUNX1T1": "AML with t(8;21)(q22;q22.1)/RUNX1::RUNX1T1",
         "CBFB::MYH11": "AML with inv(16)(p13.1q22) or t(16;16)(p13.1;q22)/CBFB::MYH11",
         "DEK::NUP214": "AML with t(6;9)(p22.3;q34.1)/DEK::NUP214",
         "RBM15::MRTFA": "AML (megakaryoblastic) with t(1;22)(p13.3;q13.1)/RBM15::MRTFA",
-        "MLLT3::KMT2A": "AML with t(9;11)(p21.3;q23.3)/MLLT3::KMT2A (plus infrequent forms)",
-        "GATA2::MECOM": "AML with inv(3)(q21.3q26.2) or t(3;3)(q21.3;q26.2)/GATA2, MECOM(EVI1) (plus infrequent forms)",
+        "MLLT3::KMT2A": "AML with t(9;11)(p21.3;q23.3)/MLLT3::KMT2A",
+        "GATA2::MECOM": "AML with inv(3)(q21.3q26.2) or t(3;3)(q21.3;q26.2)/GATA2, MECOM(EVI1)",
         "KMT2A": "AML with other KMT2A rearrangements",
         "MECOM": "AML with other MECOM rearrangements",
         "NUP98": "AML with NUP98 and other partners",
