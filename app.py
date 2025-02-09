@@ -190,7 +190,6 @@ local_css()
 add_custom_css()
 
 
-
 ##################################
 # FORMS & PARSING HELPERS
 ##################################
@@ -1040,7 +1039,7 @@ def app_main():
             # --- MANUAL MODE ---
             if not aml_mode_toggle:
                 manual_data = build_manual_aml_data()
-                if st.button("Analyse Genetics"):
+                if st.button("Analyse Report"):
                     st.session_state["aml_busy"] = True
                     with st.spinner("Compiling results. Please wait..."):
                         # Clear old AML keys
@@ -1076,12 +1075,12 @@ def app_main():
                 with st.expander("Free Text Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
                     full_report = st.text_area(
                         "Full Report Input:",
-                        placeholder="Paste the entire AML report here (include blasts %, AML differentiation, morphology/clinical info, genetics, and cytogenetics details)...",
+                        placeholder="Paste all relevant reports here (include blasts %, AML differentiation, morphology/clinical info, genetics, and cytogenetics details)...",
                         key="full_text_input",
                         height=200
                     )
 
-                if st.button("Analyse Genetics"):
+                if st.button("Analyse Report"):
                     # Collapse the free text input area on classification
                     st.session_state["aml_free_text_expanded"] = False
 
@@ -1148,8 +1147,8 @@ def app_main():
 
                 sub_tab = option_menu(
                     menu_title=None,
-                    options=["Classification", "Risk", "MRD Review", "Gene Review", "Additional Comments"],
-                    icons=["clipboard", "graph-up-arrow", "recycle", "bar-chart", "chat-left-text"],
+                    options=["Classification", "Risk"],
+                    icons=["clipboard", "graph-up-arrow"],
                     default_index=0,
                     orientation="horizontal"
                 )
@@ -1178,41 +1177,6 @@ def app_main():
                     st.markdown("### Classification Review")
                     st.markdown(st.session_state["aml_class_review"])
 
-                # 2) MRD Review
-                elif sub_tab == "MRD Review":
-                    if "aml_mrd_review" not in st.session_state:
-                        with st.spinner("Generating MRD Review..."):
-                            st.session_state["aml_mrd_review"] = get_gpt4_review_aml_mrd(
-                                classification_dict,
-                                res["parsed_data"],
-                                free_text_input=free_text_input_value
-                            )
-                    with st.expander("MRD Review", expanded=True):
-                        st.markdown(st.session_state["aml_mrd_review"])
-
-                # 3) Gene Review
-                elif sub_tab == "Gene Review":
-                    if "aml_gene_review" not in st.session_state:
-                        with st.spinner("Generating Gene Review..."):
-                            st.session_state["aml_gene_review"] = get_gpt4_review_aml_genes(
-                                classification_dict,
-                                res["parsed_data"],
-                                free_text_input=free_text_input_value
-                            )
-                    with st.expander("Gene Review", expanded=True):
-                        st.markdown(st.session_state["aml_gene_review"])
-
-                # 4) Additional Comments
-                elif sub_tab == "Additional Comments":
-                    if "aml_additional_comments" not in st.session_state:
-                        with st.spinner("Generating Additional Comments..."):
-                            st.session_state["aml_additional_comments"] = get_gpt4_review_aml_additional_comments(
-                                classification_dict,
-                                res["parsed_data"],
-                                free_text_input=free_text_input_value
-                            )
-                    with st.expander("Additional Comments", expanded=True):
-                        st.markdown(st.session_state["aml_additional_comments"])
 
                 # 5) Risk
                 elif sub_tab == "Risk":
@@ -1277,12 +1241,15 @@ def app_main():
 
             # --- FREE TEXT MODE ---
             else:
-                with st.expander("MDS Free Text Input Area", expanded=st.session_state["mds_free_text_expanded"]):
-                    st.markdown("Paste your free-text MDS genetics/cytogenetics data below:")
-                    st.text_input("Blasts (%) Override", placeholder="e.g. 8", key="mds_blasts_input")
-                    st.text_area("Genetics (MDS)", height=100, key="mds_genetics_report")
-                    st.text_area("Cytogenetics (MDS)", height=100, key="mds_cytogenetics_report")
-                if st.button("Parse & Classify MDS"):
+                with st.expander("MDS Free Text Input Area", expanded=st.session_state.get("mds_free_text_expanded", True)):
+                    full_mds_report = st.text_area(
+                        "Full MDS Report Input:",
+                        placeholder="Paste your full MDS report here (include blasts %, genetics, cytogenetics, etc.)...",
+                        key="full_mds_text_input",
+                        height=200
+                    )
+
+                if st.button("Analyse Report"):
                     # Collapse the free text input area for MDS upon classification
                     st.session_state["mds_free_text_expanded"] = False
 
@@ -1295,19 +1262,11 @@ def app_main():
                     ]:
                         st.session_state.pop(key, None)
 
-                    blasts_input = st.session_state.get("mds_blasts_input", "")
-                    genetics_report = st.session_state.get("mds_genetics_report", "")
-                    cytogenetics_report = st.session_state.get("mds_cytogenetics_report", "")
-                    combined = f"{genetics_report}\n\n{cytogenetics_report}"
+                    full_mds_report_text = st.session_state.get("full_mds_text_input", "")
 
-                    if combined.strip():
+                    if full_mds_report_text.strip():
                         with st.spinner("Parsing & classifying MDS..."):
-                            parsed = parse_genetics_report_mds(combined)
-                            if blasts_input.strip():
-                                try:
-                                    parsed["blasts_percentage"] = float(blasts_input.strip())
-                                except ValueError:
-                                    st.warning("Invalid blasts override")
+                            parsed = parse_genetics_report_mds(full_mds_report_text)
                             who_class, who_deriv = classify_MDS_WHO2022(parsed)
                             icc_class, icc_deriv = classify_MDS_ICC2022(parsed)
                             st.session_state["mds_ai_result"] = {
@@ -1315,7 +1274,8 @@ def app_main():
                                 "who_class": who_class,
                                 "who_derivation": who_deriv,
                                 "icc_class": icc_class,
-                                "icc_derivation": icc_deriv
+                                "icc_derivation": icc_deriv,
+                                "free_text_input": full_mds_report_text
                             }
                             st.session_state["expanded_mds_section"] = "classification"
                     else:
