@@ -17,6 +17,15 @@ from classifiers.aml_classifier import classify_AML_WHO2022, classify_AML_ICC202
 from classifiers.aml_response_classifier import classify_AML_Response_ELN2022
 from classifiers.mds_classifier import classify_MDS_WHO2022, classify_MDS_ICC2022
 from classifiers.aml_risk_classifier import classify_ELN2022
+from classifiers.ipss_classifiers import ( 
+    compute_ipssr, 
+    compute_ipssm, 
+    betas, 
+    IPSSR_CATEGORIES, 
+    IPSSM_CATEGORIES, 
+    CYTO_IPSSR_MAP, 
+    VARIABLE_CONFIG
+)
 
 # Splitted review imports
 from reviewers.aml_reviewer import (
@@ -639,6 +648,171 @@ def build_manual_aml_response_data() -> dict:
     }
     return manual_response_data
 
+def build_manual_ipss_data() -> dict:
+    """
+    Builds a Streamlit form that collects all relevant IPSS-R / IPSS-M
+    information (e.g., blasts, hemoglobin, platelets, etc.), plus
+    molecular or cytogenetic markers.
+
+    Returns:
+        dict: A dictionary containing the user's input data, ready for
+              IPSS-based classification.
+    """
+    with st.expander("Manual IPSS Data Entry", expanded=True):
+        st.markdown("### Manual IPSS Data Entry")
+
+        # ---------------------------------------------------------------------
+        # Basic Clinical Fields
+        # ---------------------------------------------------------------------
+        st.subheader("Clinical Fields")
+
+        bm_blast = st.number_input(
+            "Bone Marrow Blasts (%)",
+            min_value=0.0,
+            max_value=100.0,
+            value=0.0,
+            key="ipss_bm_blast"
+        )
+        hb = st.number_input(
+            "Hemoglobin (g/dL)",
+            min_value=0.0,
+            max_value=20.0,
+            value=10.0,
+            key="ipss_hb"
+        )
+        plt_count = st.number_input(
+            "Platelet Count (1e9/L)",
+            min_value=0,
+            max_value=2000,
+            value=150,
+            key="ipss_plt"
+        )
+        anc = st.number_input(
+            "Absolute Neutrophil Count (1e9/L)",
+            min_value=0.0,
+            max_value=100.0,
+            value=2.0,
+            key="ipss_anc"
+        )
+        age = st.number_input(
+            "Age (years)",
+            min_value=0,
+            max_value=120,
+            value=70,
+            key="ipss_age"
+        )
+
+        # ---------------------------------------------------------------------
+        # Cytogenetics Category (for IPSS-R)
+        # ---------------------------------------------------------------------
+        st.subheader("Cytogenetics (IPSS-R Category)")
+        cyto_options = ["Very Good", "Good", "Intermediate", "Poor", "Very Poor"]
+        cyto_ipssr = st.selectbox(
+            "Select IPSS-R Cytogenetics Category",
+            cyto_options,
+            index=2,
+            key="ipss_cyto_ipssr"
+        )
+
+        # ---------------------------------------------------------------------
+        # Additional Cytogenetic Abnormalities (for IPSS-M if needed)
+        # ---------------------------------------------------------------------
+        st.markdown("#### Cytogenetic Abnormalities (Optional / IPSS-M)")
+        col_cg1, col_cg2 = st.columns(2)
+        with col_cg1:
+            del5q = st.checkbox("del(5q)", key="ipss_del5q")
+            del7_7q = st.checkbox("del(7) or del(7q)", key="ipss_del7_7q")
+            del17_17p = st.checkbox("del(17) or del(17p)", key="ipss_del17_17p")
+            complex_kary = st.checkbox("Complex Karyotype", key="ipss_complex")
+
+        # If you have more cytogenetic flags for IPSS-M, add them here.
+
+        # ---------------------------------------------------------------------
+        # Molecular Data / Genes
+        # ---------------------------------------------------------------------
+        st.subheader("Molecular Markers (Gene Mutations)")
+        st.markdown("Check any that are **detected** in this patient. If undetected or unknown, leave unchecked.")
+        # You can group them in columns or in toggles, as you prefer.
+
+        # Example: 2 columns for main genes
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            asxl1 = st.checkbox("ASXL1 mutation", key="ipss_asxl1")
+            srsf2 = st.checkbox("SRSF2 mutation", key="ipss_srsf2")
+            dnmt3a = st.checkbox("DNMT3A mutation", key="ipss_dnmt3a")
+            runx1 = st.checkbox("RUNX1 mutation", key="ipss_runx1")
+            u2af1 = st.checkbox("U2AF1 mutation", key="ipss_u2af1")
+            ezh2 = st.checkbox("EZH2 mutation", key="ipss_ezh2")
+        with col_m2:
+            sf3b1 = st.checkbox("SF3B1 mutation", key="ipss_sf3b1")
+            cbl = st.checkbox("CBL mutation", key="ipss_cbl")
+            nras = st.checkbox("NRAS mutation", key="ipss_nras")
+            idh2 = st.checkbox("IDH2 mutation", key="ipss_idh2")
+            kras = st.checkbox("KRAS mutation", key="ipss_kras")
+            npm1 = st.checkbox("NPM1 mutation", key="ipss_npm1")
+
+        # Additional lines for other genes if needed:
+        col_m3, col_m4 = st.columns(2)
+        with col_m3:
+            # Example placeholders
+            srsf2_extra = st.checkbox("TP53 multi-hit", key="ipss_tp53multi")
+            flt3 = st.checkbox("FLT3 (ITD / TKD)", key="ipss_flt3")
+        with col_m4:
+            # More placeholders
+            mll_ptd = st.checkbox("MLL PTD", key="ipss_mll_ptd")
+            etv6 = st.checkbox("ETV6 mutation", key="ipss_etv6")
+
+        # If you want to collect additional numeric data (like VAFs), add them here:
+        tp53_vaf = st.number_input(
+            "Max VAF of TP53 mutation (%)",
+            min_value=0.0,
+            max_value=100.0,
+            value=0.0,
+            key="ipss_tp53maxvaf"
+        )
+
+    # -------------------------------------------------------------------------
+    # Build a dictionary to hold the user's input
+    # -------------------------------------------------------------------------
+    manual_data = {
+        # Clinical fields
+        "BM_BLAST": bm_blast,
+        "HB": hb,
+        "PLT": plt_count,
+        "ANC": anc,
+        "AGE": age,
+        "CYTO_IPSSR": cyto_ipssr,
+
+        # Additional cytogenetics for IPSS-M
+        "del5q": del5q,
+        "del7_7q": del7_7q,
+        "del17_17p": del17_17p,
+        "complex": complex_kary,
+
+        # Example molecular markers (you can expand as needed).
+        "ASXL1": asxl1,
+        "SRSF2": srsf2,
+        "DNMT3A": dnmt3a,
+        "RUNX1": runx1,
+        "U2AF1": u2af1,
+        "EZH2": ezh2,
+        "SF3B1": sf3b1,
+        "CBL": cbl,
+        "NRAS": nras,
+        "IDH2": idh2,
+        "KRAS": kras,
+        "NPM1": npm1,
+        "TP53multi": srsf2_extra,  # rename as needed
+        "FLT3": flt3,
+        "MLL_PTD": mll_ptd,
+        "ETV6": etv6,
+
+        # Example numeric field for TP53 VAF
+        "TP53maxvaf": tp53_vaf,
+    }
+
+    return manual_data
+
 
 ##################################
 # CLASSIFICATION DISPLAY HELPERS
@@ -754,6 +928,78 @@ def display_aml_response_results(parsed_data, response, derivation, mode="manual
     with st.expander("🔍 Derivation Steps", expanded=False):
         derivation_text = "\n\n".join([f"**Step {i}**: {step}" for i, step in enumerate(derivation, start=1)])
         st.markdown(derivation_text)
+
+def display_ipss_classification_results(
+    parsed_fields: dict,
+    ipssr_result: dict,
+    ipssm_result: dict,
+    show_parsed_fields: bool = False
+):
+    """
+    Displays the IPSS risk stratification results (both IPSS-R and IPSS-M) in Streamlit.
+
+    Args:
+        parsed_fields (dict): The input data used for risk calculation.
+        ipssr_result (dict): The result from compute_ipssr(), containing:
+            - IPSSR_SCORE: Raw IPSS-R score.
+            - IPSSR_CAT: Risk category.
+            - IPSSRA_SCORE: Age-adjusted score (or None if not provided).
+            - IPSSRA_CAT: Age-adjusted risk category.
+            - derivation: A list of plain-language steps explaining the IPSS-R calculation.
+        ipssm_result (dict): The result from compute_ipssm(), containing:
+            - means: A dict with keys "riskScore", "riskCat", "contributions".
+            - worst: A dict with keys "riskScore", "riskCat", "contributions".
+            - best: A dict with keys "riskScore", "riskCat", "contributions".
+            - derivation: A list of plain-language steps explaining the IPSS-M calculation.
+        show_parsed_fields (bool): If True, an expander will show the parsed input data.
+    """
+
+    ##########################################
+    # 1. Display Risk Scores Side-by-Side
+    ##########################################
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("### **IPSS-R Risk Stratification**")
+        st.markdown(f"**Risk Score:** {ipssr_result['IPSSR_SCORE']}")
+        st.markdown(f"**Risk Category:** {ipssr_result['IPSSR_CAT']}")
+        st.markdown(f"**Age-Adjusted Risk Score:** {ipssr_result['IPSSRA_SCORE'] if ipssr_result['IPSSRA_SCORE'] is not None else 'N/A'}")
+        st.markdown(f"**Age-Adjusted Risk Category:** {ipssr_result['IPSSRA_CAT'] if ipssr_result['IPSSRA_CAT'] is not None else 'N/A'}")
+    with col2:
+        st.markdown("### **IPSS-M Risk Stratification**")
+        st.markdown("#### Means Scenario")
+        st.markdown(f"- **Risk Score:** {ipssm_result['means']['riskScore']}")
+        st.markdown(f"- **Risk Category:** {ipssm_result['means']['riskCat']}")
+        st.markdown("#### Worst Scenario")
+        st.markdown(f"- **Risk Score:** {ipssm_result['worst']['riskScore']}")
+        st.markdown(f"- **Risk Category:** {ipssm_result['worst']['riskCat']}")
+        st.markdown("#### Best Scenario")
+        st.markdown(f"- **Risk Score:** {ipssm_result['best']['riskScore']}")
+        st.markdown(f"- **Risk Category:** {ipssm_result['best']['riskCat']}")
+
+    ##########################################
+    # 2. Display Derivation Logs Side-by-Side
+    ##########################################
+    st.markdown("## Detailed Derivation")
+    col3, col4 = st.columns(2)
+    with col3:
+        with st.expander("View IPSS-R Derivation", expanded=False):
+            ipssr_deriv = "\n\n".join(
+                [f"**Step {idx}:** {step}" for idx, step in enumerate(ipssr_result.get("derivation", []), start=1)]
+            )
+            st.markdown(ipssr_deriv)
+    with col4:
+        with st.expander("View IPSS-M Derivation", expanded=False):
+            ipssm_deriv = "\n\n".join(
+                [f"**Step {idx}:** {step}" for idx, step in enumerate(ipssm_result.get("derivation", []), start=1)]
+            )
+            st.markdown(ipssm_deriv)
+
+    ##########################################
+    # 3. Optionally, Show Parsed Input Fields
+    ##########################################
+    if show_parsed_fields:
+        with st.expander("View Parsed IPSS Input", expanded=False):
+            st.json(parsed_fields)
 
 
 
@@ -1006,20 +1252,24 @@ def app_main():
         st.session_state["expanded_aml_section"] = None
     if "expanded_mds_section" not in st.session_state:
         st.session_state["expanded_mds_section"] = None
+    if "expanded_mds_risk_section" not in st.session_state:
+        st.session_state["expanded_mds_risk_section"] = None
 
     # Session state for free-text expander visibility
     if "aml_free_text_expanded" not in st.session_state:
         st.session_state["aml_free_text_expanded"] = True
     if "mds_free_text_expanded" not in st.session_state:
         st.session_state["mds_free_text_expanded"] = True
+    if "mds_risk_free_text_expanded" not in st.session_state:
+        st.session_state["mds_risk_free_text_expanded"] = True
 
     if st.session_state.get("authenticated", False):
 
-        # Top-level menu: AML vs. MDS
+        # Top-level menu: AML Diagnostics, MDS Diagnostics, MDS Risk
         selected_tab = option_menu(
             menu_title=None,
-            options=["AML Diagnostics", "MDS Diagnostics"],
-            icons=["droplet", "droplet"],
+            options=["AML Diagnostics", "MDS Diagnostics", "MDS Risk"],
+            icons=["droplet", "droplet", "graph-up-arrow"],
             default_index=0,
             orientation="horizontal"
         )
@@ -1361,6 +1611,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
 
 
 
