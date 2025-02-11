@@ -1323,16 +1323,14 @@ def app_main():
             # --- FREE TEXT MODE ---
             else:
                 with st.expander("Free Text Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.text_input("Blasts % (Override)", placeholder="25", key="blasts_override")
-                    with col2:
-                        st.text_input("AML Differentiation", placeholder="FAB M3", key="diff_override")
-                    st.text_input("Morphology/Clinical Info", placeholder="e.g. Dysplasia observed...", key="morph_input")
-                    st.text_area("Genetics Report:", height=100, key="genetics_report")
-                    st.text_area("Cytogenetics Report:", height=100, key="cytogenetics_report")
+                    full_report = st.text_area(
+                        "Full Report Input:",
+                        placeholder="Paste all relevant reports here (include blasts %, AML differentiation, morphology/clinical info, genetics, and cytogenetics details)...",
+                        key="full_text_input",
+                        height=200
+                    )
 
-                if st.button("Analyse Genetics"):
+                if st.button("Analyse Report"):
                     # Collapse the free text input area on classification
                     st.session_state["aml_free_text_expanded"] = False
 
@@ -1346,28 +1344,14 @@ def app_main():
                     ]:
                         st.session_state.pop(key, None)
 
-                    # Gather inputs
-                    blasts_override = st.session_state.get("blasts_override", "")
-                    diff_override = st.session_state.get("diff_override", "")
-                    morph_input = st.session_state.get("morph_input", "")
-                    genetics_report = st.session_state.get("genetics_report", "")
-                    cytogenetics_report = st.session_state.get("cytogenetics_report", "")
-                    combined = f"{genetics_report}\n\n{cytogenetics_report}"
+                    full_report_text = st.session_state.get("full_text_input", "")
 
-                    if combined.strip():
+                    if full_report_text.strip():
                         with st.spinner("Parsing & classifying ..."):
-                            parsed_data = parse_genetics_report_aml(combined)
-                            if blasts_override.strip():
-                                try:
-                                    parsed_data["blasts_percentage"] = float(blasts_override.strip())
-                                except ValueError:
-                                    st.warning("Invalid blasts override.")
-                            if diff_override.strip():
-                                parsed_data["AML_differentiation"] = diff_override.strip()
-                            if morph_input.strip():
-                                parsed_data["morphology_clinical"] = morph_input.strip()
+                            # Pass the full report text to your parser
+                            parsed_data = parse_genetics_report_aml(full_report_text)
 
-                            # Classify
+                            # Classify using your classification functions
                             who_class, who_deriv = classify_AML_WHO2022(parsed_data)
                             icc_class, icc_deriv = classify_AML_ICC2022(parsed_data)
                             eln_class, eln_deriv = classify_ELN2022(parsed_data)
@@ -1380,7 +1364,7 @@ def app_main():
                                 "icc_derivation": icc_deriv,
                                 "eln_class": eln_class,
                                 "eln_derivation": eln_deriv,
-                                "free_text_input": combined
+                                "free_text_input": full_report_text
                             }
                             st.session_state["expanded_aml_section"] = "classification"
                     else:
@@ -1542,12 +1526,15 @@ def app_main():
 
             # --- FREE TEXT MODE ---
             else:
-                with st.expander("MDS Free Text Input Area", expanded=st.session_state["mds_free_text_expanded"]):
-                    st.markdown("Paste your free-text MDS genetics/cytogenetics data below:")
-                    st.text_input("Blasts (%) Override", placeholder="e.g. 8", key="mds_blasts_input")
-                    st.text_area("Genetics (MDS)", height=100, key="mds_genetics_report")
-                    st.text_area("Cytogenetics (MDS)", height=100, key="mds_cytogenetics_report")
-                if st.button("Parse & Classify MDS"):
+                with st.expander("MDS Free Text Input Area", expanded=st.session_state.get("mds_free_text_expanded", True)):
+                    full_mds_report = st.text_area(
+                        "Full MDS Report Input:",
+                        placeholder="Paste your full MDS report here (include blasts %, genetics, cytogenetics, etc.)...",
+                        key="full_mds_text_input",
+                        height=200
+                    )
+
+                if st.button("Analyse Report"):
                     # Collapse the free text input area for MDS upon classification
                     st.session_state["mds_free_text_expanded"] = False
 
@@ -1560,19 +1547,11 @@ def app_main():
                     ]:
                         st.session_state.pop(key, None)
 
-                    blasts_input = st.session_state.get("mds_blasts_input", "")
-                    genetics_report = st.session_state.get("mds_genetics_report", "")
-                    cytogenetics_report = st.session_state.get("mds_cytogenetics_report", "")
-                    combined = f"{genetics_report}\n\n{cytogenetics_report}"
+                    full_mds_report_text = st.session_state.get("full_mds_text_input", "")
 
-                    if combined.strip():
+                    if full_mds_report_text.strip():
                         with st.spinner("Parsing & classifying MDS..."):
-                            parsed = parse_genetics_report_mds(combined)
-                            if blasts_input.strip():
-                                try:
-                                    parsed["blasts_percentage"] = float(blasts_input.strip())
-                                except ValueError:
-                                    st.warning("Invalid blasts override")
+                            parsed = parse_genetics_report_mds(full_mds_report_text)
                             who_class, who_deriv = classify_MDS_WHO2022(parsed)
                             icc_class, icc_deriv = classify_MDS_ICC2022(parsed)
                             st.session_state["mds_ai_result"] = {
@@ -1580,7 +1559,8 @@ def app_main():
                                 "who_class": who_class,
                                 "who_derivation": who_deriv,
                                 "icc_class": icc_class,
-                                "icc_derivation": icc_deriv
+                                "icc_derivation": icc_deriv,
+                                "free_text_input": full_mds_report_text
                             }
                             st.session_state["expanded_mds_section"] = "classification"
                     else:
