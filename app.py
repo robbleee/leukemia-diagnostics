@@ -57,49 +57,12 @@ if st.session_state["authenticated"]:
 else:
     st.set_page_config(
         page_title="Haematologic Classification",
-        layout="wide",
+        layout="centered",
         initial_sidebar_state="expanded"
     )
 
 
-##################################
-# AUTH FUNCTIONS
-##################################
-def verify_password(stored_password: str, provided_password: str) -> bool:
-    return bcrypt.checkpw(provided_password.encode('utf-8'), stored_password.encode('utf-8'))
 
-def authenticate_user(username: str, password: str) -> bool:
-    users = st.secrets["auth"]["users"]
-    for user in users:
-        if user["username"] == username:
-            return verify_password(user["hashed_password"], password)
-    return False
-
-def login_logout():
-    """Handles login/logout in the sidebar."""
-    if st.session_state['authenticated']:
-        st.sidebar.markdown(f"### Logged in as **{st.session_state['username']}**")
-        if st.sidebar.button("Logout", key="logout_button"):
-            st.session_state['authenticated'] = False
-            st.session_state['username'] = ''
-            st.sidebar.success("Logged out successfully!")
-    else:
-        st.sidebar.header("Login for all Features")
-        username = st.sidebar.text_input("Username", key="login_username")
-        password = st.sidebar.text_input("Password", type="password", key="login_password")
-
-        if st.sidebar.button("Login", key="login_button"):
-            if authenticate_user(username, password):
-                st.session_state['authenticated'] = True
-                st.session_state['username'] = username
-                st.sidebar.success("Logged in successfully!")
-                # Force a full script rerun so that the top-level st.set_page_config()
-                # sees authenticated=True and collapses the sidebar immediately:
-                st.rerun()
-            else:
-                st.sidebar.error("Invalid username or password")
-
-login_logout()
 
 
 ##################################
@@ -1242,12 +1205,40 @@ def create_beautiful_pdf(patient_name: str, patient_dob: datetime.date) -> bytes
     return pdf.output(dest="S").encode("latin1")
 
 
+##################################
+# AUTH FUNCTIONS
+##################################
+def verify_password(stored_password: str, provided_password: str) -> bool:
+    return bcrypt.checkpw(provided_password.encode('utf-8'), stored_password.encode('utf-8'))
+
+def authenticate_user(username: str, password: str) -> bool:
+    users = st.secrets["auth"]["users"]
+    for user in users:
+        if user["username"] == username:
+            return verify_password(user["hashed_password"], password)
+    return False
+
+##################################
+# LOGIN PAGE (Main Area)
+##################################
+def show_login_page():
+    st.title("Diagnosis Support Tool")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if authenticate_user(username, password):
+            st.session_state["authenticated"] = True
+            st.session_state["username"] = username
+            st.success("Logged in successfully!")
+            st.rerun()
+        else:
+            st.error("Invalid username or password!")
 
 ##################################
 # APP MAIN
 ##################################
 def app_main():
-    # Initialize expander and section state variables if not present
+    # Initialize expander and section state variables if not present.
     if "expanded_aml_section" not in st.session_state:
         st.session_state["expanded_aml_section"] = None
     if "expanded_mds_section" not in st.session_state:
@@ -1255,7 +1246,7 @@ def app_main():
     if "expanded_mds_risk_section" not in st.session_state:
         st.session_state["expanded_mds_risk_section"] = None
 
-    # Session state for free-text expander visibility
+    # Session state for free-text expander visibility.
     if "aml_free_text_expanded" not in st.session_state:
         st.session_state["aml_free_text_expanded"] = True
     if "mds_free_text_expanded" not in st.session_state:
@@ -1265,7 +1256,7 @@ def app_main():
 
     if st.session_state.get("authenticated", False):
 
-        # Top-level menu: AML Diagnostics, MDS Diagnostics, MDS Risk
+        # Top-level menu: AML Diagnostics, MDS Diagnostics.
         selected_tab = option_menu(
             menu_title=None,
             options=["AML Diagnostics", "MDS Diagnostics"],
@@ -1292,7 +1283,7 @@ def app_main():
                 if st.button("Analyse Genetics"):
                     st.session_state["aml_busy"] = True
                     with st.spinner("Compiling results. Please wait..."):
-                        # Clear old AML keys
+                        # Clear old AML keys.
                         for key in [
                             "aml_manual_result",
                             "aml_ai_result",
@@ -1303,7 +1294,7 @@ def app_main():
                         ]:
                             st.session_state.pop(key, None)
 
-                        # Classify
+                        # Classify using dummy functions.
                         classification_who, who_derivation = classify_AML_WHO2022(manual_data)
                         classification_icc, icc_derivation = classify_AML_ICC2022(manual_data)
                         classification_eln, eln_derivation = classify_ELN2022(manual_data)
@@ -1331,7 +1322,7 @@ def app_main():
                     )
 
                 if st.button("Analyse Report"):
-                    # Collapse the free text input area on classification
+                    # Collapse the free text input area.
                     st.session_state["aml_free_text_expanded"] = False
 
                     for key in [
@@ -1348,10 +1339,7 @@ def app_main():
 
                     if full_report_text.strip():
                         with st.spinner("Parsing & classifying ..."):
-                            # Pass the full report text to your parser
                             parsed_data = parse_genetics_report_aml(full_report_text)
-
-                            # Classify using your classification functions
                             who_class, who_deriv = classify_AML_WHO2022(parsed_data)
                             icc_class, icc_deriv = classify_AML_ICC2022(parsed_data)
                             eln_class, eln_deriv = classify_ELN2022(parsed_data)
@@ -1373,7 +1361,7 @@ def app_main():
             # --- If AML results exist, show sub-menu ---
             if "aml_manual_result" in st.session_state or "aml_ai_result" in st.session_state:
 
-                # Priority: manual -> ai
+                # Priority: manual results take precedence over AI results.
                 if "aml_manual_result" in st.session_state:
                     res = st.session_state["aml_manual_result"]
                     mode = "manual"
@@ -1392,7 +1380,6 @@ def app_main():
                     }
                 }
 
-                # Retrieve the free text input value if available (only in free text/ai mode)
                 free_text_input_value = res.get("free_text_input") if mode == "ai" else None
 
                 sub_tab = option_menu(
@@ -1403,9 +1390,7 @@ def app_main():
                     orientation="horizontal"
                 )
 
-                # 1) Classification (show derivation + classification review here!)
                 if sub_tab == "Classification":
-                    # Show the raw classification data
                     display_aml_classification_results(
                         res["parsed_data"],
                         res["who_class"],
@@ -1415,7 +1400,6 @@ def app_main():
                         mode=mode
                     )
 
-                    # Then show the classification review beneath
                     if "aml_class_review" not in st.session_state:
                         with st.spinner("Generating Classification Review..."):
                             st.session_state["aml_class_review"] = get_gpt4_review_aml_classification(
@@ -1427,7 +1411,6 @@ def app_main():
                     st.markdown("### Classification Review")
                     st.markdown(st.session_state["aml_class_review"])
 
-                # 2) MRD Review
                 elif sub_tab == "MRD Review":
                     if "aml_mrd_review" not in st.session_state:
                         with st.spinner("Generating MRD Review..."):
@@ -1439,7 +1422,6 @@ def app_main():
                     with st.expander("MRD Review", expanded=True):
                         st.markdown(st.session_state["aml_mrd_review"])
 
-                # 3) Gene Review
                 elif sub_tab == "Gene Review":
                     if "aml_gene_review" not in st.session_state:
                         with st.spinner("Generating Gene Review..."):
@@ -1451,7 +1433,6 @@ def app_main():
                     with st.expander("Gene Review", expanded=True):
                         st.markdown(st.session_state["aml_gene_review"])
 
-                # 4) Additional Comments
                 elif sub_tab == "Additional Comments":
                     if "aml_additional_comments" not in st.session_state:
                         with st.spinner("Generating Additional Comments..."):
@@ -1463,7 +1444,6 @@ def app_main():
                     with st.expander("Additional Comments", expanded=True):
                         st.markdown(st.session_state["aml_additional_comments"])
 
-                # 5) Risk
                 elif sub_tab == "Risk":
                     st.markdown("### ELN 2022 Risk Classification")
                     st.markdown(f"**Risk Category:** {res['eln_class']}")
@@ -1471,7 +1451,6 @@ def app_main():
                         for i, step in enumerate(res["eln_derivation"], start=1):
                             st.markdown(f"- {step}")
 
-                # --- PDF Download ---
                 if "show_pdf_form" not in st.session_state:
                     st.session_state.show_pdf_form = False
                 if st.button("Download Report"):
@@ -1505,7 +1484,6 @@ def app_main():
             st.subheader("Myelodysplastic Syndromes (MDS)")
             mds_mode_toggle = st.toggle("Free Text Mode", key="mds_mode_toggle", value=True)
 
-
             # --- MANUAL MODE ---
             if not mds_mode_toggle:
                 manual_data = build_manual_mds_data_compact()
@@ -1535,16 +1513,9 @@ def app_main():
                     )
 
                 if st.button("Analyse Report"):
-                    # Collapse the free text input area for MDS upon classification
                     st.session_state["mds_free_text_expanded"] = False
 
-                    for key in [
-                        "mds_manual_result", 
-                        "mds_class_review", 
-                        "mds_gene_review", 
-                        "mds_additional_comments", 
-                        "mds_ai_result"
-                    ]:
+                    for key in ["mds_manual_result", "mds_class_review", "mds_gene_review", "mds_additional_comments", "mds_ai_result"]:
                         st.session_state.pop(key, None)
 
                     full_mds_report_text = st.session_state.get("full_mds_text_input", "")
@@ -1586,7 +1557,6 @@ def app_main():
                     }
                 }
 
-                # We remove "Classification Review" from the sub-menu
                 mds_tab = option_menu(
                     menu_title=None,
                     options=["Classification", "Gene Review", "Additional Comments"],
@@ -1595,7 +1565,6 @@ def app_main():
                     orientation="horizontal"
                 )
 
-                # Classification => Show derivation + Classification Review
                 if mds_tab == "Classification":
                     display_mds_classification_results(
                         res["parsed_data"],
@@ -1605,7 +1574,6 @@ def app_main():
                         res["icc_derivation"],
                         mode=mode
                     )
-                    # Then show classification review below
                     if "mds_class_review" not in st.session_state:
                         with st.spinner("Generating MDS Classification Review..."):
                             st.session_state["mds_class_review"] = get_gpt4_review_mds_classification(
@@ -1616,7 +1584,6 @@ def app_main():
                     st.markdown("### Classification Review")
                     st.markdown(st.session_state["mds_class_review"])
 
-                # Gene Review
                 elif mds_tab == "Gene Review":
                     if "mds_gene_review" not in st.session_state:
                         with st.spinner("Generating Gene Review..."):
@@ -1627,7 +1594,6 @@ def app_main():
                     with st.expander("Gene Review", expanded=True):
                         st.markdown(st.session_state["mds_gene_review"])
 
-                # Additional Comments
                 elif mds_tab == "Additional Comments":
                     if "mds_additional_comments" not in st.session_state:
                         with st.spinner("Generating Additional Comments..."):
@@ -1641,18 +1607,11 @@ def app_main():
     else:
         st.info("🔒 **Log in** to use the classification features.")
 
-def main():
-    app_main()
-
+##################################
+# Main Execution
+##################################
 if __name__ == "__main__":
-    main()
-
-
-
-
-
-
-
-
-
-
+    if st.session_state.get("authenticated", False):
+        app_main()
+    else:
+        show_login_page()
