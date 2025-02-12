@@ -27,6 +27,9 @@ def parse_genetics_report_aml(report_text: str) -> dict:
     # Updated required JSON structure with new markers
     required_json_structure = {
         "blasts_percentage": None,  # Changed from 0.0 to None
+        "fibrotic": False,       # True if the report suggests MDS with fibrosis
+        "hypoplasia": False,     # True if the report suggests MDS with hypoplasia
+        "number_of_dysplastic_lineages": None,  # integer or None
         "AML_defining_recurrent_genetic_abnormalities": {
             "PML::RARA": False,
             "NPM1": False,
@@ -188,6 +191,9 @@ For predisposing_germline_variant, leave as "None" if there is none; otherwise r
 **Required JSON structure:**
 {{
     "blasts_percentage": null, 
+    "fibrotic": False,       
+    "hypoplasia": False,     
+    "number_of_dysplastic_lineages": None,  
     "AML_defining_recurrent_genetic_abnormalities": {{
         "PML::RARA": false,
         "NPM1": false,
