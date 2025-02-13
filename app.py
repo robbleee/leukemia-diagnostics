@@ -19,6 +19,7 @@ import re
 import base64
 import streamlit.components.v1 as components
 
+
 # Import the EncryptedCookieManager from streamlit_cookies_manager.
 from streamlit_cookies_manager import EncryptedCookieManager
 
@@ -231,10 +232,9 @@ def app_main():
     else:
         with st.expander("Free Text Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
             full_report = st.text_area(
-                "Paste all relevant AML/MDS data here (Blast % is required; everything else is optional):",
+                "Enter all relevant AML/MDS data here (Blast % is required; everything else is optional):",
                 placeholder=(
-                    "Include the blast percentage (mandatory) and any other details you have: "
-                    "e.g., AML differentiation, morphology/clinical info, genetics, cytogenetics, etc."
+                    "Paste all reports/clinical info here"
                 ),
                 key="full_text_input",
                 height=200
