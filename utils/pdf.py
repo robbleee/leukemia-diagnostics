@@ -9,13 +9,15 @@ from fpdf import FPDF
 def clean_text(text: str) -> str:
     # Replace the Unicode heavy arrow (➔) with a simple arrow.
     text = text.replace('\u2794', '->')
-    # Remove common markdown tokens
+    # Replace en-dash with simple dash to be Latin-1 safe.
+    text = text.replace('\u2013', '-')
+    # Remove common markdown tokens.
     text = re.sub(r'^\s*#{1,6}\s+', '', text, flags=re.MULTILINE)  # headings
     text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # bold
-    text = re.sub(r'__(.*?)__', r'\1', text)       # bold alternate
-    text = re.sub(r'\*(.*?)\*', r'\1', text)       # italic
-    text = re.sub(r'_(.*?)_', r'\1', text)         # italic alternate
-    text = re.sub(r'`{1,3}', '', text)             # inline code
+    text = re.sub(r'__(.*?)__', r'\1', text)        # bold alternate
+    text = re.sub(r'\*(.*?)\*', r'\1', text)          # italic
+    text = re.sub(r'_(.*?)_', r'\1', text)            # italic alternate
+    text = re.sub(r'`{1,3}', '', text)                # inline code
     return text.strip()
 
 def write_line_with_keywords(pdf: FPDF, line: str, line_height: float = 8):
@@ -44,7 +46,7 @@ def write_line_with_keywords(pdf: FPDF, line: str, line_height: float = 8):
         return
     
     pdf.set_font("Arial", "", 10)
-    # Build up the line in segments
+    # Build up the line in segments.
     for start, kw in occurrences:
         if start > current:
             pdf.write(line_height, line[current:start])
@@ -52,7 +54,6 @@ def write_line_with_keywords(pdf: FPDF, line: str, line_height: float = 8):
         pdf.write(line_height, kw)
         pdf.set_font("Arial", "", 10)
         current = start + len(kw)
-    # If there's any text after the last keyword
     if current < len(line):
         pdf.write(line_height, line[current:])
     pdf.ln(line_height)
@@ -74,24 +75,24 @@ def write_line_with_subheadings(pdf: FPDF, line: str, line_height: float = 8):
     ]
     stripped_line = line.strip()
     
-    # Check if line is an exact (case-insensitive) match to a known subheading
+    # Check for an exact match with a predefined subheading.
     for sub in predefined_subheadings:
         if stripped_line.lower() == sub.lower():
             pdf.set_font("Arial", "B", 10)
             pdf.multi_cell(0, line_height, line, align="L")
             return
     
-    # If line ends with ':' and is short (≤ 40 chars), treat as subheading
+    # If line ends with ':' and is short (≤ 40 chars), treat as subheading.
     if stripped_line.endswith(':') and len(stripped_line) <= 40:
         pdf.set_font("Arial", "B", 10)
         pdf.multi_cell(0, line_height, line, align="L")
         return
     
-    # If there's a colon in the first ~30 chars, split subheading vs. normal text
+    # If there's a colon in the first ~30 chars, split subheading vs. normal text.
     colon_index = stripped_line.find(':')
     if 0 <= colon_index <= 30:
-        subheading = stripped_line[:colon_index + 1].strip()
-        rest = stripped_line[colon_index + 1:].strip()
+        subheading = stripped_line[:colon_index+1].strip()
+        rest = stripped_line[colon_index+1:].strip()
         
         pdf.set_font("Arial", "B", 10)
         pdf.write(line_height, subheading + " ")
@@ -99,8 +100,7 @@ def write_line_with_subheadings(pdf: FPDF, line: str, line_height: float = 8):
         pdf.multi_cell(0, line_height, rest, align="L")
         return
     
-    # Otherwise, fallback to our keyword-highlighting approach
-    # (which also calls multi_cell if no keywords found)
+    # Fallback: use our keyword-highlighting approach.
     write_line_with_keywords(pdf, stripped_line, line_height)
 
 def output_review_text(pdf: FPDF, review_text: str, section: str):
@@ -121,25 +121,60 @@ def output_review_text(pdf: FPDF, review_text: str, section: str):
         if not cleaned_line:
             pdf.ln(4)
             continue
-        
-        # Skip lines that are basically duplicate headings
         if any(cleaned_line.lower() == x.lower() for x in skip_list):
             continue
-        
         write_line_with_subheadings(pdf, cleaned_line)
-        pdf.ln(2)  # Extra spacing after each line for readability
+        pdf.ln(2)  # Extra spacing for readability
+
+def _is_positive(value):
+    """
+    Returns True if the value is considered "positive":
+      - Boolean True,
+      - Non-zero numeric,
+      - Non-empty string,
+      - A dict with at least one positive sub-value.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(_is_positive(v) for v in value.values())
+    return False
+
+def output_positive_findings(pdf: FPDF, data: dict, indent: int = 0):
+    """
+    Recursively prints only "positive" fields from the manual input dictionary.
+    Skips keys for classification: 'who_class', 'icc_class', 'eln_class'.
+    """
+    SKIP_FIELDS = {"who_class", "icc_class", "eln_class"}
+    for key, value in data.items():
+        if key in SKIP_FIELDS:
+            continue
+        if isinstance(value, bool) and value:
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 8, " " * indent + f"{key}: {value}", ln=1)
+        elif isinstance(value, (int, float)) and value:
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 8, " " * indent + f"{key}: {value}", ln=1)
+        elif isinstance(value, str) and value.strip():
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 8, " " * indent + f"{key}: {value}", ln=1)
+        elif isinstance(value, dict):
+            filtered_subdict = {k: v for k, v in value.items() if k not in SKIP_FIELDS}
+            if any(_is_positive(subv) for subv in filtered_subdict.values()):
+                pdf.set_font("Arial", "B", 10)
+                pdf.cell(0, 8, " " * indent + f"{key}:", ln=1)
+                output_positive_findings(pdf, filtered_subdict, indent=indent + 4)
 
 class PDF(FPDF):
-    """
-    Custom FPDF class to add a header and footer to the first/any pages.
-    """
     def header(self):
         if self.page_no() == 1:
-            # Main title
             self.set_font("Arial", "B", 14)
             self.set_text_color(0, 70, 140)
             self.cell(0, 8, "Diagnostic Report", ln=1, align="C")
-            # Date
             self.set_font("Arial", "", 10)
             self.set_text_color(100, 100, 100)
             self.cell(0, 5, datetime.datetime.now().strftime("%B %d, %Y"), ln=1, align="C")
@@ -160,32 +195,23 @@ def add_section_title(pdf: PDF, title: str):
     pdf.set_text_color(0, 0, 0)
 
 def add_classification_section(pdf: FPDF, classification_data: dict):
-    """
-    Adds WHO & ICC classification content with multi_cell for step text.
-    """
     line_height = 8
-    
     # WHO 2022 Section
     pdf.set_font("Arial", "B", 11)
     pdf.cell(0, line_height, "WHO 2022", ln=1, border='B')
     pdf.set_font("Arial", "", 10)
-    
     write_line_with_subheadings(pdf, f"Classification: {clean_text(classification_data['WHO']['classification'])}", line_height)
     write_line_with_subheadings(pdf, "Derivation Steps:", line_height)
-    
     for i, step in enumerate(classification_data["WHO"]["derivation"], start=1):
         pdf.set_font("Arial", "", 10)
         pdf.multi_cell(0, line_height, f"{i}. {clean_text(step)}", align="L")
     pdf.ln(4)
-
     # ICC 2022 Section
     pdf.set_font("Arial", "B", 11)
     pdf.cell(0, line_height, "ICC 2022", ln=1, border='B')
     pdf.set_font("Arial", "", 10)
-    
     write_line_with_subheadings(pdf, f"Classification: {clean_text(classification_data['ICC']['classification'])}", line_height)
     write_line_with_subheadings(pdf, "Derivation Steps:", line_height)
-    
     for i, step in enumerate(classification_data["ICC"]["derivation"], start=1):
         pdf.set_font("Arial", "", 10)
         pdf.multi_cell(0, line_height, f"{i}. {clean_text(step)}", align="L")
@@ -194,24 +220,17 @@ def add_classification_section(pdf: FPDF, classification_data: dict):
 def add_risk_section(pdf: FPDF, risk_data: dict):
     add_section_title(pdf, "ELN 2022 Risk Classification")
     pdf.set_font("Arial", "", 10)
-    
     write_line_with_subheadings(pdf, f"Risk Category: {risk_data.get('eln_class', 'N/A')}", 8)
     pdf.ln(2)
     write_line_with_subheadings(pdf, "Derivation Steps:", 8)
-    
     for i, step in enumerate(risk_data.get("eln_derivation", []), start=1):
         pdf.set_font("Arial", "", 10)
         pdf.multi_cell(0, 8, f"{i}. {clean_text(step)}", align="L")
     pdf.ln(4)
 
 def add_diagnostic_section(pdf: FPDF, diag_type: str):
-    """
-    Detect whether we have manual or AI results for the given diag_type.
-    Then output classification + review text sections.
-    """
     manual_key = diag_type.lower() + "_manual_result"
     ai_key = diag_type.lower() + "_ai_result"
-    
     if manual_key in st.session_state:
         data = st.session_state[manual_key]
     elif ai_key in st.session_state:
@@ -245,61 +264,15 @@ def add_diagnostic_section(pdf: FPDF, diag_type: str):
             output_review_text(pdf, st.session_state[key], section_name)
             pdf.ln(4)
 
-def _is_positive(value):
-    """
-    Returns True if the value is considered "positive":
-      - boolean True,
-      - non-zero numeric,
-      - non-empty string,
-      - a dict that has at least one positive sub-value
-    """
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return (value != 0)
-    if isinstance(value, str):
-        return bool(value.strip())
-    if isinstance(value, dict):
-        return any(_is_positive(v) for v in value.values())
-    return False
-
-def output_positive_findings(pdf: FPDF, data: dict, indent: int = 0):
-    """
-    Recursively prints only "positive" fields from the manual input dictionary.
-    Skips classification keys: 'who_class', 'icc_class', 'eln_class'.
-    """
-    SKIP_FIELDS = {"who_class", "icc_class", "eln_class"}
-
-    for key, value in data.items():
-        if key in SKIP_FIELDS:
-            continue
-
-        if isinstance(value, bool) and value:
-            pdf.set_font("Arial", "", 10)
-            pdf.cell(0, 8, " " * indent + f"{key}: {value}", ln=1)
-        elif isinstance(value, (int, float)) and value:
-            pdf.set_font("Arial", "", 10)
-            pdf.cell(0, 8, " " * indent + f"{key}: {value}", ln=1)
-        elif isinstance(value, str) and value.strip():
-            pdf.set_font("Arial", "", 10)
-            pdf.cell(0, 8, " " * indent + f"{key}: {value}", ln=1)
-        elif isinstance(value, dict):
-            # Filter out skip fields and see if anything remains
-            filtered_subdict = {k: v for k, v in value.items() if k not in SKIP_FIELDS}
-            if any(_is_positive(subv) for subv in filtered_subdict.values()):
-                pdf.set_font("Arial", "B", 10)
-                pdf.cell(0, 8, " " * indent + f"{key}:", ln=1)
-                output_positive_findings(pdf, filtered_subdict, indent=indent + 4)
-
 ##################################
-# create_base_pdf
+# Updated create_base_pdf function:
 ##################################
 def create_base_pdf(user_comments: str = None) -> bytes:
     pdf = PDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # AML diagnostics
+    # Add AML diagnostics.
     aml_result = st.session_state.get("aml_manual_result") or st.session_state.get("aml_ai_result")
     if aml_result:
         add_diagnostic_section(pdf, "AML")
@@ -310,29 +283,29 @@ def create_base_pdf(user_comments: str = None) -> bytes:
             }
             add_risk_section(pdf, risk_data)
 
-    # MDS diagnostics
+    # Append MDS diagnostics on the same pages.
     mds_result = st.session_state.get("mds_manual_result") or st.session_state.get("mds_ai_result")
     if mds_result:
         add_section_title(pdf, "MDS Diagnostics")
         add_diagnostic_section(pdf, "MDS")
-
-    # Manual positive findings (manual mode only)
+    
+    # Append Manual Positive Findings (if in manual mode).
     if "aml_manual_result" in st.session_state:
         add_section_title(pdf, "Manual Positive Findings")
         output_positive_findings(pdf, st.session_state["aml_manual_result"])
         pdf.ln(4)
-
-    # Optional user comments
+    
+    # Append User Comments if provided.
     if user_comments:
         add_section_title(pdf, "User Comments")
         output_review_text(pdf, user_comments, "User Comments")
         pdf.ln(4)
-
-    # Free text details
+    
+    # Append any clinical free-text details.
     aml_data = st.session_state.get("aml_ai_result") or st.session_state.get("aml_manual_result")
     if aml_data and aml_data.get("free_text_input"):
         add_section_title(pdf, "Molecular, Cytogenetic, Differentiation Clinical Details")
         output_review_text(pdf, aml_data["free_text_input"], "Molecular Details")
         pdf.ln(4)
 
-    return pdf.output(dest="S").encode("latin1")
+    return pdf.output(dest="S").encode("latin1", errors="replace")
