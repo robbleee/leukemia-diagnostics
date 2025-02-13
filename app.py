@@ -360,11 +360,11 @@ def app_main():
         if st.button("Download Report"):
             st.session_state.show_pdf_form = True
         if st.session_state.show_pdf_form:
-            # Use a form to collect patient name and DOB (client-side only).
+            # Use a form to collect patient info (client-side only).
             with st.form(key="pdf_info_form"):
                 patient_name = st.text_input("Enter patient name (client-side only):")
-                # Simple text input for DOB with placeholder "dd/mm/yyyy"
                 patient_dob = st.text_input("Enter patient date of birth (dd/mm/yyyy):", placeholder="dd/mm/yyyy")
+                user_comments = st.text_area("Enter user comments (optional):")
                 submit_pdf = st.form_submit_button("Submit")
             if submit_pdf:
                 if not patient_name:
@@ -378,8 +378,8 @@ def app_main():
                     except Exception as e:
                         st.error("Date of birth must be in dd/mm/yyyy format.")
                         return
-                    # Generate the base PDF (without patient info)
-                    base_pdf_bytes = create_base_pdf()
+                    # Generate the PDF using the free text input for clinical details automatically.
+                    base_pdf_bytes = create_base_pdf(user_comments=user_comments)
                     base_pdf_b64 = base64.b64encode(base_pdf_bytes).decode("utf-8")
                     js_code = f"""
                     <input type="hidden" id="base_pdf" value="{base_pdf_b64}">
@@ -387,7 +387,7 @@ def app_main():
                     <input type="hidden" id="patient_dob" value="{dob_str}">
                     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
                     <script>
-                      async function addPatientInfoAndDownload() {{
+                    async function addPatientInfoAndDownload() {{
                         const {{ PDFDocument, rgb }} = PDFLib;
                         const basePdfB64 = document.getElementById("base_pdf").value;
                         const patientName = document.getElementById("patient_name").value;
@@ -397,16 +397,16 @@ def app_main():
                         const pages = pdfDoc.getPages();
                         const firstPage = pages[0];
                         firstPage.drawText("Patient Name: " + patientName, {{
-                          x: 50,
-                          y: firstPage.getHeight() - 50,
-                          size: 12,
-                          color: rgb(0, 0, 0)
+                        x: 50,
+                        y: firstPage.getHeight() - 50,
+                        size: 12,
+                        color: rgb(0, 0, 0)
                         }});
                         firstPage.drawText("Date of Birth: " + patientDob, {{
-                          x: 50,
-                          y: firstPage.getHeight() - 70,
-                          size: 12,
-                          color: rgb(0, 0, 0)
+                        x: 50,
+                        y: firstPage.getHeight() - 70,
+                        size: 12,
+                        color: rgb(0, 0, 0)
                         }});
                         const modifiedPdfBytes = await pdfDoc.save();
                         const blob = new Blob([modifiedPdfBytes], {{ type: "application/pdf" }});
@@ -414,8 +414,8 @@ def app_main():
                         link.href = URL.createObjectURL(blob);
                         link.download = patientName + "-diagnostic-report.pdf";
                         link.click();
-                      }}
-                      addPatientInfoAndDownload();
+                    }}
+                    addPatientInfoAndDownload();
                     </script>
                     """
                     components.html(js_code, height=0)
