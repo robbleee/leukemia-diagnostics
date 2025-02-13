@@ -187,3 +187,21 @@ def display_ipss_classification_results(
         with st.expander("View Parsed IPSS Input", expanded=False):
             st.json(parsed_fields)
 
+##################################
+# LOGIN PAGE
+##################################
+def show_login_page():
+    st.title("Diagnosis Support Tool")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if authenticate_user(username, password):
+            token = create_jwt_token(username)
+            st.session_state["jwt_token"] = token
+            st.session_state["username"] = username
+            cookies["jwt_token"] = token
+            cookies.save()
+            st.success("Logged in successfully!")
+            st.rerun()
+        else:
+            st.error("Invalid username or password!")

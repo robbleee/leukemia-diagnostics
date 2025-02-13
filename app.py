@@ -59,7 +59,6 @@ from reviewers.mds_reviewer import (
     get_gpt4_review_mds_genes,
     get_gpt4_review_mds_additional_comments
 )
-# Import PDF helper functions. Note that create_base_pdf() generates the PDF without patient info.
 from utils.pdf import (
     clean_text,
     write_line_with_keywords,
@@ -202,6 +201,7 @@ def app_main():
     if not aml_mode_toggle:
         manual_data = build_manual_aml_data()
         if st.button("Analyse Genetics"):
+            st.session_state["aml_manual_expanded"] = False
             st.session_state["aml_busy"] = True
             with st.spinner("Compiling results. Please wait..."):
                 for key in [
@@ -234,7 +234,7 @@ def app_main():
             full_report = st.text_area(
                 "Enter all relevant AML/MDS data here (Blast % is required; everything else is optional):",
                 placeholder=(
-                    "Paste all reports/clinical info here"
+                    "Paste all reports and clinical info here"
                 ),
                 key="full_text_input",
                 height=200
