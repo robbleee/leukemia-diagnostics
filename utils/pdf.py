@@ -52,13 +52,6 @@ def write_line_with_keywords(pdf: FPDF, line: str, line_height: float = 8):
 def output_review_text(pdf: FPDF, review_text: str, section: str):
     """
     Splits review_text into lines and outputs each line.
-    
-    For sections "MRD Review", "Gene Review", and "Additional Comments", if a line is short
-    and entirely uppercase, it is rendered as a subheading (bold, larger font).
-    Otherwise, each line is output using write_line_with_keywords() so that specific keywords
-    are automatically rendered in bold.
-    
-    For other sections (for example, "Classification Review"), all lines are output via write_line_with_keywords().
     """
     DUPLICATE_HEADINGS = {
         "MRD Review": ["MRD Strategy", "MRD Review", "MRD Review:"],
@@ -132,10 +125,6 @@ def add_classification_section(pdf: PDF, classification_data: dict):
     pdf.ln(6)
 
 def add_risk_section(pdf: PDF, risk_data: dict):
-    """
-    Adds an ELN 2022 Risk Classification section to the PDF.
-    Expects risk_data to contain keys 'eln_class' and 'eln_derivation'.
-    """
     add_section_title(pdf, "ELN 2022 Risk Classification")
     pdf.set_font("Arial", "", 10)
     pdf.multi_cell(0, 8, f"Risk Category: {risk_data.get('eln_class', 'N/A')}")
@@ -146,17 +135,12 @@ def add_risk_section(pdf: PDF, risk_data: dict):
     pdf.ln(4)
 
 def add_diagnostic_section(pdf: PDF, diag_type: str):
-    """
-    diag_type: "AML" or "MDS"
-    """
     manual_key = diag_type.lower() + "_manual_result"
     ai_key = diag_type.lower() + "_ai_result"
     if manual_key in st.session_state:
         data = st.session_state[manual_key]
-        prefix = diag_type.lower() + "_manual"
     elif ai_key in st.session_state:
         data = st.session_state[ai_key]
-        prefix = diag_type.lower() + "_ai"
     else:
         return
 
@@ -175,10 +159,10 @@ def add_diagnostic_section(pdf: PDF, diag_type: str):
     add_classification_section(pdf, classification_data)
 
     review_sections = [
-        ("Classification Review", prefix + "_class_review"),
-        ("MRD Review", prefix + "_mrd_review"),
-        ("Gene Review", prefix + "_gene_review"),
-        ("Additional Comments", prefix + "_additional_comments")
+        ("Classification Review", diag_type.lower() + "_class_review"),
+        ("MRD Review", diag_type.lower() + "_mrd_review"),
+        ("Gene Review", diag_type.lower() + "_gene_review"),
+        ("Additional Comments", diag_type.lower() + "_additional_comments")
     ]
     for section_name, key in review_sections:
         if key in st.session_state:
@@ -186,24 +170,16 @@ def add_diagnostic_section(pdf: PDF, diag_type: str):
             output_review_text(pdf, st.session_state[key], section_name)
             pdf.ln(4)
 
-def create_beautiful_pdf(patient_name: str, patient_dob: datetime.date) -> bytes:
+# New function: generate the diagnostic PDF without patient info.
+def create_base_pdf() -> bytes:
     pdf = PDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Patient Information Section
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, f"Patient Name: {patient_name}", ln=1)
-    pdf.cell(0, 10, f"Date of Birth: {patient_dob.strftime('%B %d, %Y')}", ln=1)
-    pdf.ln(10)
-
-    # ----- AML Section -----
+    # (No patient info is added here.)
     aml_result = st.session_state.get("aml_manual_result") or st.session_state.get("aml_ai_result")
     if aml_result:
-        # This function adds classification and review sections if the appropriate keys exist.
         add_diagnostic_section(pdf, "AML")
-        
-        # Explicitly add individual review sections if needed
         for section_name, key in [
             ("Classification Review", "aml_class_review"),
             ("MRD Review", "aml_mrd_review"),
@@ -214,8 +190,6 @@ def create_beautiful_pdf(patient_name: str, patient_dob: datetime.date) -> bytes
                 add_section_title(pdf, section_name)
                 output_review_text(pdf, st.session_state[key], section_name)
                 pdf.ln(4)
-                
-        # Add the Risk Section using the AML result (whether manual or AI)
         if aml_result.get("eln_class"):
             risk_data = {
                 "eln_class": aml_result.get("eln_class", "N/A"),
@@ -223,10 +197,9 @@ def create_beautiful_pdf(patient_name: str, patient_dob: datetime.date) -> bytes
             }
             add_risk_section(pdf, risk_data)
 
-    # ----- MDS Section -----
     mds_result = st.session_state.get("mds_manual_result") or st.session_state.get("mds_ai_result")
     if mds_result:
-        pdf.add_page()  # Start a new page for MDS diagnostics.
+        pdf.add_page()
         add_section_title(pdf, "MDS Diagnostics")
         add_diagnostic_section(pdf, "MDS")
         for section_name, key in [

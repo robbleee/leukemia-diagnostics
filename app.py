@@ -58,6 +58,7 @@ from reviewers.mds_reviewer import (
     get_gpt4_review_mds_genes,
     get_gpt4_review_mds_additional_comments
 )
+# Import PDF helper functions. Note that create_base_pdf() generates the PDF without patient info.
 from utils.pdf import (
     clean_text,
     write_line_with_keywords,
@@ -67,7 +68,7 @@ from utils.pdf import (
     add_classification_section,
     add_risk_section,
     add_diagnostic_section,
-    create_beautiful_pdf
+    create_base_pdf
 )
 from utils.forms import (
     build_manual_aml_data,
@@ -85,10 +86,8 @@ from utils.displayers import (
 ##################################
 # COOKIE & SESSION INITIALIZATION
 ##################################
-# Load the JWT token from cookies into session state.
 if "jwt_token" not in st.session_state:
     token = cookies.get("jwt_token")
-    # Treat an empty string as no token.
     st.session_state["jwt_token"] = token if token and token != "" else None
 if "username" not in st.session_state:
     st.session_state["username"] = ""
@@ -136,11 +135,10 @@ def show_login_page():
             token = create_jwt_token(username)
             st.session_state["jwt_token"] = token
             st.session_state["username"] = username
-            # Save the JWT token in encrypted cookies.
             cookies["jwt_token"] = token
             cookies.save()
             st.success("Logged in successfully!")
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.error("Invalid username or password!")
 
@@ -148,7 +146,6 @@ def show_login_page():
 # APP MAIN
 ##################################
 def app_main():
-    # Verify JWT token from session state.
     token = st.session_state.get("jwt_token")
     user_data = verify_jwt_token(token) if token else None
     if not user_data:
@@ -156,17 +153,17 @@ def app_main():
         show_login_page()
         return
 
-    # Add a sidebar expander with a logout button.
+    # Sidebar expander with logout.
     with st.sidebar.expander("User Options", expanded=True):
+        st.write("Logged in as:", st.session_state["username"])
         if st.button("Logout"):
             st.session_state["jwt_token"] = None
             st.session_state["username"] = ""
-            # Remove the JWT token by setting its value to an empty string.
             cookies["jwt_token"] = ""
             cookies.save()
-            st.rerun()
+            st.experimental_rerun()
 
-    # Initialize additional session state variables if not present.
+    # Initialize additional session state variables.
     if "expanded_aml_section" not in st.session_state:
         st.session_state["expanded_aml_section"] = None
     if "expanded_mds_section" not in st.session_state:
@@ -196,7 +193,6 @@ def app_main():
         unsafe_allow_html=True
     )
 
-    # Toggle switch for 'Free Text Mode'
     aml_mode_toggle = st.toggle("Free Text Mode", key="aml_mode_toggle", value=True)
     if "aml_busy" not in st.session_state:
         st.session_state["aml_busy"] = False
@@ -358,30 +354,72 @@ def app_main():
                 for i, step in enumerate(res["eln_derivation"], start=1):
                     st.markdown(f"- {step}")
 
+        # --- Download Report Section ---
         if "show_pdf_form" not in st.session_state:
             st.session_state.show_pdf_form = False
         if st.button("Download Report"):
             st.session_state.show_pdf_form = True
         if st.session_state.show_pdf_form:
+            # Use a form to collect patient name and DOB (client-side only).
             with st.form(key="pdf_info_form"):
-                patient_name = st.text_input("Enter Patient Name:")
-                patient_dob = st.date_input("Enter Date of Birth:")
+                patient_name = st.text_input("Enter patient name (client-side only):")
+                # Simple text input for DOB with placeholder "dd/mm/yyyy"
+                patient_dob = st.text_input("Enter patient date of birth (dd/mm/yyyy):", placeholder="dd/mm/yyyy")
                 submit_pdf = st.form_submit_button("Submit")
             if submit_pdf:
                 if not patient_name:
                     st.error("Please enter the patient name.")
+                elif not patient_dob:
+                    st.error("Please enter the patient date of birth.")
                 else:
-                    pdf_bytes = create_beautiful_pdf(patient_name, patient_dob)
-                    pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-                    download_html = f'''
-                        <a id="pdf_download" href="data:application/pdf;base64,{pdf_base64}" download="diagnostic_report.pdf"></a>
-                        <script>
-                            setTimeout(function() {{
-                                document.getElementById("pdf_download").click();
-                            }}, 100);
-                        </script>
-                    '''
-                    components.html(download_html, height=0)
+                    try:
+                        dob = datetime.datetime.strptime(patient_dob, "%d/%m/%Y")
+                        dob_str = dob.strftime("%B %d, %Y")
+                    except Exception as e:
+                        st.error("Date of birth must be in dd/mm/yyyy format.")
+                        return
+                    # Generate the base PDF (without patient info)
+                    base_pdf_bytes = create_base_pdf()
+                    base_pdf_b64 = base64.b64encode(base_pdf_bytes).decode("utf-8")
+                    # Inject JavaScript to overlay patient name and DOB using pdf-lib.
+                    js_code = f"""
+                    <input type="hidden" id="base_pdf" value="{base_pdf_b64}">
+                    <input type="hidden" id="patient_name" value="{patient_name}">
+                    <input type="hidden" id="patient_dob" value="{dob_str}">
+                    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+                    <script>
+                      async function addPatientInfoAndDownload() {{
+                        const {{ PDFDocument, rgb }} = PDFLib;
+                        const basePdfB64 = document.getElementById("base_pdf").value;
+                        const patientName = document.getElementById("patient_name").value;
+                        const patientDob = document.getElementById("patient_dob").value;
+                        const basePdfBytes = Uint8Array.from(atob(basePdfB64), c => c.charCodeAt(0));
+                        const pdfDoc = await PDFDocument.load(basePdfBytes);
+                        const pages = pdfDoc.getPages();
+                        const firstPage = pages[0];
+                        firstPage.drawText("Patient Name: " + patientName, {{
+                          x: 50,
+                          y: firstPage.getHeight() - 50,
+                          size: 12,
+                          color: rgb(0, 0, 0)
+                        }});
+                        firstPage.drawText("Date of Birth: " + patientDob, {{
+                          x: 50,
+                          y: firstPage.getHeight() - 70,
+                          size: 12,
+                          color: rgb(0, 0, 0)
+                        }});
+                        const modifiedPdfBytes = await pdfDoc.save();
+                        const blob = new Blob([modifiedPdfBytes], {{ type: "application/pdf" }});
+                        const link = document.createElement("a");
+                        link.href = URL.createObjectURL(blob);
+                        link.download = "diagnostic_report.pdf";
+                        link.click();
+                      }}
+                      addPatientInfoAndDownload();
+                    </script>
+                    """
+                    components.html(js_code, height=0)
                     st.session_state.show_pdf_form = False
 
 ##################################
