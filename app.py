@@ -139,7 +139,7 @@ def show_login_page():
             cookies["jwt_token"] = token
             cookies.save()
             st.success("Logged in successfully!")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Invalid username or password!")
 
@@ -162,7 +162,7 @@ def app_main():
             st.session_state["username"] = ""
             cookies["jwt_token"] = ""
             cookies.save()
-            st.experimental_rerun()
+            st.rerun()
 
     # Initialize additional session state variables.
     if "expanded_aml_section" not in st.session_state:
