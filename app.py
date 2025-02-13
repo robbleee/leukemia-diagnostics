@@ -381,7 +381,6 @@ def app_main():
                     # Generate the base PDF (without patient info)
                     base_pdf_bytes = create_base_pdf()
                     base_pdf_b64 = base64.b64encode(base_pdf_bytes).decode("utf-8")
-                    # Inject JavaScript to overlay patient name and DOB using pdf-lib.
                     js_code = f"""
                     <input type="hidden" id="base_pdf" value="{base_pdf_b64}">
                     <input type="hidden" id="patient_name" value="{patient_name}">
@@ -413,7 +412,7 @@ def app_main():
                         const blob = new Blob([modifiedPdfBytes], {{ type: "application/pdf" }});
                         const link = document.createElement("a");
                         link.href = URL.createObjectURL(blob);
-                        link.download = "diagnostic_report.pdf";
+                        link.download = patientName + "-diagnostic-report.pdf";
                         link.click();
                       }}
                       addPatientInfoAndDownload();

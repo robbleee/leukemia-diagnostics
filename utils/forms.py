@@ -1,5 +1,6 @@
 import streamlit as st
 
+
 ##################################
 # FORMS & PARSING HELPERS
 ##################################
@@ -9,22 +10,35 @@ def build_manual_aml_data() -> dict:
         st.markdown("### Manual AML Data Entry")
         
         # ---------------------------------------------------------------------
-        # Blasts
+        # Blasts and Additional Clinical Fields (fibrotic, hypoplasia, dysplastic lineages)
         # ---------------------------------------------------------------------
-        blasts = st.number_input(
-            "Blasts (%)",
-            min_value=0.0, 
-            max_value=100.0, 
-            value=0.0,
-            key="aml_blasts_percentage"
-        )
-
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            blasts = st.number_input(
+                "Blasts (%)",
+                min_value=0.0, 
+                max_value=100.0, 
+                value=0.0,
+                key="aml_blasts_percentage"
+            )
+        with col2:
+            fibrotic = st.checkbox("Fibrotic marrow", key="aml_fibrotic")
+        with col3:
+            hypoplasia = st.checkbox("Hypoplastic MDS", key="aml_hypoplasia")
+        with col4:
+            number_of_dysplastic_lineages = st.number_input(
+                "Number of Dysplastic Lineages (0-3)",
+                min_value=0,
+                max_value=3,
+                value=0,
+                key="aml_number_of_dysplastic_lineages"
+            )
+        
         # ---------------------------------------------------------------------
         # AML-defining Recurrent Genetic Abnormalities (4 columns)
         # ---------------------------------------------------------------------
         st.markdown("#### AML-defining Recurrent Genetic Abnormalities")
         c_aml1, c_aml2, c_aml3, c_aml4 = st.columns(4)
-
         with c_aml1:
             pml_rara = st.checkbox("PML::RARA fusion", key="aml_pml_rara")
             npm1 = st.checkbox("NPM1 mutation", key="aml_npm1_mutation")
@@ -83,7 +97,6 @@ def build_manual_aml_data() -> dict:
 
         if show_additional_genetics:
             st.markdown("##### RARA-related Abnormalities")
-            # Arrange the 8 checkboxes in 2 rows of 4 columns each.
             col_rara_row1 = st.columns(4)
             with col_rara_row1[0]:
                 irf2bp2_rara = st.checkbox("IRF2BP2::RARA", key="aml_irf2bp2_rara")
@@ -105,7 +118,6 @@ def build_manual_aml_data() -> dict:
                 rara_bcor = st.checkbox("RARA::BCOR", key="aml_rara_bcor")
 
             st.markdown("##### KMT2A-/MECOM-related Abnormalities")
-            # Arrange the 9 checkboxes in 3 rows (first two rows with 4 columns, last row with the remaining item).
             col_kmt_row1 = st.columns(4)
             with col_kmt_row1[0]:
                 aff1_kmt2a = st.checkbox("AFF1::KMT2A", key="aml_aff1_kmt2a")
@@ -129,7 +141,6 @@ def build_manual_aml_data() -> dict:
             col_kmt_row3 = st.columns(4)
             with col_kmt_row3[0]:
                 mecom_runx1 = st.checkbox("MECOM::RUNX1", key="aml_mecom_runx1")
-            # The remaining three columns in this row remain empty.
         
         # ---------------------------------------------------------------------
         # Toggle switch for Other Rare Recurring Translocations
@@ -138,16 +149,13 @@ def build_manual_aml_data() -> dict:
 
         if show_other_translocations:
             st.markdown("##### NUP98-related Abnormalities")
-            # Arrange the 2 checkboxes in one row of 4 columns.
             col_nup = st.columns(4)
             with col_nup[0]:
                 nup98_nsd1 = st.checkbox("NUP98::NSD1", key="aml_nup98_nsd1")
             with col_nup[1]:
                 nup98_kmd5a = st.checkbox("NUP98::KMD5A", key="aml_nup98_kmd5a")
-            # The other two columns remain empty.
 
             st.markdown("##### Other Rare Abnormalities")
-            # Arrange the 8 checkboxes in 2 rows of 4 columns.
             col_other_row1 = st.columns(4)
             with col_other_row1[0]:
                 prdm16_rpn1 = st.checkbox("PRDM16::RPN1", key="aml_prdm16_rpn1")
@@ -255,6 +263,9 @@ def build_manual_aml_data() -> dict:
     # -------------------------------------------------------------------------
     manual_data = {
         "blasts_percentage": blasts,
+        "fibrotic": fibrotic,
+        "hypoplasia": hypoplasia,
+        "number_of_dysplastic_lineages": number_of_dysplastic_lineages,
         "AML_defining_recurrent_genetic_abnormalities": {
             "PML::RARA": pml_rara,
             "NPM1": npm1,
