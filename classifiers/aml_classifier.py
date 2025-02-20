@@ -317,39 +317,6 @@ def classify_MDS_WHO2022(parsed_data: dict) -> tuple:
 
     return classification, derivation
 
-##############################
-# COMBINED CLASSIFIER WHO 2022
-##############################
-def classify_combined_WHO2022(parsed_data: dict) -> tuple:
-    """
-    First attempts AML classification using WHO 2022 criteria.
-    If the AML classifier indicates the case is "Not AML, consider MDS classification",
-    then the MDS classifier is called and its result is returned.
-    
-    Args:
-        parsed_data (dict): A dictionary containing extracted report data.
-    
-    Returns:
-        tuple: A tuple of (classification (str), derivation (list of str))
-    """
-    # Call the AML classifier first.
-    aml_classification, aml_derivation = classify_AML_WHO2022(parsed_data)
-    
-    # If AML classifier suggests it's not AML (e.g. "Not AML, consider MDS classification"),
-    # then call the MDS classifier.
-    if "Not AML" in aml_classification:
-        mds_classification, mds_derivation = classify_MDS_WHO2022(parsed_data)
-        # Optionally, combine derivation steps:
-        combined_derivation = (
-            aml_derivation +
-            ["AML classifier indicated that the case is not AML. Switching to MDS classification..."] +
-            mds_derivation
-        )
-        return mds_classification, combined_derivation
-    else:
-        # Otherwise, return the AML classification result.
-        return aml_classification, aml_derivation
-
 
 
 
@@ -582,6 +549,8 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
         derivation.append(f"Final classification => {classification}")
 
     return classification, derivation
+
+
 
 ##############################
 # CLASSIFY MDS ICC 2022
