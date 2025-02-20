@@ -301,8 +301,10 @@ def app_main():
                 res["who_derivation"],
                 res["icc_class"],
                 res["icc_derivation"],
+                classification_eln=res["eln_class"],
                 mode=mode
             )
+            
             if "aml_class_review" not in st.session_state:
                 with st.spinner("Generating Classification Review..."):
                     st.session_state["aml_class_review"] = get_gpt4_review_aml_classification(

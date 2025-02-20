@@ -3,12 +3,40 @@ import streamlit as st
 ##################################
 # CLASSIFICATION DISPLAY HELPERS
 ##################################
+def display_erythroid_note_for_classification(classification: str):
+    """
+    Checks if the provided classification string contains 'erythroid'
+    (case-insensitive) and displays a red bubble note if it does.
+    
+    Note: This classification is only valid if >80% erythroid differentiation is observed,
+    with >30% of these cells being pro erythroblasts.
+    """
+    if "erythroid" in classification.lower():
+        note_html = """
+        <div style="
+            background-color: #ffcccc;
+            border: 1px solid red;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            font-weight: bold;
+            color: #a94442;
+        ">
+            Note: This classification is only valid if >80% erythroid differentiation is observed,
+            with >30% of these cells being pro erythroblasts.
+        </div>
+        <br>
+        """
+        st.markdown(note_html, unsafe_allow_html=True)
+
+
 def display_aml_classification_results(
     parsed_fields,
     classification_who,
     who_derivation,
     classification_icc,
     icc_derivation,
+    classification_eln,  # if needed elsewhere; not shown in these two columns
     mode="manual",
     show_parsed_fields: bool = False
 ):
@@ -21,44 +49,44 @@ def display_aml_classification_results(
         who_derivation (list): Step-by-step derivation for WHO 2022.
         classification_icc (str): ICC 2022 classification result.
         icc_derivation (list): Step-by-step derivation for ICC 2022.
+        classification_eln (str): ELN classification result.
         mode (str): Typically 'manual' or whatever mode your app uses.
         show_parsed_fields (bool): Whether to show the "View Parsed AML Values" expander.
     """
-
-
-
     ##########################################
-    # 3. Display WHO & ICC Classifications Side-by-Side
+    # 1. Display WHO & ICC Classifications Side-by-Side
     ##########################################
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("### **WHO 2022 Classification**")
         st.markdown(f"**Classification:** {classification_who}")
+        # Show note if WHO classification mentions erythroid.
+        display_erythroid_note_for_classification(classification_who)
     with col2:
         st.markdown("### **ICC 2022 Classification**")
         st.markdown(f"**Classification:** {classification_icc}")
-
+        # Show note if ICC classification mentions erythroid.
+        display_erythroid_note_for_classification(classification_icc)
+    
     ##########################################
-    # 4. Display Derivations Side-by-Side
+    # 2. Display Derivations Side-by-Side
     ##########################################
     col_who, col_icc = st.columns(2)
-
     with col_who:
         with st.expander("View WHO 2022 Derivation", expanded=False):
             who_derivation_markdown = "\n\n".join(
                 [f"**Step {idx}:** {step}" for idx, step in enumerate(who_derivation, start=1)]
             )
             st.markdown(who_derivation_markdown)
-
     with col_icc:
         with st.expander("View ICC 2022 Derivation", expanded=False):
             icc_derivation_markdown = "\n\n".join(
                 [f"**Step {idx}:** {step}" for idx, step in enumerate(icc_derivation, start=1)]
             )
             st.markdown(icc_derivation_markdown)
-
+    
     ##########################################
-    # 1. (Optional) Show JSON of parsed fields
+    # 3. (Optional) Show JSON of parsed fields
     ##########################################
     if show_parsed_fields:
         with st.expander("View Parsed AML Values", expanded=False):

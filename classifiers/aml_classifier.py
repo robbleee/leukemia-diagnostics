@@ -160,35 +160,41 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         derivation.append(f"Qualifiers appended => {classification}")
 
     # -----------------------------
-    # STEP 5: Replace "[define by differentiation]" if needed
+    # STEP 5: Replace "[define by differentiation]" and override for erythroid subtypes irrespective of blast count.
     # -----------------------------
-    if classification.strip() == "Acute myeloid leukaemia, [define by differentiation]":
-        aml_diff = parsed_data.get("AML_differentiation")
-        if aml_diff:
-            derivation.append(f"AML_differentiation provided: {aml_diff}")
-        else:
-            derivation.append("No AML_differentiation provided.")
+    aml_diff = parsed_data.get("AML_differentiation")
+    if aml_diff:
+        derivation.append(f"AML_differentiation provided: {aml_diff}")
+    else:
+        derivation.append("No AML_differentiation provided.")
 
-        FAB_TO_WHO_MAPPING = {
-            "M0": "Acute myeloid leukaemia with minimal differentiation",
-            "M1": "Acute myeloid leukaemia without maturation",
-            "M2": "Acute myeloid leukaemia with maturation",
-            "M3": "Acute promyelocytic leukaemia",
-            "M4": "Acute myelomonocytic leukaemia",
-            "M4Eo": "Acute myelomonocytic leukaemia with eosinophilia",
-            "M5a": "Acute monoblastic leukaemia",
-            "M5b": "Acute monocytic leukaemia",
-            "M6a": "Acute erythroid leukaemia (erythroid/myeloid type)",
-            "M6b": "Pure erythroid leukaemia",
-            "M7": "Acute megakaryoblastic leukaemia",
-        }
+    FAB_TO_WHO_MAPPING = {
+        "M0": "Acute myeloid leukaemia with minimal differentiation",
+        "M1": "Acute myeloid leukaemia without maturation",
+        "M2": "Acute myeloid leukaemia with maturation",
+        "M3": "Acute promyelocytic leukaemia",
+        "M4": "Acute myelomonocytic leukaemia",
+        "M4Eo": "Acute myelomonocytic leukaemia with eosinophilia",
+        "M5a": "Acute monoblastic leukaemia",
+        "M5b": "Acute monocytic leukaemia",
+        "M6a": "Acute erythroid leukaemia (erythroid/myeloid type)",
+        "M6b": "Pure erythroid leukaemia",
+        "M7": "Acute megakaryoblastic leukaemia",
+    }
 
-        if aml_diff and aml_diff in FAB_TO_WHO_MAPPING:
+    if aml_diff and aml_diff in FAB_TO_WHO_MAPPING:
+        # For erythroid subtypes, override classification irrespective of blast count.
+        if aml_diff in ["M6a", "M6b"]:
+            classification = FAB_TO_WHO_MAPPING[aml_diff]
+            derivation.append(f"Erythroid subtype ({aml_diff}) detected; classification overridden to {classification} irrespective of blast count.")
+        elif classification.strip() == "Acute myeloid leukaemia, [define by differentiation]":
             classification = FAB_TO_WHO_MAPPING[aml_diff]
             derivation.append(f"Classification updated using FAB-to-WHO mapping => {classification}")
         else:
-            classification = "Acute myeloid leukaemia, unknown differentiation"
-            derivation.append("AML_differentiation is invalid or missing => 'Acute myeloid leukaemia, unknown differentiation'.")
+            derivation.append("AML_differentiation provided but classification already determined.")
+    else:
+        classification = "Acute myeloid leukaemia, unknown differentiation"
+        derivation.append("AML_differentiation is invalid or missing => 'Acute myeloid leukaemia, unknown differentiation'.")
 
     # Append "(WHO 2022)" if not already present
     if "Not AML" not in classification:

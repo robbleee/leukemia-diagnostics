@@ -1,0 +1,18 @@
+AML overrides 
+    bone marrow blasts
+    blood blasts (tbc)
+    downsyndrome
+    germline predisposition
+    prior cytotoxic chemotherapy
+    previous mds/mds/mpm
+
+
+diff not working
+    dignose regardless:
+        "M6a": "Acute erythroid leukaemia (erythroid/myeloid type)",
+        "M6b": "Pure erythroid leukaemia",
+
+
+look down microscope see erythroid precursors
+        greater than 80% erythroid differentiaion is observed of which >30% are pro erythroblasts
+        any percentage bone marrow blasts. 

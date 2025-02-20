@@ -7,10 +7,9 @@ from openai import OpenAI
 ##############################
 client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
-
-##############################
+# ----------------------------
 # PARSE GENETICS AML
-##############################
+# ----------------------------
 def parse_genetics_report_aml(report_text: str) -> dict:
     """
     Sends the free-text hematological report to OpenAI and requests a structured JSON
@@ -116,20 +115,32 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "previous_MDS_diagnosed_over_3_months_ago": False,
             "previous_MDS/MPN_diagnosed_over_3_months_ago": False,
             "previous_cytotoxic_therapy": False,
-            "predisposing_germline_variant": None
+            "predisposing_germline_variant": "None"
         }
     }
     
     # Construct the prompt with detailed instructions.
-    # Note that the prompt now lists all required markers including the new ones.
     prompt = f"""
 The user has pasted a free-text hematological report. 
 Please extract the following fields from the text and format them into a valid JSON object exactly as specified below. 
 For boolean fields, use true/false. For numerical fields, provide the value. If a field is not found or unclear, set it to false or a default value.
 
-Additionally, extract the AML differentiation classification using the FAB (M0-M7) or WHO classification systems. 
-If the classification is given in some other form then convert it to the FAB format.
-If the differentiation is not specified, set the value to null.
+Additionally, extract the AML differentiation classification field ("AML_differentiation") from the free text. 
+This field should be filled using the FAB classification system. If the free text provides the differentiation in the FAB format (e.g., "FAB M3") or using a descriptive/standard format (e.g., "Acute promyelocytic leukaemia" or "erythroid differentiation"), convert and record the corresponding FAB classification code according to the following mapping:
+
+    M0: Acute myeloid leukaemia with minimal differentiation
+    M1: Acute myeloid leukaemia without maturation
+    M2: Acute myeloid leukaemia with maturation
+    M3: Acute promyelocytic leukaemia
+    M4: Acute myelomonocytic leukaemia
+    M4Eo: Acute myelomonocytic leukaemia with eosinophilia
+    M5a: Acute monoblastic leukaemia
+    M5b: Acute monocytic leukaemia
+    M6a: Acute erythroid leukaemia (erythroid/myeloid type)
+    M6b: Pure erythroid leukaemia
+    M7: Acute megakaryoblastic leukaemia
+
+If the differentiation is not specified or cannot be determined, set the value to null.
 
 Try to consider if the user may have used some sort of shorthand and translate where necessary.
 
@@ -137,7 +148,7 @@ For example:
 1. 2_x_TP53_mutations: Extract if the report mentions phrases like "2 TP53 mutations," "biallelic TP53 mutations," or similar. We need at least 2 for it to be true.
 2. 1_x_TP53_mutation_del_17p: This MUST be a TP53 mutation AND a deletion of 17p. They may be mentioned in different parts of the report.
 3. 1_x_TP53_mutation_LOH: Identify phrases such as "TP53 mutation and LOH" or "TP53 mutation with Loss of Heterozygosity." Both conditions must be met.
-4. AML_differentiation: Extract the AML differentiation classification, such as "FAB M3" or "WHO AML with myelodysplasia-related changes." If another format is used, convert it to a FAB designation.
+4. AML_differentiation: Extract the AML differentiation classification and convert it to the appropriate FAB code based on the mapping above.
 5. Complex_karyotype: Can be any combination of any three cytogenetic abnormalities, even if they're not MDS-related.
 
 Only record an AML_defining_recurrent_genetic_abnormality as true if the report exactly mentions one of the abnormalities listed below:
