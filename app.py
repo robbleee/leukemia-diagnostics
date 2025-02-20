@@ -233,14 +233,13 @@ def app_main():
         with st.expander("Free Text Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
             full_report = st.text_area(
                 "Enter all relevant AML/MDS data here (Blast % is required; everything else is optional):",
-                placeholder=(
-                    "Paste all reports and clinical info here"
-                ),
+                placeholder="Paste all reports and clinical info here",
                 key="full_text_input",
                 height=200
             )
         if st.button("Analyse Report"):
-            st.session_state["aml_free_text_expanded"] = False
+            # Removed the line that collapses the text box:
+            # st.session_state["aml_free_text_expanded"] = False
             for key in [
                 "aml_manual_result",
                 "aml_ai_result",
