@@ -193,7 +193,7 @@ def app_main():
         unsafe_allow_html=True
     )
 
-    aml_mode_toggle = st.toggle("Free Text Mode", key="aml_mode_toggle", value=True)
+    aml_mode_toggle = st.toggle("Free-text Mode", key="aml_mode_toggle", value=True)
     if "aml_busy" not in st.session_state:
         st.session_state["aml_busy"] = False
 
@@ -379,7 +379,7 @@ def app_main():
                     except Exception as e:
                         st.error("Date of birth must be in dd/mm/yyyy format.")
                         return
-                    # Generate the PDF using the free text input for clinical details automatically.
+                    # Generate the PDF using the provided user comments.
                     base_pdf_bytes = create_base_pdf(user_comments=user_comments)
                     base_pdf_b64 = base64.b64encode(base_pdf_bytes).decode("utf-8")
                     js_code = f"""
@@ -398,16 +398,16 @@ def app_main():
                         const pages = pdfDoc.getPages();
                         const firstPage = pages[0];
                         firstPage.drawText("Patient Name: " + patientName, {{
-                        x: 50,
-                        y: firstPage.getHeight() - 50,
-                        size: 12,
-                        color: rgb(0, 0, 0)
+                            x: 50,
+                            y: firstPage.getHeight() - 50,
+                            size: 12,
+                            color: rgb(0, 0, 0)
                         }});
                         firstPage.drawText("Date of Birth: " + patientDob, {{
-                        x: 50,
-                        y: firstPage.getHeight() - 70,
-                        size: 12,
-                        color: rgb(0, 0, 0)
+                            x: 50,
+                            y: firstPage.getHeight() - 70,
+                            size: 12,
+                            color: rgb(0, 0, 0)
                         }});
                         const modifiedPdfBytes = await pdfDoc.save();
                         const blob = new Blob([modifiedPdfBytes], {{ type: "application/pdf" }});
@@ -420,8 +420,13 @@ def app_main():
                     </script>
                     """
                     components.html(js_code, height=0)
+                    
+                    # Display the PDF preview below the download button.
+                    st.markdown("### PDF Preview")
+                    pdf_display = f'<iframe src="data:application/pdf;base64,{base_pdf_b64}" width="100%" height="600"></iframe>'
+                    st.markdown(pdf_display, unsafe_allow_html=True)
+                    
                     st.session_state.show_pdf_form = False
-
 ##################################
 # Main Execution
 ##################################

@@ -173,7 +173,8 @@ class PDF(FPDF):
     def header(self):
         if self.page_no() == 1:
             self.set_font("Arial", "B", 14)
-            self.set_text_color(0, 70, 140)
+            # Change the "Diagnostic Report" text color to primaryColor (#009688)
+            self.set_text_color(0, 150, 136)
             self.cell(0, 8, "Diagnostic Report", ln=1, align="C")
             self.set_font("Arial", "", 10)
             self.set_text_color(100, 100, 100)
@@ -187,9 +188,24 @@ class PDF(FPDF):
         self.cell(0, 10, f"Page {self.page_no()}", align="C")
 
 def add_section_title(pdf: PDF, title: str):
+    """
+    Adds a section title using the standard primary color (teal: #009688) from our config.
+    """
     pdf.set_font("Arial", "B", 12)
     pdf.set_text_color(255, 255, 255)
-    pdf.set_fill_color(0, 70, 140)
+    # Use primaryColor (#009688) -> RGB (0, 150, 136)
+    pdf.set_fill_color(0, 150, 136)
+    pdf.cell(0, 10, clean_text(title), ln=1, fill=True)
+    pdf.ln(2)
+    pdf.set_text_color(0, 0, 0)
+
+def add_user_input_section_title(pdf: PDF, title: str):
+    """
+    Adds a section title for user input sections with a yellow background.
+    """
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_text_color(0, 0, 0)  # Black text for contrast
+    pdf.set_fill_color(255, 255, 153)  # Light yellow background
     pdf.cell(0, 10, clean_text(title), ln=1, fill=True)
     pdf.ln(2)
     pdf.set_text_color(0, 0, 0)
@@ -289,22 +305,27 @@ def create_base_pdf(user_comments: str = None) -> bytes:
         add_section_title(pdf, "MDS Diagnostics")
         add_diagnostic_section(pdf, "MDS")
     
-    # Append Manual Positive Findings (if in manual mode).
-    if "aml_manual_result" in st.session_state:
-        add_section_title(pdf, "Manual Positive Findings")
-        output_positive_findings(pdf, st.session_state["aml_manual_result"])
-        pdf.ln(4)
-    
-    # Append User Comments if provided.
+    # Append User Comments if provided (remains on same page as diagnostics).
     if user_comments:
         add_section_title(pdf, "User Comments")
         output_review_text(pdf, user_comments, "User Comments")
         pdf.ln(4)
     
-    # Append any clinical free-text details.
+    # Determine if any manual or free-text input sections exist.
     aml_data = st.session_state.get("aml_ai_result") or st.session_state.get("aml_manual_result")
+    if "aml_manual_result" in st.session_state or (aml_data and aml_data.get("free_text_input")):
+        # Add a page break before manual/free-text input sections.
+        pdf.add_page()
+
+    # Append Manual Positive Findings (if in manual mode) with yellow heading.
+    if "aml_manual_result" in st.session_state:
+        add_user_input_section_title(pdf, "Manual User Positive Inputs")
+        output_positive_findings(pdf, st.session_state["aml_manual_result"])
+        pdf.ln(4)
+
+    # Append any clinical free-text details with yellow heading.
     if aml_data and aml_data.get("free_text_input"):
-        add_section_title(pdf, "Molecular, Cytogenetic, Differentiation Clinical Details")
+        add_user_input_section_title(pdf, "Free-Text user inputs")
         output_review_text(pdf, aml_data["free_text_input"], "Molecular Details")
         pdf.ln(4)
 
