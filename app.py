@@ -7,7 +7,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
+import urllib.parse
 import bcrypt
 import json
 import datetime
@@ -238,8 +238,6 @@ def app_main():
                 height=200
             )
         if st.button("Analyse Report"):
-            # Removed the line that collapses the text box:
-            # st.session_state["aml_free_text_expanded"] = False
             for key in [
                 "aml_manual_result",
                 "aml_ai_result",
@@ -355,13 +353,30 @@ def app_main():
                 for i, step in enumerate(res["eln_derivation"], start=1):
                     st.markdown(f"- {step}")
 
-        # --- Download Report Section ---
+        # --- Download and Report Incorrect Section ---
         if "show_pdf_form" not in st.session_state:
             st.session_state.show_pdf_form = False
-        if st.button("Download Report"):
-            st.session_state.show_pdf_form = True
-        if st.session_state.show_pdf_form:
-            # Use a form to collect patient info (client-side only).
+
+        # Create two columns for the two buttons.
+        col_download, col_report, col3, col4, col5, col6 = st.columns(6)
+        with col_download:
+            if st.button("Download Report"):
+                st.session_state.show_pdf_form = True
+        with col_report:
+            if st.button("Report Incorrect Result"):
+                st.session_state.show_report_incorrect = True
+        with col3:
+            pass
+        with col4:
+            pass
+        with col5:
+            pass
+        with col6:
+            pass
+
+
+        # --- Download Report Flow (with patient info) ---
+        if st.session_state.get("show_pdf_form"):
             with st.form(key="pdf_info_form"):
                 patient_name = st.text_input("Enter patient name (client-side only):")
                 patient_dob = st.text_input("Enter patient date of birth (dd/mm/yyyy):", placeholder="dd/mm/yyyy")
@@ -421,12 +436,48 @@ def app_main():
                     """
                     components.html(js_code, height=0)
                     
-                    # Display the PDF preview below the download button.
                     st.markdown("### PDF Preview")
                     pdf_display = f'<iframe src="data:application/pdf;base64,{base_pdf_b64}" width="100%" height="600"></iframe>'
                     st.markdown(pdf_display, unsafe_allow_html=True)
                     
                     st.session_state.show_pdf_form = False
+
+        # --- Report Incorrect Flow (using mailto link and auto-download) ---
+        if st.session_state.get("show_report_incorrect"):
+            incorrect_comment = st.text_area("Please explain why the report is incorrect:")
+            if st.button("Generate Email Link"):
+                # Generate the PDF with no patient data (empty user comments)
+                report_pdf_bytes = create_base_pdf(user_comments="")  
+                base_pdf_b64 = base64.b64encode(report_pdf_bytes).decode("utf-8")
+                
+                # Auto-download the PDF without patient data using injected JavaScript.
+                js_code = f"""
+                <input type="hidden" id="base_pdf" value="{base_pdf_b64}">
+                <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+                <script>
+                async function autoDownloadPDF() {{
+                    const basePdfB64 = document.getElementById("base_pdf").value;
+                    const basePdfBytes = Uint8Array.from(atob(basePdfB64), c => c.charCodeAt(0));
+                    const blob = new Blob([basePdfBytes], {{ type: "application/pdf" }});
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = "diagnostic-report.pdf";
+                    link.click();
+                }}
+                autoDownloadPDF();
+                </script>
+                """
+                components.html(js_code, height=0)
+                
+                # Build a mailto link for the user to send feedback.
+                subject = urllib.parse.quote("Incorrect AML/MDS Diagnostic Report Feedback")
+                body = urllib.parse.quote(
+                    f"User reported an incorrect diagnostic result.\n\nComment:\n{incorrect_comment}\n\n"
+                    "Please attach the downloaded report PDF manually."
+                )
+                mailto_link = f"mailto:your_email@example.com?subject={subject}&body={body}"
+                st.markdown(f"[Click here to send your feedback]({mailto_link})", unsafe_allow_html=True)
+                st.session_state.show_report_incorrect = False
 ##################################
 # Main Execution
 ##################################
