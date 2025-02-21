@@ -155,7 +155,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         derivation.append(f"Qualifiers appended => {classification}")
 
     # -----------------------------
-    # STEP 5: Update using AML_differentiation (only if classification is still default)
+    # STEP 5: Update using AML_differentiation (with Override for Erythroid)
     # -----------------------------
     aml_diff = parsed_data.get("AML_differentiation")
     if aml_diff:
@@ -177,21 +177,25 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
         "M7": "Acute megakaryoblastic leukaemia",
     }
 
-    # Only update classification from AML_differentiation if it is still the default.
-    if classification.strip() == "Acute myeloid leukaemia, [define by differentiation]":
-        if aml_diff and aml_diff in FAB_TO_WHO_MAPPING:
-            classification = FAB_TO_WHO_MAPPING[aml_diff]
+    # New override logic:
+    # - Erythroid differentiation (M6a/M6b) should override even if classification is "Not AML, consider MDS classification"
+    # - Other differentiations can only override the default classification.
+    if classification.strip() in ["Acute myeloid leukaemia, [define by differentiation]", "Not AML, consider MDS classification"]:
+        if aml_diff:
             if aml_diff in ["M6a", "M6b"]:
-                derivation.append(f"Erythroid subtype ({aml_diff}) detected; classification updated to {classification} irrespective of blast count.")
-            else:
+                classification = "Acute Erythroid leukemia"
+                derivation.append(f"Erythroid subtype ({aml_diff}) detected; overriding classification to {classification}")
+            elif classification.strip() == "Acute myeloid leukaemia, [define by differentiation]" and aml_diff in FAB_TO_WHO_MAPPING:
+                classification = FAB_TO_WHO_MAPPING[aml_diff]
                 derivation.append(f"Classification updated using FAB-to-WHO mapping => {classification}")
-        else:
-            classification = "Acute myeloid leukaemia, unknown differentiation"
-            derivation.append("AML_differentiation is invalid or missing => 'Acute myeloid leukaemia, unknown differentiation'.")
+            elif classification.strip() == "Acute myeloid leukaemia, [define by differentiation]":
+                classification = "Acute myeloid leukaemia, unknown differentiation"
+                derivation.append("AML_differentiation is invalid or missing => 'Acute myeloid leukaemia, unknown differentiation'.")
+            # If classification is "Not AML, consider MDS classification" and AML_differentiation is non-erythroid, we do not override.
     else:
         derivation.append("AML_differentiation provided but classification already determined; no override.")
 
-    # Append "(WHO 2022)" if not already present
+    # Append "(WHO 2022)" if not already present and if classification is not a "Not AML" state.
     if "Not AML" not in classification:
         classification += " (WHO 2022)"
     derivation.append(f"Final classification => {classification}")
