@@ -86,19 +86,14 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
                 "DEK::NUP214", "RBM15::MRTFA", "MLLT3::KMT2A",
                 "GATA2:: MECOM", "KMT2A", "MECOM", "NUP98"
             ]:
-                # For these, require blasts > 5%
+                # Removed the blasts > 5% requirement for these abnormalities.
                 if aml_def_genetic.get(gene, False):
-                    if blasts_percentage > 5.0:
-                        classification = classif
-                        derivation.append(
-                            f"{gene} abnormality detected with blasts > 5% (blasts_percentage: {blasts_percentage}). Classification => {classification}"
-                        )
-                        updated = True
-                        break
-                    else:
-                        derivation.append(
-                            f"{gene} abnormality detected but blasts percentage ({blasts_percentage}%) is not > 5%. Skipping classification for {gene}."
-                        )
+                    classification = classif
+                    derivation.append(
+                        f"{gene} abnormality detected (blasts_percentage: {blasts_percentage}). Classification => {classification}"
+                    )
+                    updated = True
+                    break
             else:
                 if aml_def_genetic.get(gene, False):
                     classification = classif
@@ -109,7 +104,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
                     break
 
         if not updated:
-            derivation.append("No WHO AML-defining abnormality met final requirements (e.g. blasts threshold).")
+            derivation.append("No WHO AML-defining abnormality met final requirements.")
             if blasts_percentage < 20.0:
                 classification = "Not AML, consider MDS classification"
                 derivation.append("No AML defining abnormalities and blasts < 20% => 'Consider reclassification as MDS'.")
@@ -202,6 +197,7 @@ def classify_AML_WHO2022(parsed_data: dict) -> tuple:
     derivation.append(f"Final classification => {classification}")
 
     return classification, derivation
+
 
 ##############################
 # CLASSIFY MDS WHO 2022

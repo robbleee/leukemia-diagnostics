@@ -25,10 +25,8 @@ def display_erythroid_note_for_classification(classification: str):
             Note: This classification is only valid if >80% erythroid differentiation is observed,
             with >30% of these cells being pro erythroblasts.
         </div>
-        <br>
         """
         st.markdown(note_html, unsafe_allow_html=True)
-
 
 def display_aml_classification_results(
     parsed_fields,
