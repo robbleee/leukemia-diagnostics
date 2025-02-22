@@ -38,26 +38,27 @@ def classify_combined_ICC2022(parsed_data: dict) -> tuple:
 ##############################
 # COMBINED CLASSIFIER WHO 2022
 ##############################
-def classify_combined_WHO2022(parsed_data: dict) -> tuple:
+def classify_combined_WHO2022(parsed_data: dict, not_erythroid: bool) -> tuple:
     """
-    First attempts AML classification using WHO 2022 criteria.
+    Attempts AML classification using WHO 2022 criteria.
     If the AML classifier indicates the case is "Not AML, consider MDS classification",
     then the MDS classifier is called and its result is returned.
-    
+
     Args:
         parsed_data (dict): A dictionary containing extracted report data.
-    
+        not_erythroid (bool, optional): If provided, this flag is passed to the AML classifier 
+                                        to bypass the erythroid override. If not provided,
+                                        the AML classifier is called without this parameter.
+
     Returns:
-        tuple: A tuple of (classification (str), derivation (list of str))
+        tuple: A tuple containing (classification (str), derivation (list of str))
     """
-    # Call the AML classifier first.
-    aml_classification, aml_derivation = classify_AML_WHO2022(parsed_data)
-    
-    # If AML classifier suggests it's not AML (e.g. "Not AML, consider MDS classification"),
-    # then call the MDS classifier.
+
+    aml_classification, aml_derivation = classify_AML_WHO2022(parsed_data, not_erythroid=not_erythroid)
+
+    # If the AML classifier suggests it's not AML, then call the MDS classifier.
     if "Not AML" in aml_classification:
         mds_classification, mds_derivation = classify_MDS_WHO2022(parsed_data)
-        # Optionally, combine derivation steps:
         combined_derivation = (
             aml_derivation +
             ["AML classifier indicated that the case is not AML. Switching to MDS classification..."] +
@@ -65,5 +66,4 @@ def classify_combined_WHO2022(parsed_data: dict) -> tuple:
         )
         return mds_classification, combined_derivation
     else:
-        # Otherwise, return the AML classification result.
         return aml_classification, aml_derivation

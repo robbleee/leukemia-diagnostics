@@ -213,7 +213,7 @@ def app_main():
                     "aml_additional_comments"
                 ]:
                     st.session_state.pop(key, None)
-                classification_who, who_derivation = classify_combined_WHO2022(manual_data)
+                classification_who, who_derivation = classify_combined_WHO2022(manual_data, not_erythroid=False)
                 classification_icc, icc_derivation = classify_combined_ICC2022(manual_data)
                 classification_eln, eln_derivation = classify_ELN2022(manual_data)
                 st.session_state["aml_manual_result"] = {
@@ -251,7 +251,7 @@ def app_main():
             if full_report_text.strip():
                 with st.spinner("Parsing & classifying ..."):
                     parsed_data = parse_genetics_report_aml(full_report_text)
-                    who_class, who_deriv = classify_combined_WHO2022(parsed_data)
+                    who_class, who_deriv = classify_combined_WHO2022(parsed_data, not_erythroid=False)
                     icc_class, icc_deriv = classify_combined_ICC2022(parsed_data)
                     eln_class, eln_deriv = classify_ELN2022(parsed_data)
                     st.session_state["aml_ai_result"] = {
@@ -475,7 +475,7 @@ def app_main():
                     f"User reported an incorrect diagnostic result.\n\nComment:\n{incorrect_comment}\n\n"
                     "Please attach the downloaded report PDF manually."
                 )
-                mailto_link = f"mailto:your_email@example.com?subject={subject}&body={body}"
+                mailto_link = f"mailto:robbielee543@gmail.com?subject={subject}&body={body}"
                 st.markdown(f"[Click here to send your feedback]({mailto_link})", unsafe_allow_html=True)
                 st.session_state.show_report_incorrect = False
 ##################################

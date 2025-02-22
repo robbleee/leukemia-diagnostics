@@ -1,32 +1,61 @@
 import streamlit as st
+from classifiers.aml_mds_combined import classify_combined_WHO2022
 
-##################################
-# CLASSIFICATION DISPLAY HELPERS
-##################################
-def display_erythroid_note_for_classification(classification: str):
+def display_erythroid_form_for_classification(classification: str, parsed_fields: dict):
     """
-    Checks if the provided classification string contains 'erythroid'
-    (case-insensitive) and displays a red bubble note if it does.
-    
-    Note: This classification is only valid if >80% erythroid differentiation is observed,
-    with >30% of these cells being pro erythroblasts.
+    If 'erythroid' is in the classification (case-insensitive), display a form for user input:
+      - % erythroid differentiation
+      - % pro erythroblasts
+
+    Upon submission:
+      - If differentiation >= 80% and pro erythroblasts >= 30%, call the combined classifier with not_erythroid=False.
+      - Otherwise, call it with not_erythroid=True.
+    The new results update the session state and the form is removed from the display.
+    Additionally, deviation details are appended to the classifier's derivation.
     """
     if "erythroid" in classification.lower():
-        note_html = """
-        <div style="
-            background-color: #ffcccc;
-            border: 1px solid red;
-            border-radius: 8px;
-            padding: 10px;
-            margin-top: 10px;
-            font-weight: bold;
-            color: #a94442;
-        ">
-            Note: This classification is only valid if >80% erythroid differentiation is observed,
-            with >30% of these cells being pro erythroblasts.
-        </div>
-        """
-        st.markdown(note_html, unsafe_allow_html=True)
+        # Create a placeholder to hold the form
+        form_placeholder = st.empty()
+
+        with form_placeholder.form("erythroid_form"):
+            st.markdown(
+                "<h4 style='margin-bottom: 0px;'>Further information required for classification</h4>",
+                unsafe_allow_html=True
+            )
+            erythroid_diff = st.number_input(
+                "Enter % erythroid differentiation", 
+                min_value=0.0, max_value=100.0, step=0.1, format="%.1f"
+            )
+            pro_erythroblasts = st.number_input(
+                "Enter % of pro erythroblasts", 
+                min_value=0.0, max_value=100.0, step=0.1, format="%.1f"
+            )
+            submit = st.form_submit_button("Submit Erythroid Data")
+
+        if submit:
+            # Remove the form from the interface
+            form_placeholder.empty()
+
+            # Determine the not_erythroid flag and prepare deviation details.
+            if erythroid_diff >= 80.0 and pro_erythroblasts >= 30.0:
+                not_erythroid_flag = False
+                deviation_details = "Erythroid override applied: differentiation >= 80% and pro erythroblasts >= 30%."
+            else:
+                not_erythroid_flag = True
+                deviation_details = "No erythroid override: criteria not met."
+
+            # Call the combined classifier with the flag
+            new_class, new_deriv = classify_combined_WHO2022(parsed_fields, not_erythroid=not_erythroid_flag)
+
+            # Append the deviation details to the derivation
+            new_deriv.append(deviation_details)
+
+            # Update session state with new classification results
+            st.session_state["classification_who"] = new_class
+            st.session_state["who_derivation"] = new_deriv
+
+            # Display the new classification results
+            st.markdown(f"**Classification:** {new_class}")
 
 def display_aml_classification_results(
     parsed_fields,
@@ -42,13 +71,13 @@ def display_aml_classification_results(
     Displays AML classification results in Streamlit.
 
     Args:
-        parsed_fields (dict): The raw parsed data values (if you wish to show them).
+        parsed_fields (dict): The raw parsed data values.
         classification_who (str): WHO 2022 classification result.
         who_derivation (list): Step-by-step derivation for WHO 2022.
         classification_icc (str): ICC 2022 classification result.
         icc_derivation (list): Step-by-step derivation for ICC 2022.
         classification_eln (str): ELN classification result.
-        mode (str): Typically 'manual' or whatever mode your app uses.
+        mode (str): Typically 'manual' or other mode.
         show_parsed_fields (bool): Whether to show the "View Parsed AML Values" expander.
     """
     ##########################################
@@ -57,14 +86,17 @@ def display_aml_classification_results(
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("### **WHO 2022 Classification**")
-        st.markdown(f"**Classification:** {classification_who}")
-        # Show note if WHO classification mentions erythroid.
-        display_erythroid_note_for_classification(classification_who)
+        # If classification mentions erythroid, show the evaluation form (and not the static text)
+        if "erythroid" in classification_who.lower():
+            display_erythroid_form_for_classification(classification_who, parsed_fields)
+        else:
+            st.markdown(f"**Classification:** {classification_who}")
     with col2:
         st.markdown("### **ICC 2022 Classification**")
-        st.markdown(f"**Classification:** {classification_icc}")
-        # Show note if ICC classification mentions erythroid.
-        display_erythroid_note_for_classification(classification_icc)
+        if "erythroid" in classification_icc.lower():
+            display_erythroid_form_for_classification(classification_icc, parsed_fields)
+        else:
+            st.markdown(f"**Classification:** {classification_icc}")
     
     ##########################################
     # 2. Display Derivations Side-by-Side
