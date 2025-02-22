@@ -291,3 +291,69 @@ def get_gpt4_review_aml_additional_comments(classification: dict,
         additional_comments_review = f"Error in additional comments review call: {str(e)}"
 
     return additional_comments_review
+
+def get_gpt4_review_aml_differentiation(classification: dict, 
+                                    manual_inputs: dict, 
+                                    free_text_input: str = None) -> str:
+    """
+    Provides a short differentiation review based solely on morphological, histological,
+    and flow cytometry data. The review suggests a category of differentiation per the WHO 
+    classification of AML (by differentiation) and justifies it with bullet points using only 
+    relevant information. Blast cell count should not be mentioned.
+    
+    Args:
+        classification (dict): The classification data (WHO/ICC) as a dictionary.
+        manual_inputs (dict): A dictionary of parsed user inputs (e.g. from morphology, histology,
+                              flow cytometry).
+        free_text_input (str, optional): Additional free-text input provided by the user. Defaults to None.
+    
+    Returns:
+        str: A short differentiation review in markdown format.
+    """
+    # Build the input strings from manual inputs and free text.
+    input_data_str = "Below is the data provided:\n"
+    for key, value in manual_inputs.items():
+        input_data_str += f"- {key}: {value}\n"
+    
+    free_text_str = f"\nAdditional User Entered Text:\n{free_text_input}\n" if free_text_input else ""
+    
+    # Construct the prompt for GPT-4
+    prompt = f"""
+You are a specialist haematology AI classifying acute myeloid leukaemia solely by differentiation.
+Use only the data from morphology, histology, and flow cytometry (do not consider genetics or cytogenetics).
+You are asked to suggest a category of differentiation as defined by the WHO classification of AML.
+Justify your decision with simple bullet points including only information relevant to differentiation.
+Do not mention blast cell count.
+
+Manual Inputs:
+{input_data_str}
+{free_text_str}
+
+Task:
+Provide a section titled "Differentiation Review" and list your bullet point justifications.
+**Response**:
+    - Structure your answer beautifully in markdown with smaller headings (**<heading**>) for a Streamlit UI..
+    - Make sure that the individual section headers are on their own line
+    - Do not ever include anything like this "Certainly, here is the differentiation Review based on the provided data:"
+    - Do not attempt to provide an overview summary after the written sections
+    - Do not provide suggestions about treatment approaches or general statements about the value of monitoring MRD
+"""
+
+
+    # Call GPT-4
+    try:
+        additional_review_response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a specialist haematology AI classifying acute myeloid leukaemia based solely on differentiation."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=3000,
+            temperature=0.0,
+        )
+        review = additional_review_response.choices[0].message.content.strip()
+    except Exception as e:
+        review = f"Error in differentiation review call: {str(e)}"
+    
+    return review
+

@@ -52,7 +52,8 @@ from reviewers.aml_reviewer import (
     get_gpt4_review_aml_classification,
     get_gpt4_review_aml_genes,
     get_gpt4_review_aml_additional_comments,
-    get_gpt4_review_aml_mrd
+    get_gpt4_review_aml_mrd,
+    get_gpt4_review_aml_differentiation
 )
 from reviewers.mds_reviewer import (
     get_gpt4_review_mds_classification,
@@ -286,8 +287,8 @@ def app_main():
 
         sub_tab = option_menu(
             menu_title=None,
-            options=["Classification", "Risk", "MRD Review", "Gene Review", "Additional Comments"],
-            icons=["clipboard", "graph-up-arrow", "recycle", "bar-chart", "chat-left-text"],
+            options=["Classification", "Risk", "MRD Review", "Gene Review", "AI Comments", "Differentiation"],
+            icons=["clipboard", "graph-up-arrow", "recycle", "bar-chart", "chat-left-text", "funnel"],
             default_index=0,
             orientation="horizontal"
         )
@@ -335,7 +336,7 @@ def app_main():
             with st.expander("Gene Review", expanded=True):
                 st.markdown(st.session_state["aml_gene_review"])
 
-        elif sub_tab == "Additional Comments":
+        elif sub_tab == "AI Comments":
             if "aml_additional_comments" not in st.session_state:
                 with st.spinner("Generating Additional Comments..."):
                     st.session_state["aml_additional_comments"] = get_gpt4_review_aml_additional_comments(
@@ -352,6 +353,17 @@ def app_main():
             with st.expander("ELN Derivation", expanded=True):
                 for i, step in enumerate(res["eln_derivation"], start=1):
                     st.markdown(f"- {step}")
+
+        elif sub_tab == "Differentiation":
+            if "differentiation" not in st.session_state:
+                with st.spinner("Generating Differentiaion Review..."):
+                    st.session_state["differentiation"] = get_gpt4_review_aml_differentiation(
+                        classification_dict,
+                        res["parsed_data"],
+                        free_text_input=free_text_input_value
+                    )
+            with st.expander("Differentiation", expanded=True):
+                st.markdown(st.session_state["differentiation"])
 
         # --- Download and Report Incorrect Section ---
         if "show_pdf_form" not in st.session_state:
@@ -478,6 +490,7 @@ def app_main():
                 mailto_link = f"mailto:robbielee543@gmail.com?subject={subject}&body={body}"
                 st.markdown(f"[Click here to send your feedback]({mailto_link})", unsafe_allow_html=True)
                 st.session_state.show_report_incorrect = False
+
 ##################################
 # Main Execution
 ##################################
