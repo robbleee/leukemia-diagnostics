@@ -248,13 +248,17 @@ def app_main():
                 with col2:
                     prior_chemo = st.checkbox("Prior cytotoxic chemotherapy")
                 with col3:
-                    # Expanded list of germline predisposition variants
+                    # Expanded list of germline predisposition variants (no default selection)
                     germline_options = [
-                        "None", "BRCA1", "BRCA2", "TP53", "CHEK2", "PALB2",
+                        "BRCA1", "BRCA2", "TP53", "CHEK2", "PALB2",
                         "DDX1", "RUNX1", "CEBPA", "GATA2", "ETV6", "ANKRD26", 
                         "SRP72", "SAMD9", "SAMD9L", "Other"
                     ]
-                    germline_pred = st.selectbox("Germline predisposition", options=germline_options)
+                    germline_preds = st.multiselect(
+                        "Germline predisposition (default: None)",
+                        options=germline_options,
+                        default=[]
+                    )
                 with col4:
                     previous_mds = st.selectbox("Previous MDS/MDS-MPN", options=["None", "Previous MDS", "Previous MDS/MPN"])
             
@@ -264,7 +268,6 @@ def app_main():
                 key="full_text_input",
                 height=200
             )
-
 
         # Only show the "Analyse Report" button if manual input is not pending.
         if not (st.session_state.get("initial_parsed_data") and not st.session_state.get("blast_percentage_known", False)):
@@ -285,8 +288,11 @@ def app_main():
                     opt_text = ""
                     if down_syndrome:
                         opt_text += "Down syndrome: Yes. "
-                    if germline_pred != "None":
-                        opt_text += "Germline predisposition: " + germline_pred + ". "
+                    # If no germline variants were selected, default to "None".
+                    if germline_preds:
+                        opt_text += "Germline predisposition: " + ", ".join(germline_preds) + ". "
+                    else:
+                        opt_text += "Germline predisposition: None. "
                     if prior_chemo:
                         opt_text += "Prior cytotoxic chemotherapy: Yes. "
                     if previous_mds != "None":
