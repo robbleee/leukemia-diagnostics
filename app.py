@@ -173,7 +173,8 @@ def app_main():
         "aml_free_text_expanded",
         "mds_free_text_expanded",
         "mds_risk_free_text_expanded",
-        "blast_percentage_known"
+        "blast_percentage_known",
+        "manual_inputs_visible"
     ]:
         if key not in st.session_state:
             if key == "blast_percentage_known":
@@ -270,7 +271,7 @@ def app_main():
             )
 
         # Only show the "Analyse Report" button if manual input is not pending.
-        if not (st.session_state.get("initial_parsed_data") and not st.session_state.get("blast_percentage_known", False)):
+        if not (st.session_state.get("initial_parsed_data") and st.session_state.get("manual_inputs_visible") is False):
             if st.button("Analyse Report", key="analyse_report"):
                 # Clear previous results.
                 for key in [
@@ -288,7 +289,6 @@ def app_main():
                     opt_text = ""
                     if down_syndrome:
                         opt_text += "Down syndrome: Yes. "
-                    # If no germline variants were selected, default to "None".
                     if germline_preds:
                         opt_text += "Germline predisposition: " + ", ".join(germline_preds) + ". "
                     else:
@@ -297,17 +297,14 @@ def app_main():
                         opt_text += "Prior cytotoxic chemotherapy: Yes. "
                     if previous_mds != "None":
                         opt_text += "Previous MDS/MDS-MPN: " + previous_mds + ". "
-                    # Append the optional text to the free text.
                     full_report_text = opt_text + "\n" + full_report_text
                     with st.spinner("Parsing report..."):
                         parsed_data = parse_genetics_report_aml(full_report_text)
-                        # If blasts are unknown OR differentiation is ambiguous/missing, require manual input.
                         if (parsed_data.get("blasts_percentage") == "Unknown" or 
                             parsed_data.get("AML_differentiation") is None or 
                             (parsed_data.get("AML_differentiation") or "").lower() == "ambiguous"):
                             st.session_state["initial_parsed_data"] = parsed_data
-                            st.session_state["blast_percentage_known"] = False
-                            # Force an immediate rerun so that the Analyse Report button disappears.
+                            st.session_state["manual_inputs_visible"] = True
                             st.rerun()
                         else:
                             st.session_state["blast_percentage_known"] = True
@@ -325,22 +322,17 @@ def app_main():
                                 "free_text_input": full_report_text
                             }
                             st.session_state["expanded_aml_section"] = "classification"
+                            st.session_state["manual_inputs_visible"] = False
                 else:
                     st.error("No AML data provided.")
 
-        # If parsed data exists with unknown blasts or ambiguous/missing differentiation,
-        # show the manual input form.
-        if st.session_state.get("initial_parsed_data") and not st.session_state.get("blast_percentage_known", False):
+        # Always show the manual input form if initial data exists.
+        if st.session_state.get("initial_parsed_data"):
             st.warning("Either the blast percentage could not be automatically determined or the differentiation is ambiguous/missing. Please provide the missing information to proceed with classification.")
-            # Use a temporary variable so we can safely call .lower().
-            initial_data = st.session_state.get("initial_parsed_data") or {}
             with st.expander("Enter Manual Inputs", expanded=True):
-                # Create two columns for manual inputs.
                 col1, col2 = st.columns(2)
-                
                 with col1:
-                    # For blast percentage: if already known (i.e. not "Unknown"), prefill it.
-                    default_blast = float(initial_data.get("blasts_percentage")) if initial_data.get("blasts_percentage") != "Unknown" else 0.0
+                    default_blast = float(st.session_state["initial_parsed_data"].get("blasts_percentage")) if st.session_state["initial_parsed_data"].get("blasts_percentage") != "Unknown" else 0.0
                     manual_blast_percentage = st.number_input(
                         "Enter Blast Percentage (%)", 
                         min_value=0.0, 
@@ -349,13 +341,9 @@ def app_main():
                         value=default_blast, 
                         key="manual_blast_input"
                     )
-                
                 with col2:
-                    # For differentiation: if ambiguous or missing, prompt for a selection.
-                    diff_field = initial_data.get("AML_differentiation")
+                    diff_field = st.session_state["initial_parsed_data"].get("AML_differentiation")
                     if diff_field is None or (diff_field or "").lower() == "ambiguous":
-                        # Define a mapping with descriptive texts (from a morphologist's perspective) as keys
-                        # and the corresponding FAB classification codes as values.
                         diff_map = {
                             "No clear differentiation": "None",
                             "Minimal differentiation": "M0",
@@ -367,20 +355,16 @@ def app_main():
                             "Erythroid differentiation": "M6",
                             "Megakaryoblastic features": "M7"
                         }
-                        # Show the descriptive texts in the dropdown.
                         manual_differentiation = st.selectbox(
                             "Select Differentiation", 
                             list(diff_map.keys()),
                             key="manual_differentiation_input"
                         )
-
             if st.button("Analyse With Manual Inputs", key="submit_manual"):
                 updated_parsed_data = st.session_state.get("initial_parsed_data") or {}
                 updated_parsed_data["blasts_percentage"] = manual_blast_percentage
-                # If differentiation was ambiguous or missing, update it with the manual selection.
                 if updated_parsed_data.get("AML_differentiation") is None or (updated_parsed_data.get("AML_differentiation") or "").lower() == "ambiguous":
                     updated_parsed_data["AML_differentiation"] = diff_map[manual_differentiation]
-                st.session_state["blast_percentage_known"] = True
                 with st.spinner("Re-classifying with manual inputs..."):
                     who_class, who_deriv = classify_combined_WHO2022(updated_parsed_data, not_erythroid=False)
                     icc_class, icc_deriv = classify_combined_ICC2022(updated_parsed_data)
@@ -396,7 +380,7 @@ def app_main():
                         "free_text_input": full_report_text
                     }
                     st.session_state["expanded_aml_section"] = "classification"
-                    st.session_state.pop("initial_parsed_data")
+                    # Do not clear initial_parsed_data so the form remains for further updates.
 
     # --- Display Results Sub-menu ---
     if "aml_manual_result" in st.session_state or "aml_ai_result" in st.session_state:
@@ -432,7 +416,6 @@ def app_main():
                 classification_eln=res["eln_class"],
                 mode=mode
             )
-
             if "aml_class_review" not in st.session_state:
                 with st.spinner("Generating Classification Review..."):
                     st.session_state["aml_class_review"] = get_gpt4_review_aml_classification(
@@ -494,17 +477,61 @@ def app_main():
             with st.expander("Differentiation", expanded=True):
                 st.markdown(st.session_state["differentiation"])
 
-        # --- Download and Report Incorrect Section ---
-        if "show_pdf_form" not in st.session_state:
-            st.session_state.show_pdf_form = False
+        # --- Download, Report Incorrect, and Clear Buttons ---
 
-        col_download, col_report, col3, col4, col5, col6 = st.columns(6)
+        st.markdown(
+            """
+            <style>
+            /* This targets the button in the sixth column of a horizontal block */
+            div[data-testid="stHorizontalBlock"] > div:nth-of-type(6) button {
+                background-color: #FF4136 !important;
+                color: white !important;
+                margin-top: 0px !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+        clear_keys = [
+            "expanded_aml_section",
+            "expanded_mds_section",
+            "expanded_mds_risk_section",
+            "aml_free_text_expanded",
+            "mds_free_text_expanded",
+            "mds_risk_free_text_expanded",
+            "blast_percentage_known",
+            "manual_inputs_visible",
+            "aml_ai_result",
+            "aml_manual_result",
+            "aml_class_review",
+            "aml_mrd_review",
+            "aml_gene_review",
+            "aml_additional_comments",
+            "initial_parsed_data",
+            "free_text_input"
+        ]
+
+        # Arrange buttons in six columns so that Clear is the leftmost.
+        col_download, col_report, col3, col4, col5, col_clear = st.columns(6)
+
+        with col_clear:
+            if st.button("Clear Analysis Results", key="clear_button"):
+                for key in clear_keys:
+                    st.session_state.pop(key, None)
+                st.rerun()
+
+
         with col_download:
             if st.button("Download Report"):
-                st.session_state.show_pdf_form = True
+                st.session_state["show_pdf_form"] = True
+
         with col_report:
             if st.button("Report Incorrect Result"):
-                st.session_state.show_report_incorrect = True
+                st.session_state["show_report_incorrect"] = True
+
+                st.session_state["show_report_incorrect"] = True
 
         if st.session_state.get("show_pdf_form"):
             with st.form(key="pdf_info_form"):
