@@ -246,7 +246,7 @@ def app_main():
                 height=200
             )
 
-        # If no manual input is pending, show the "Analyse Report" button.
+        # Only show the "Analyse Report" button if manual input is not pending.
         if not (st.session_state.get("initial_parsed_data") and not st.session_state.get("blast_percentage_known", False)):
             if st.button("Analyse Report", key="analyse_report"):
                 # Clear previous results.
@@ -263,8 +263,9 @@ def app_main():
                 if full_report_text.strip():
                     with st.spinner("Parsing report..."):
                         parsed_data = parse_genetics_report_aml(full_report_text)
-                        # If blasts are unknown OR differentiation is ambiguous, require manual input.
+                        # If blasts are unknown OR differentiation is ambiguous or missing, require manual input.
                         if (parsed_data.get("blasts_percentage") == "Unknown" or 
+                            parsed_data.get("AML_differentiation") is None or 
                             (parsed_data.get("AML_differentiation") or "").lower() == "ambiguous"):
                             st.session_state["initial_parsed_data"] = parsed_data
                             st.session_state["blast_percentage_known"] = False
@@ -287,10 +288,10 @@ def app_main():
                 else:
                     st.error("No AML data provided.")
 
-        # If parsed data exists with either unknown blasts or ambiguous differentiation,
+        # If parsed data exists with unknown blasts or ambiguous/missing differentiation,
         # show the manual input form.
         if st.session_state.get("initial_parsed_data") and not st.session_state.get("blast_percentage_known", False):
-            st.warning("Either the blast percentage could not be automatically determined or the FAB differentiation is ambiguous. Please provide the missing information to proceed with classification.")
+            st.warning("Either the blast percentage could not be automatically determined or the FAB differentiation is ambiguous/missing. Please provide the missing information to proceed with classification.")
             # Use a temporary variable so we can safely call .lower().
             initial_data = st.session_state.get("initial_parsed_data") or {}
             with st.expander("Enter Manual Inputs", expanded=True):
@@ -304,10 +305,10 @@ def app_main():
                     value=default_blast, 
                     key="manual_blast_input"
                 )
-
-                # For differentiation: if ambiguous, prompt for a selection.
-                if (initial_data.get("AML_differentiation") or "").lower() == "ambiguous":
-                    differentiation_options = ["M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7"]
+                # For differentiation: if ambiguous or missing (None), prompt for a selection.
+                diff_field = initial_data.get("AML_differentiation")
+                if diff_field is None or (diff_field or "").lower() == "ambiguous":
+                    differentiation_options = ["None", "M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7"]
                     manual_differentiation = st.selectbox(
                         "Select Differentiation", 
                         differentiation_options, 
@@ -316,12 +317,8 @@ def app_main():
             if st.button("Analyse With Manual Inputs", key="submit_manual"):
                 updated_parsed_data = st.session_state.get("initial_parsed_data") or {}
                 updated_parsed_data["blasts_percentage"] = manual_blast_percentage
-                # If differentiation was ambiguous, update it with the manual selection.
-                if (updated_parsed_data.get("AML_differentiation") or "").lower() == "ambiguous":
-                    # Check if a manual selection was made.
-                    if "manual_differentiation_input" not in st.session_state:
-                        st.error("Please select a differentiation.")
-                        st.stop()
+                # If differentiation was ambiguous or missing, update it with the manual selection.
+                if updated_parsed_data.get("AML_differentiation") is None or (updated_parsed_data.get("AML_differentiation") or "").lower() == "ambiguous":
                     updated_parsed_data["AML_differentiation"] = manual_differentiation
                 st.session_state["blast_percentage_known"] = True
                 with st.spinner("Re-classifying with manual inputs..."):
