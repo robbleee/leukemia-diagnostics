@@ -307,6 +307,8 @@ def app_main():
                             (parsed_data.get("AML_differentiation") or "").lower() == "ambiguous"):
                             st.session_state["initial_parsed_data"] = parsed_data
                             st.session_state["blast_percentage_known"] = False
+                            # Force an immediate rerun so that the Analyse Report button disappears.
+                            st.rerun()
                         else:
                             st.session_state["blast_percentage_known"] = True
                             who_class, who_deriv = classify_combined_WHO2022(parsed_data, not_erythroid=False)
@@ -333,38 +335,45 @@ def app_main():
             # Use a temporary variable so we can safely call .lower().
             initial_data = st.session_state.get("initial_parsed_data") or {}
             with st.expander("Enter Manual Inputs", expanded=True):
-                # For blast percentage: if already known (i.e. not "Unknown"), prefill it.
-                default_blast = float(initial_data.get("blasts_percentage")) if initial_data.get("blasts_percentage") != "Unknown" else 0.0
-                manual_blast_percentage = st.number_input(
-                    "Enter Blast Percentage (%)", 
-                    min_value=0.0, 
-                    max_value=100.0, 
-                    step=0.1, 
-                    value=default_blast, 
-                    key="manual_blast_input"
-                )
-                # For differentiation: if ambiguous or missing, prompt for a selection.
-                diff_field = initial_data.get("AML_differentiation")
-                if diff_field is None or (diff_field or "").lower() == "ambiguous":
-                    # Define a mapping with descriptive texts (from a morphologist's perspective) as keys
-                    # and the corresponding FAB classification codes as values.
-                    diff_map = {
-                        "No clear differentiation": "None",
-                        "Minimal differentiation": "M0",
-                        "Blasts without maturation": "M1",
-                        "Blasts with maturation": "M2",
-                        "Promyelocytic features": "M3",
-                        "Myelomonocytic features": "M4",
-                        "Monocytic features": "M5",
-                        "Erythroid differentiation": "M6",
-                        "Megakaryoblastic features": "M7"
-                    }
-                    # Show the descriptive texts in the dropdown.
-                    manual_differentiation = st.selectbox(
-                        "Select Differentiation", 
-                        list(diff_map.keys()),
-                        key="manual_differentiation_input"
+                # Create two columns for manual inputs.
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # For blast percentage: if already known (i.e. not "Unknown"), prefill it.
+                    default_blast = float(initial_data.get("blasts_percentage")) if initial_data.get("blasts_percentage") != "Unknown" else 0.0
+                    manual_blast_percentage = st.number_input(
+                        "Enter Blast Percentage (%)", 
+                        min_value=0.0, 
+                        max_value=100.0, 
+                        step=0.1, 
+                        value=default_blast, 
+                        key="manual_blast_input"
                     )
+                
+                with col2:
+                    # For differentiation: if ambiguous or missing, prompt for a selection.
+                    diff_field = initial_data.get("AML_differentiation")
+                    if diff_field is None or (diff_field or "").lower() == "ambiguous":
+                        # Define a mapping with descriptive texts (from a morphologist's perspective) as keys
+                        # and the corresponding FAB classification codes as values.
+                        diff_map = {
+                            "No clear differentiation": "None",
+                            "Minimal differentiation": "M0",
+                            "Blasts without maturation": "M1",
+                            "Blasts with maturation": "M2",
+                            "Promyelocytic features": "M3",
+                            "Myelomonocytic features": "M4",
+                            "Monocytic features": "M5",
+                            "Erythroid differentiation": "M6",
+                            "Megakaryoblastic features": "M7"
+                        }
+                        # Show the descriptive texts in the dropdown.
+                        manual_differentiation = st.selectbox(
+                            "Select Differentiation", 
+                            list(diff_map.keys()),
+                            key="manual_differentiation_input"
+                        )
+
             if st.button("Analyse With Manual Inputs", key="submit_manual"):
                 updated_parsed_data = st.session_state.get("initial_parsed_data") or {}
                 updated_parsed_data["blasts_percentage"] = manual_blast_percentage

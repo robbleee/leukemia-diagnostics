@@ -268,10 +268,12 @@ def add_diagnostic_section(pdf: FPDF, diag_type: str):
     add_section_title(pdf, f"{diag_type} Classification Results")
     add_classification_section(pdf, classification_data)
 
+    # Include all review sections, adding "Differentiation Review" with key "differentiation"
     review_sections = [
         ("Classification Review", diag_type.lower() + "_class_review"),
         ("MRD Review", diag_type.lower() + "_mrd_review"),
         ("Gene Review", diag_type.lower() + "_gene_review"),
+        ("Differentiation Review", "differentiation"),
         ("Additional Comments", diag_type.lower() + "_additional_comments")
     ]
     for section_name, key in review_sections:
@@ -280,9 +282,6 @@ def add_diagnostic_section(pdf: FPDF, diag_type: str):
             output_review_text(pdf, st.session_state[key], section_name)
             pdf.ln(4)
 
-##################################
-# Updated create_base_pdf function:
-##################################
 def create_base_pdf(user_comments: str = None) -> bytes:
     pdf = PDF()
     pdf.add_page()
