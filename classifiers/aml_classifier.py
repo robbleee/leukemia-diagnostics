@@ -637,8 +637,8 @@ def classify_MDS_ICC2022(parsed_data: dict) -> tuple:
     qualifier_list = []
 
     if qualifiers.get("previous_cytotoxic_therapy", False):
-        qualifier_list.append("post cytotoxic therapy")
-        derivation.append("Qualifier: post cytotoxic therapy")
+        qualifier_list.append("therapy related")
+        derivation.append("Qualifier: therapy related")
     if qualifiers.get("predisposing_germline_variant"):
         germ = qualifiers["predisposing_germline_variant"]
         if germ.lower() != "none":

@@ -238,13 +238,33 @@ def app_main():
 
     # --- FREE TEXT MODE ---
     else:
-        with st.expander("Free Text Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
+        # Free text input area
+        with st.expander("Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
+            # Optional fields container in 4 columns
+            with st.container():
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    down_syndrome = st.checkbox("Down syndrome")
+                with col2:
+                    prior_chemo = st.checkbox("Prior cytotoxic chemotherapy")
+                with col3:
+                    # Expanded list of germline predisposition variants
+                    germline_options = [
+                        "None", "BRCA1", "BRCA2", "TP53", "CHEK2", "PALB2",
+                        "DDX1", "RUNX1", "CEBPA", "GATA2", "ETV6", "ANKRD26", 
+                        "SRP72", "SAMD9", "SAMD9L", "Other"
+                    ]
+                    germline_pred = st.selectbox("Germline predisposition", options=germline_options)
+                with col4:
+                    previous_mds = st.selectbox("Previous MDS/MDS-MPN", options=["None", "Previous MDS", "Previous MDS/MPN"])
+            
             full_report_text = st.text_area(
                 "Enter all relevant AML/MDS data here (Blast % is required; everything else is optional):",
                 placeholder="Paste all reports and clinical info here",
                 key="full_text_input",
                 height=200
             )
+
 
         # Only show the "Analyse Report" button if manual input is not pending.
         if not (st.session_state.get("initial_parsed_data") and not st.session_state.get("blast_percentage_known", False)):
@@ -261,9 +281,21 @@ def app_main():
                 ]:
                     st.session_state.pop(key, None)
                 if full_report_text.strip():
+                    # Build optional text from the 4 fields.
+                    opt_text = ""
+                    if down_syndrome:
+                        opt_text += "Down syndrome: Yes. "
+                    if germline_pred != "None":
+                        opt_text += "Germline predisposition: " + germline_pred + ". "
+                    if prior_chemo:
+                        opt_text += "Prior cytotoxic chemotherapy: Yes. "
+                    if previous_mds != "None":
+                        opt_text += "Previous MDS/MDS-MPN: " + previous_mds + ". "
+                    # Append the optional text to the free text.
+                    full_report_text = opt_text + "\n" + full_report_text
                     with st.spinner("Parsing report..."):
                         parsed_data = parse_genetics_report_aml(full_report_text)
-                        # If blasts are unknown OR differentiation is ambiguous or missing, require manual input.
+                        # If blasts are unknown OR differentiation is ambiguous/missing, require manual input.
                         if (parsed_data.get("blasts_percentage") == "Unknown" or 
                             parsed_data.get("AML_differentiation") is None or 
                             (parsed_data.get("AML_differentiation") or "").lower() == "ambiguous"):
@@ -291,7 +323,7 @@ def app_main():
         # If parsed data exists with unknown blasts or ambiguous/missing differentiation,
         # show the manual input form.
         if st.session_state.get("initial_parsed_data") and not st.session_state.get("blast_percentage_known", False):
-            st.warning("Either the blast percentage could not be automatically determined or the FAB differentiation is ambiguous/missing. Please provide the missing information to proceed with classification.")
+            st.warning("Either the blast percentage could not be automatically determined or the differentiation is ambiguous/missing. Please provide the missing information to proceed with classification.")
             # Use a temporary variable so we can safely call .lower().
             initial_data = st.session_state.get("initial_parsed_data") or {}
             with st.expander("Enter Manual Inputs", expanded=True):
@@ -305,13 +337,26 @@ def app_main():
                     value=default_blast, 
                     key="manual_blast_input"
                 )
-                # For differentiation: if ambiguous or missing (None), prompt for a selection.
+                # For differentiation: if ambiguous or missing, prompt for a selection.
                 diff_field = initial_data.get("AML_differentiation")
                 if diff_field is None or (diff_field or "").lower() == "ambiguous":
-                    differentiation_options = ["None", "M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7"]
+                    # Define a mapping with descriptive texts (from a morphologist's perspective) as keys
+                    # and the corresponding FAB classification codes as values.
+                    diff_map = {
+                        "No clear differentiation": "None",
+                        "Minimal differentiation": "M0",
+                        "Blasts without maturation": "M1",
+                        "Blasts with maturation": "M2",
+                        "Promyelocytic features": "M3",
+                        "Myelomonocytic features": "M4",
+                        "Monocytic features": "M5",
+                        "Erythroid differentiation": "M6",
+                        "Megakaryoblastic features": "M7"
+                    }
+                    # Show the descriptive texts in the dropdown.
                     manual_differentiation = st.selectbox(
                         "Select Differentiation", 
-                        differentiation_options, 
+                        list(diff_map.keys()),
                         key="manual_differentiation_input"
                     )
             if st.button("Analyse With Manual Inputs", key="submit_manual"):
@@ -319,7 +364,7 @@ def app_main():
                 updated_parsed_data["blasts_percentage"] = manual_blast_percentage
                 # If differentiation was ambiguous or missing, update it with the manual selection.
                 if updated_parsed_data.get("AML_differentiation") is None or (updated_parsed_data.get("AML_differentiation") or "").lower() == "ambiguous":
-                    updated_parsed_data["AML_differentiation"] = manual_differentiation
+                    updated_parsed_data["AML_differentiation"] = diff_map[manual_differentiation]
                 st.session_state["blast_percentage_known"] = True
                 with st.spinner("Re-classifying with manual inputs..."):
                     who_class, who_deriv = classify_combined_WHO2022(updated_parsed_data, not_erythroid=False)
