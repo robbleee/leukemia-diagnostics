@@ -30,18 +30,18 @@ def classify_AML_WHO2022(parsed_data: dict, not_erythroid: bool = False) -> tupl
 
     # Validate blasts_percentage
     if blasts_percentage is None:
-        derivation.append("Error: `blasts_percentage` is missing. Classification cannot proceed.")
+        derivation.append("Error: blasts_percentage is missing. Classification cannot proceed.")
         return (
-            "Error: `blasts_percentage` is missing. Please provide this information for classification.",
+            "Error: blasts_percentage is missing. Please provide this information for classification.",
             derivation,
         )
     if not isinstance(blasts_percentage, (int, float)) or not (0.0 <= blasts_percentage <= 100.0):
-        derivation.append("Error: `blasts_percentage` must be a number between 0 and 100.")
+        derivation.append("Error: blasts_percentage must be a number between 0 and 100.")
         return (
-            "Error: `blasts_percentage` must be a number between 0 and 100.",
+            "Error: blasts_percentage must be a number between 0 and 100.",
             derivation,
         )
-    
+
     classification = "Acute myeloid leukaemia, [define by differentiation]"
     derivation.append(f"Default classification set to: {classification}")
 
@@ -141,25 +141,6 @@ def classify_AML_WHO2022(parsed_data: dict, not_erythroid: bool = False) -> tupl
             derivation.append("All MDS-related cytogenetic flags are false.")
 
     # -----------------------------
-    # STEP 4: Add Qualifiers
-    # -----------------------------
-    qualifiers = parsed_data.get("qualifiers", {})
-    qualifier_descriptions = []
-    
-    if qualifiers.get("previous_cytotoxic_therapy", False):
-        qualifier_descriptions.append("post cytotoxic therapy")
-        derivation.append("Detected qualifier: post cytotoxic therapy")
-
-    germline_variant = qualifiers.get("predisposing_germline_variant", "None")
-    if germline_variant and germline_variant.lower() != "none":
-        qualifier_descriptions.append(f"associated with germline {germline_variant}")
-        derivation.append(f"Detected qualifier: germline variant = {germline_variant}")
-
-    if qualifier_descriptions:
-        classification += f", {', '.join(qualifier_descriptions)}"
-        derivation.append(f"Qualifiers appended => {classification}")
-
-    # -----------------------------
     # STEP 5: Update using AML_differentiation (with Override for Erythroid)
     # -----------------------------
     aml_diff = parsed_data.get("AML_differentiation")
@@ -186,7 +167,7 @@ def classify_AML_WHO2022(parsed_data: dict, not_erythroid: bool = False) -> tupl
     # - Erythroid differentiation (M6a/M6b) should override if current classification is default 
     #   or "Not AML, consider MDS classification" UNLESS not_erythroid is True.
     # - Other differentiations can only override the default classification.
-    if classification.strip() in ["Acute myeloid leukaemia, [define by differentiation]", "Not AML, consider MDS classification"]:
+    if ("define by differentiation" in classification) or ("Not AML" in classification):
         if aml_diff:
             if aml_diff in ["M6a", "M6b"]:
                 if not not_erythroid:
@@ -204,7 +185,28 @@ def classify_AML_WHO2022(parsed_data: dict, not_erythroid: bool = False) -> tupl
     else:
         derivation.append("AML_differentiation provided but classification already determined; no override.")
 
-    # Append "(WHO 2022)" if not already present and if classification is not a "Not AML" state.
+    # -----------------------------
+    # STEP 4 (Moved): Append Qualifiers
+    # -----------------------------
+    qualifiers = parsed_data.get("qualifiers", {})
+    qualifier_descriptions = []
+
+    if qualifiers.get("previous_cytotoxic_therapy", False):
+        qualifier_descriptions.append("post cytotoxic therapy")
+        derivation.append("Detected qualifier: post cytotoxic therapy")
+
+    germline_variant = qualifiers.get("predisposing_germline_variant", "None")
+    if germline_variant and germline_variant.lower() != "none":
+        qualifier_descriptions.append(f"associated with germline {germline_variant}")
+        derivation.append(f"Detected qualifier: germline variant = {germline_variant}")
+
+    if qualifier_descriptions:
+        classification += f", {', '.join(qualifier_descriptions)}"
+        derivation.append(f"Qualifiers appended => {classification}")
+
+    # -----------------------------
+    # Append WHO 2022 suffix if applicable
+    # -----------------------------
     if "Not AML" not in classification:
         classification += " (WHO 2022)"
     derivation.append(f"Final classification => {classification}")
