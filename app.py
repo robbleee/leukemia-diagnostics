@@ -147,6 +147,7 @@ def show_login_page():
 # APP MAIN
 ##################################
 def app_main():
+    full_report_text = ""
     token = st.session_state.get("jwt_token")
     user_data = verify_jwt_token(token) if token else None
     if not user_data:
@@ -164,19 +165,23 @@ def app_main():
             cookies.save()
             st.rerun()
 
-    # Initialize additional session state variables.
-    if "expanded_aml_section" not in st.session_state:
-        st.session_state["expanded_aml_section"] = None
-    if "expanded_mds_section" not in st.session_state:
-        st.session_state["expanded_mds_section"] = None
-    if "expanded_mds_risk_section" not in st.session_state:
-        st.session_state["expanded_mds_risk_section"] = None
-    if "aml_free_text_expanded" not in st.session_state:
-        st.session_state["aml_free_text_expanded"] = True
-    if "mds_free_text_expanded" not in st.session_state:
-        st.session_state["mds_free_text_expanded"] = True
-    if "mds_risk_free_text_expanded" not in st.session_state:
-        st.session_state["mds_risk_free_text_expanded"] = True
+    # Initialize session state variables.
+    for key in [
+        "expanded_aml_section",
+        "expanded_mds_section",
+        "expanded_mds_risk_section",
+        "aml_free_text_expanded",
+        "mds_free_text_expanded",
+        "mds_risk_free_text_expanded",
+        "blast_percentage_known"
+    ]:
+        if key not in st.session_state:
+            if key == "blast_percentage_known":
+                st.session_state[key] = False
+            elif key == "aml_free_text_expanded":
+                st.session_state[key] = True
+            else:
+                st.session_state[key] = None
 
     st.markdown(
         """
@@ -201,7 +206,7 @@ def app_main():
     # --- MANUAL MODE ---
     if not aml_mode_toggle:
         manual_data = build_manual_aml_data()
-        if st.button("Analyse Genetics"):
+        if st.button("Analyse Genetics", key="analyse_genetics_manual"):
             st.session_state["aml_manual_expanded"] = False
             st.session_state["aml_busy"] = True
             with st.spinner("Compiling results. Please wait..."):
@@ -211,7 +216,9 @@ def app_main():
                     "aml_class_review",
                     "aml_mrd_review",
                     "aml_gene_review",
-                    "aml_additional_comments"
+                    "aml_additional_comments",
+                    "initial_parsed_data",
+                    "blast_percentage_known"
                 ]:
                     st.session_state.pop(key, None)
                 classification_who, who_derivation = classify_combined_WHO2022(manual_data, not_erythroid=False)
@@ -232,31 +239,73 @@ def app_main():
     # --- FREE TEXT MODE ---
     else:
         with st.expander("Free Text Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
-            full_report = st.text_area(
+            full_report_text = st.text_area(
                 "Enter all relevant AML/MDS data here (Blast % is required; everything else is optional):",
                 placeholder="Paste all reports and clinical info here",
                 key="full_text_input",
                 height=200
             )
-        if st.button("Analyse Report"):
+
+        # Button to analyse the report.
+        if st.button("Analyse Report", key="analyse_report"):
+            # Clear previous results.
             for key in [
-                "aml_manual_result",
                 "aml_ai_result",
                 "aml_class_review",
                 "aml_mrd_review",
                 "aml_gene_review",
-                "aml_additional_comments"
+                "aml_additional_comments",
+                "initial_parsed_data",
+                "blast_percentage_known"
             ]:
                 st.session_state.pop(key, None)
-            full_report_text = st.session_state.get("full_text_input", "")
+
             if full_report_text.strip():
-                with st.spinner("Parsing & classifying ..."):
+                with st.spinner("Parsing report..."):
                     parsed_data = parse_genetics_report_aml(full_report_text)
-                    who_class, who_deriv = classify_combined_WHO2022(parsed_data, not_erythroid=False)
-                    icc_class, icc_deriv = classify_combined_ICC2022(parsed_data)
-                    eln_class, eln_deriv = classify_ELN2022(parsed_data)
+                    # If blast percentage is unknown, store the parsed data for later update.
+                    if parsed_data.get("blasts_percentage") == "Unknown":
+                        st.session_state["initial_parsed_data"] = parsed_data
+                        st.session_state["blast_percentage_known"] = False
+                    else:
+                        st.session_state["blast_percentage_known"] = True
+                        who_class, who_deriv = classify_combined_WHO2022(parsed_data, not_erythroid=False)
+                        icc_class, icc_deriv = classify_combined_ICC2022(parsed_data)
+                        eln_class, eln_deriv = classify_ELN2022(parsed_data)
+                        st.session_state["aml_ai_result"] = {
+                            "parsed_data": parsed_data,
+                            "who_class": who_class,
+                            "who_derivation": who_deriv,
+                            "icc_class": icc_class,
+                            "icc_derivation": icc_deriv,
+                            "eln_class": eln_class,
+                            "eln_derivation": eln_deriv,
+                            "free_text_input": full_report_text
+                        }
+                        st.session_state["expanded_aml_section"] = "classification"
+            else:
+                st.error("No AML data provided.")
+
+        # Immediately after Analyse Report, if the blast percentage was unknown, show the manual blast input form.
+        if st.session_state.get("initial_parsed_data") and not st.session_state.get("blast_percentage_known", False):
+            st.warning("Blast percentage could not be automatically determined. Please enter it manually to proceed with classification.")
+            with st.expander("Enter Manual Blast Percentage", expanded=True):
+                manual_blast_percentage = st.number_input(
+                    "Enter Blast Percentage (%)", 
+                    min_value=0.0, max_value=100.0, step=0.1, value=0.0, key="manual_blast_input"
+                )
+
+
+            if st.button("Analyse With Blast Percentage", key="submit_blast"):
+                updated_parsed_data = st.session_state["initial_parsed_data"].copy()
+                updated_parsed_data["blasts_percentage"] = manual_blast_percentage
+                st.session_state["blast_percentage_known"] = True
+                with st.spinner("Re-classifying with manual Blast % ..."):
+                    who_class, who_deriv = classify_combined_WHO2022(updated_parsed_data, not_erythroid=False)
+                    icc_class, icc_deriv = classify_combined_ICC2022(updated_parsed_data)
+                    eln_class, eln_deriv = classify_ELN2022(updated_parsed_data)
                     st.session_state["aml_ai_result"] = {
-                        "parsed_data": parsed_data,
+                        "parsed_data": updated_parsed_data,
                         "who_class": who_class,
                         "who_derivation": who_deriv,
                         "icc_class": icc_class,
@@ -266,8 +315,7 @@ def app_main():
                         "free_text_input": full_report_text
                     }
                     st.session_state["expanded_aml_section"] = "classification"
-            else:
-                st.error("No AML data provided.")
+                    st.session_state.pop("initial_parsed_data")
 
     # --- Display Results Sub-menu ---
     if "aml_manual_result" in st.session_state or "aml_ai_result" in st.session_state:
@@ -303,7 +351,7 @@ def app_main():
                 classification_eln=res["eln_class"],
                 mode=mode
             )
-            
+
             if "aml_class_review" not in st.session_state:
                 with st.spinner("Generating Classification Review..."):
                     st.session_state["aml_class_review"] = get_gpt4_review_aml_classification(
@@ -356,7 +404,7 @@ def app_main():
 
         elif sub_tab == "Differentiation":
             if "differentiation" not in st.session_state:
-                with st.spinner("Generating Differentiaion Review..."):
+                with st.spinner("Generating Differentiation Review..."):
                     st.session_state["differentiation"] = get_gpt4_review_aml_differentiation(
                         classification_dict,
                         res["parsed_data"],
@@ -369,7 +417,6 @@ def app_main():
         if "show_pdf_form" not in st.session_state:
             st.session_state.show_pdf_form = False
 
-        # Create two columns for the two buttons.
         col_download, col_report, col3, col4, col5, col6 = st.columns(6)
         with col_download:
             if st.button("Download Report"):
@@ -377,17 +424,7 @@ def app_main():
         with col_report:
             if st.button("Report Incorrect Result"):
                 st.session_state.show_report_incorrect = True
-        with col3:
-            pass
-        with col4:
-            pass
-        with col5:
-            pass
-        with col6:
-            pass
 
-
-        # --- Download Report Flow (with patient info) ---
         if st.session_state.get("show_pdf_form"):
             with st.form(key="pdf_info_form"):
                 patient_name = st.text_input("Enter patient name (client-side only):")
@@ -406,7 +443,6 @@ def app_main():
                     except Exception as e:
                         st.error("Date of birth must be in dd/mm/yyyy format.")
                         return
-                    # Generate the PDF using the provided user comments.
                     base_pdf_bytes = create_base_pdf(user_comments=user_comments)
                     base_pdf_b64 = base64.b64encode(base_pdf_bytes).decode("utf-8")
                     js_code = f"""
@@ -447,22 +483,16 @@ def app_main():
                     </script>
                     """
                     components.html(js_code, height=0)
-                    
                     st.markdown("### PDF Preview")
                     pdf_display = f'<iframe src="data:application/pdf;base64,{base_pdf_b64}" width="100%" height="600"></iframe>'
                     st.markdown(pdf_display, unsafe_allow_html=True)
-                    
                     st.session_state.show_pdf_form = False
 
-        # --- Report Incorrect Flow (using mailto link and auto-download) ---
         if st.session_state.get("show_report_incorrect"):
             incorrect_comment = st.text_area("Please explain why the report is incorrect:")
             if st.button("Generate Email Link"):
-                # Generate the PDF with no patient data (empty user comments)
-                report_pdf_bytes = create_base_pdf(user_comments="")  
+                report_pdf_bytes = create_base_pdf(user_comments="")
                 base_pdf_b64 = base64.b64encode(report_pdf_bytes).decode("utf-8")
-                
-                # Auto-download the PDF without patient data using injected JavaScript.
                 js_code = f"""
                 <input type="hidden" id="base_pdf" value="{base_pdf_b64}">
                 <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -480,8 +510,6 @@ def app_main():
                 </script>
                 """
                 components.html(js_code, height=0)
-                
-                # Build a mailto link for the user to send feedback.
                 subject = urllib.parse.quote("Incorrect AML/MDS Diagnostic Report Feedback")
                 body = urllib.parse.quote(
                     f"User reported an incorrect diagnostic result.\n\nComment:\n{incorrect_comment}\n\n"

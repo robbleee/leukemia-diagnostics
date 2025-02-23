@@ -14,15 +14,15 @@ def parse_genetics_report_aml(report_text: str) -> dict:
     """
     Sends the free-text hematological report to OpenAI and requests a structured JSON
     with all fields needed for classification, including AML differentiation.
-    
+
     Returns:
-        dict: A dictionary containing the extracted fields. Returns an empty dict if parsing fails.
+        dict: A dictionary containing the extracted fields. Returns the dict with "blasts_percentage": "Unknown" if parsing fails to determine blast percentage.
     """
     # Safety check: if the user didn’t type anything, return an empty dict
     if not report_text.strip():
         st.warning("Empty report text received.")
         return {}
-    
+
     # Updated required JSON structure with new markers
     required_json_structure = {
         "blasts_percentage": None,  # Changed from 0.0 to None
@@ -42,7 +42,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "MECOM": False,
             "NUP98": False,
             "CEBPA": False,
-            "bZIP": False,  
+            "bZIP": False,
             "BCR::ABL1": False,
             # Additional / Uncommon markers:
             "IRF2BP2::RARA": False,
@@ -118,14 +118,14 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "predisposing_germline_variant": "None"
         }
     }
-    
+
     # Construct the prompt with detailed instructions.
     prompt = f"""
-The user has pasted a free-text hematological report. 
-Please extract the following fields from the text and format them into a valid JSON object exactly as specified below. 
+The user has pasted a free-text hematological report.
+Please extract the following fields from the text and format them into a valid JSON object exactly as specified below.
 For boolean fields, use true/false. For numerical fields, provide the value. If a field is not found or unclear, set it to false or a default value.
 
-Additionally, extract the AML differentiation classification field ("AML_differentiation") from the free text. 
+Additionally, extract the AML differentiation classification field ("AML_differentiation") from the free text.
 This field should be filled using the FAB classification system. If the free text provides the differentiation in the FAB format (e.g., "FAB M3") or using a descriptive/standard format (e.g., "Acute promyelocytic leukaemia" or "erythroid differentiation"), convert and record the corresponding FAB classification code according to the following mapping:
 
     M0: Acute myeloid leukaemia with minimal differentiation
@@ -201,10 +201,10 @@ For predisposing_germline_variant, leave as "None" if there is none; otherwise r
 
 **Required JSON structure:**
 {{
-    "blasts_percentage": null, 
-    "fibrotic": False,       
-    "hypoplasia": False,     
-    "number_of_dysplastic_lineages": None,  
+    "blasts_percentage": null,
+    "fibrotic": False,
+    "hypoplasia": False,
+    "number_of_dysplastic_lineages": null,
     "AML_defining_recurrent_genetic_abnormalities": {{
         "PML::RARA": false,
         "NPM1": false,
@@ -303,7 +303,7 @@ For predisposing_germline_variant, leave as "None" if there is none; otherwise r
 Here is the free-text hematological report to parse:
 {report_text}
     """
-    
+
     try:
         response = client.chat.completions.create(
             model="o3-mini",  # Adjust the model name as appropriate
@@ -313,10 +313,10 @@ Here is the free-text hematological report to parse:
             ]
         )
         raw_content = response.choices[0].message.content.strip()
-        
+
         # Attempt to parse the JSON
         parsed_data = json.loads(raw_content)
-        
+
         # Ensure all required fields are present; fill missing fields with defaults
         for key, value in required_json_structure.items():
             if key not in parsed_data:
@@ -325,14 +325,17 @@ Here is the free-text hematological report to parse:
                 for sub_key, sub_value in value.items():
                     if sub_key not in parsed_data[key]:
                         parsed_data[key][sub_key] = sub_value
-        
-        # Validate blasts_percentage
+
+        # Handle blasts_percentage and validation
         blasts = parsed_data.get("blasts_percentage")
-        if blasts is not None:
+        if blasts is None:
+            parsed_data["blasts_percentage"] = "Unknown"
+        elif blasts != "Unknown": # Only validate if it's not already set to "Unknown" from previous parsing attempt
             if not isinstance(blasts, (int, float)) or not (0.0 <= blasts <= 100.0):
                 st.error("❌ Invalid `blasts_percentage` value. It must be a number between 0 and 100.")
-                return {}
-        
+                return {} # Return empty dict if validation fails for numerical value
+
+
         # Validate AML_differentiation
         aml_diff = parsed_data.get("AML_differentiation")
         valid_fab_classes = [f"M{i}" for i in range(0, 8)]  # M0 to M7
@@ -342,13 +345,13 @@ Here is the free-text hematological report to parse:
                 return {}
             elif not any(fab in aml_diff.upper() for fab in valid_fab_classes):
                 st.warning("⚠️ `AML_differentiation` value does not match known FAB classifications.")
-        
+
         # Print the parsed JSON object to stdout for debugging
         print("Parsed Haematology Report JSON:")
         print(json.dumps(parsed_data, indent=2))
-        
+
         return parsed_data
-    
+
     except json.JSONDecodeError:
         st.error("❌ Failed to parse the AI response into JSON. Please ensure the report is well-formatted.")
         print("❌ JSONDecodeError: Failed to parse AI response.")
