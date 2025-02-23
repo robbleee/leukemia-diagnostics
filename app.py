@@ -246,61 +246,85 @@ def app_main():
                 height=200
             )
 
-        # Button to analyse the report.
-        if st.button("Analyse Report", key="analyse_report"):
-            # Clear previous results.
-            for key in [
-                "aml_ai_result",
-                "aml_class_review",
-                "aml_mrd_review",
-                "aml_gene_review",
-                "aml_additional_comments",
-                "initial_parsed_data",
-                "blast_percentage_known"
-            ]:
-                st.session_state.pop(key, None)
+        # If no manual input is pending, show the "Analyse Report" button.
+        if not (st.session_state.get("initial_parsed_data") and not st.session_state.get("blast_percentage_known", False)):
+            if st.button("Analyse Report", key="analyse_report"):
+                # Clear previous results.
+                for key in [
+                    "aml_ai_result",
+                    "aml_class_review",
+                    "aml_mrd_review",
+                    "aml_gene_review",
+                    "aml_additional_comments",
+                    "initial_parsed_data",
+                    "blast_percentage_known"
+                ]:
+                    st.session_state.pop(key, None)
+                if full_report_text.strip():
+                    with st.spinner("Parsing report..."):
+                        parsed_data = parse_genetics_report_aml(full_report_text)
+                        # If blasts are unknown OR differentiation is ambiguous, require manual input.
+                        if (parsed_data.get("blasts_percentage") == "Unknown" or 
+                            (parsed_data.get("AML_differentiation") or "").lower() == "ambiguous"):
+                            st.session_state["initial_parsed_data"] = parsed_data
+                            st.session_state["blast_percentage_known"] = False
+                        else:
+                            st.session_state["blast_percentage_known"] = True
+                            who_class, who_deriv = classify_combined_WHO2022(parsed_data, not_erythroid=False)
+                            icc_class, icc_deriv = classify_combined_ICC2022(parsed_data)
+                            eln_class, eln_deriv = classify_ELN2022(parsed_data)
+                            st.session_state["aml_ai_result"] = {
+                                "parsed_data": parsed_data,
+                                "who_class": who_class,
+                                "who_derivation": who_deriv,
+                                "icc_class": icc_class,
+                                "icc_derivation": icc_deriv,
+                                "eln_class": eln_class,
+                                "eln_derivation": eln_deriv,
+                                "free_text_input": full_report_text
+                            }
+                            st.session_state["expanded_aml_section"] = "classification"
+                else:
+                    st.error("No AML data provided.")
 
-            if full_report_text.strip():
-                with st.spinner("Parsing report..."):
-                    parsed_data = parse_genetics_report_aml(full_report_text)
-                    # If blast percentage is unknown, store the parsed data for later update.
-                    if parsed_data.get("blasts_percentage") == "Unknown":
-                        st.session_state["initial_parsed_data"] = parsed_data
-                        st.session_state["blast_percentage_known"] = False
-                    else:
-                        st.session_state["blast_percentage_known"] = True
-                        who_class, who_deriv = classify_combined_WHO2022(parsed_data, not_erythroid=False)
-                        icc_class, icc_deriv = classify_combined_ICC2022(parsed_data)
-                        eln_class, eln_deriv = classify_ELN2022(parsed_data)
-                        st.session_state["aml_ai_result"] = {
-                            "parsed_data": parsed_data,
-                            "who_class": who_class,
-                            "who_derivation": who_deriv,
-                            "icc_class": icc_class,
-                            "icc_derivation": icc_deriv,
-                            "eln_class": eln_class,
-                            "eln_derivation": eln_deriv,
-                            "free_text_input": full_report_text
-                        }
-                        st.session_state["expanded_aml_section"] = "classification"
-            else:
-                st.error("No AML data provided.")
-
-        # Immediately after Analyse Report, if the blast percentage was unknown, show the manual blast input form.
+        # If parsed data exists with either unknown blasts or ambiguous differentiation,
+        # show the manual input form.
         if st.session_state.get("initial_parsed_data") and not st.session_state.get("blast_percentage_known", False):
-            st.warning("Blast percentage could not be automatically determined. Please enter it manually to proceed with classification.")
-            with st.expander("Enter Manual Blast Percentage", expanded=True):
+            st.warning("Either the blast percentage could not be automatically determined or the FAB differentiation is ambiguous. Please provide the missing information to proceed with classification.")
+            # Use a temporary variable so we can safely call .lower().
+            initial_data = st.session_state.get("initial_parsed_data") or {}
+            with st.expander("Enter Manual Inputs", expanded=True):
+                # For blast percentage: if already known (i.e. not "Unknown"), prefill it.
+                default_blast = float(initial_data.get("blasts_percentage")) if initial_data.get("blasts_percentage") != "Unknown" else 0.0
                 manual_blast_percentage = st.number_input(
                     "Enter Blast Percentage (%)", 
-                    min_value=0.0, max_value=100.0, step=0.1, value=0.0, key="manual_blast_input"
+                    min_value=0.0, 
+                    max_value=100.0, 
+                    step=0.1, 
+                    value=default_blast, 
+                    key="manual_blast_input"
                 )
 
-
-            if st.button("Analyse With Blast Percentage", key="submit_blast"):
-                updated_parsed_data = st.session_state["initial_parsed_data"].copy()
+                # For differentiation: if ambiguous, prompt for a selection.
+                if (initial_data.get("AML_differentiation") or "").lower() == "ambiguous":
+                    differentiation_options = ["M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7"]
+                    manual_differentiation = st.selectbox(
+                        "Select Differentiation", 
+                        differentiation_options, 
+                        key="manual_differentiation_input"
+                    )
+            if st.button("Analyse With Manual Inputs", key="submit_manual"):
+                updated_parsed_data = st.session_state.get("initial_parsed_data") or {}
                 updated_parsed_data["blasts_percentage"] = manual_blast_percentage
+                # If differentiation was ambiguous, update it with the manual selection.
+                if (updated_parsed_data.get("AML_differentiation") or "").lower() == "ambiguous":
+                    # Check if a manual selection was made.
+                    if "manual_differentiation_input" not in st.session_state:
+                        st.error("Please select a differentiation.")
+                        st.stop()
+                    updated_parsed_data["AML_differentiation"] = manual_differentiation
                 st.session_state["blast_percentage_known"] = True
-                with st.spinner("Re-classifying with manual Blast % ..."):
+                with st.spinner("Re-classifying with manual inputs..."):
                     who_class, who_deriv = classify_combined_WHO2022(updated_parsed_data, not_erythroid=False)
                     icc_class, icc_deriv = classify_combined_ICC2022(updated_parsed_data)
                     eln_class, eln_deriv = classify_ELN2022(updated_parsed_data)

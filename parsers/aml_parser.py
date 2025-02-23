@@ -140,7 +140,7 @@ This field should be filled using the FAB classification system. If the free tex
     M6b: Pure erythroid leukaemia
     M7: Acute megakaryoblastic leukaemia
 
-If the differentiation is not specified or cannot be determined, set the value to null.
+If the differentiation is not specified or cannot be determined, set the value to null. If for any reason you are unsure what to put (e.g. multiple are mentioned) then set value to "ambiguous"
 
 Try to consider if the user may have used some sort of shorthand and translate where necessary.
 
