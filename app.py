@@ -1,21 +1,16 @@
-import os
 import streamlit as st
-
 # IMPORTANT: Call set_page_config as the very first Streamlit command.
 st.set_page_config(
     page_title="Haematologic Classification",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
 import urllib.parse
 import bcrypt
-import json
 import datetime
 import jwt
-from openai import OpenAI
 from streamlit_option_menu import option_menu
-from fpdf import FPDF
-import re
 import base64
 import streamlit.components.v1 as components
 
