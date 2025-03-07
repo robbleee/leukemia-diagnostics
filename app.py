@@ -236,26 +236,40 @@ def app_main():
     else:
         # Free text input area
         with st.expander("Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
-            # Optional fields container in 4 columns
+            # Optional fields container in 4 columns:
+            #   col0: Bone Marrow Blasts Override (%)
+            #   col1: Prior cytotoxic chemotherapy (dropdown)
+            #   col2: Germline predisposition (dropdown with default "No")
+            #   col3: Previous MDS/MDS-MPN
             with st.container():
-                col1, col2, col3, col4 = st.columns(4)
+                col0, col1, col2, col3 = st.columns(4)
+                with col0:
+                    bone_marrow_blasts = st.number_input(
+                        "Bone Marrow Blasts Override (%)", 
+                        min_value=0.0, 
+                        max_value=100.0, 
+                        step=0.1, 
+                        value=0.0,
+                        key="bone_marrow_blasts_initial"
+                    )
                 with col1:
-                    down_syndrome = st.checkbox("Down syndrome")
+                    prior_chemo = st.selectbox(
+                        "Prior cytotoxic chemotherapy",
+                        options=["No", "Yes"],
+                        index=0
+                    )
                 with col2:
-                    prior_chemo = st.checkbox("Prior cytotoxic chemotherapy")
-                with col3:
-                    # Expanded list of germline predisposition variants (no default selection)
                     germline_options = [
-                        "BRCA1", "BRCA2", "TP53", "CHEK2", "PALB2",
+                        "No", "Down syndrome", "BRCA1", "BRCA2", "TP53", "CHEK2", "PALB2",
                         "DDX1", "RUNX1", "CEBPA", "GATA2", "ETV6", "ANKRD26", 
                         "SRP72", "SAMD9", "SAMD9L", "Other"
                     ]
-                    germline_preds = st.multiselect(
-                        "Germline predisposition (default: None)",
+                    germline_pred = st.selectbox(
+                        "Germline predisposition",
                         options=germline_options,
-                        default=[]
+                        index=0
                     )
-                with col4:
+                with col3:
                     previous_mds = st.selectbox("Previous MDS/MDS-MPN", options=["None", "Previous MDS", "Previous MDS/MPN"])
             
             full_report_text = st.text_area(
@@ -264,7 +278,7 @@ def app_main():
                 key="full_text_input",
                 height=200
             )
-
+        
         # Only show the "Analyse Report" button if manual input is not pending.
         if not (st.session_state.get("initial_parsed_data") and st.session_state.get("manual_inputs_visible") is False):
             if st.button("Analyse Report", key="analyse_report"):
@@ -282,14 +296,15 @@ def app_main():
                 if full_report_text.strip():
                     # Build optional text from the 4 fields.
                     opt_text = ""
-                    if down_syndrome:
-                        opt_text += "Down syndrome: Yes. "
-                    if germline_preds:
-                        opt_text += "Germline predisposition: " + ", ".join(germline_preds) + ". "
+                    opt_text += "Bone Marrow Blasts Override: " + str(st.session_state["bone_marrow_blasts_initial"]) + "%. "
+                    if germline_pred != "No":
+                        opt_text += "Germline predisposition: " + germline_pred + ". "
                     else:
                         opt_text += "Germline predisposition: None. "
-                    if prior_chemo:
+                    if prior_chemo != "No":
                         opt_text += "Prior cytotoxic chemotherapy: Yes. "
+                    else:
+                        opt_text += "Prior cytotoxic chemotherapy: No. "
                     if previous_mds != "None":
                         opt_text += "Previous MDS/MDS-MPN: " + previous_mds + ". "
                     full_report_text = opt_text + "\n" + full_report_text
@@ -320,7 +335,7 @@ def app_main():
                             st.session_state["manual_inputs_visible"] = False
                 else:
                     st.error("No AML data provided.")
-
+        
         # Always show the manual input form if initial data exists.
         if st.session_state.get("initial_parsed_data"):
             st.warning("Either the blast percentage could not be automatically determined or the differentiation is ambiguous/missing. Please provide the missing information to proceed with classification.")
@@ -358,6 +373,8 @@ def app_main():
             if st.button("Analyse With Manual Inputs", key="submit_manual"):
                 updated_parsed_data = st.session_state.get("initial_parsed_data") or {}
                 updated_parsed_data["blasts_percentage"] = manual_blast_percentage
+                # Propagate the override value from the initial form.
+                updated_parsed_data["bone_marrow_blasts_override"] = st.session_state["bone_marrow_blasts_initial"]
                 if updated_parsed_data.get("AML_differentiation") is None or (updated_parsed_data.get("AML_differentiation") or "").lower() == "ambiguous":
                     updated_parsed_data["AML_differentiation"] = diff_map[manual_differentiation]
                 with st.spinner("Re-classifying with manual inputs..."):
