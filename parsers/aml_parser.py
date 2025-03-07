@@ -126,29 +126,171 @@ def parse_genetics_report_aml(report_text: str) -> dict:
     # First pass: extract all fields except AML_differentiation and differentiation_reasoning.
     # (Any AML_differentiation data from the report is disregarded.)
     first_prompt = f"""
+
 The user has pasted a free-text hematological report.
 Please extract the following fields from the text and format them into a valid JSON object exactly as specified below.
 For boolean fields, use true/false. For numerical fields, provide the value. If a field is not found or unclear, set it to false or a default value.
-Ignore any FAB classification or AML differentiation details in the report.
 
-**Required JSON structure (excluding AML_differentiation and differentiation_reasoning):**
+Try to consider if the user may have used some sort of shorthand and translate where necessary.
+
+For example:
+1. 2_x_TP53_mutations: Extract if the report mentions phrases like "2 TP53 mutations," "biallelic TP53 mutations," or similar. We need at least 2 for it to be true.
+2. 1_x_TP53_mutation_del_17p: This MUST be a TP53 mutation AND a deletion of 17p. They may be mentioned in different parts of the report.
+3. 1_x_TP53_mutation_LOH: Identify phrases such as "TP53 mutation and LOH" or "TP53 mutation with Loss of Heterozygosity." Both conditions must be met.
+4. AML_differentiation: Extract the AML differentiation classification and convert it to the appropriate FAB code based on the mapping above.
+5. Complex_karyotype: Can be any combination of any three cytogenetic abnormalities, even if they're not MDS-related.
+
+Only record an AML_defining_recurrent_genetic_abnormality as true if the report exactly mentions one of the abnormalities listed below:
+
+    PML::RARA fusion
+    NPM1 mutation
+    RUNX1::RUNX1T1 fusion
+    CBFB::MYH11 fusion
+    DEK::NUP214 fusion
+    RBM15::MRTFA fusion
+    MLLT3::KMT2A fusion
+    GATA2::MECOM rearrangement
+    KMT2A rearrangement
+    MECOM rearrangement
+    NUP98 rearrangement
+    CEBPA mutation (and if it is an in-frame bZIP mutation, then record "bZIP": true)
+    BCR::ABL1 fusion
+
+Additionally, consider the following markers (if mentioned exactly) as part of AML_defining_recurrent_genetic_abnormalities:
+
+    IRF2BP2::RARA
+    NPM1::RARA
+    ZBTB16::RARA
+    STAT5B::RARA
+    STAT3::RARA
+    RARA::TBL1XR1
+    RARA::FIP1L1
+    RARA::BCOR
+    AFF1::KMT2A
+    AFDN::KMT2A
+    MLLT10::KMT2A
+    TET1::KMT2A
+    KMT2A::ELL
+    KMT2A::MLLT1
+    MYC::MECOM
+    ETV6::MECOM
+    MECOM::RUNX1
+    PRDM16::RPN1
+    NPM1::MLF1
+    NUP98::NSD1
+    NUP98::KMD5A
+    ETV6::MNX1
+    KAT6A::CREBBP
+    PICALM::MLLT10
+    FUS::ERG
+    RUNX1::CBFA2T3
+    CBFA2T3::GLIS2
+
+For predisposing_germline_variant, leave as "None" if there is none; otherwise record the variant specified.
+
+**Required JSON structure:**
 {{
     "blasts_percentage": null,
-    "fibrotic": false,
-    "hypoplasia": false,
+    "fibrotic": False,
+    "hypoplasia": False,
     "number_of_dysplastic_lineages": null,
-    "AML_defining_recurrent_genetic_abnormalities": {{ ... }},
-    "Biallelic_TP53_mutation": {{ ... }},
-    "MDS_related_mutation": {{ ... }},
-    "MDS_related_cytogenetics": {{ ... }},
+    "AML_defining_recurrent_genetic_abnormalities": {{
+        "PML::RARA": false,
+        "NPM1": false,
+        "RUNX1::RUNX1T1": false,
+        "CBFB::MYH11": false,
+        "DEK::NUP214": false,
+        "RBM15::MRTFA": false,
+        "MLLT3::KMT2A": false,
+        "GATA2::MECOM": false,
+        "KMT2A": false,
+        "MECOM": false,
+        "NUP98": false,
+        "CEBPA": false,
+        "bZIP": false,
+        "BCR::ABL1": false,
+        "IRF2BP2::RARA": false,
+        "NPM1::RARA": false,
+        "ZBTB16::RARA": false,
+        "STAT5B::RARA": false,
+        "STAT3::RARA": false,
+        "RARA::TBL1XR1": false,
+        "RARA::FIP1L1": false,
+        "RARA::BCOR": false,
+        "AFF1::KMT2A": false,
+        "AFDN::KMT2A": false,
+        "MLLT10::KMT2A": false,
+        "TET1::KMT2A": false,
+        "KMT2A::ELL": false,
+        "KMT2A::MLLT1": false,
+        "MYC::MECOM": false,
+        "ETV6::MECOM": false,
+        "MECOM::RUNX1": false,
+        "PRDM16::RPN1": false,
+        "NPM1::MLF1": false,
+        "NUP98::NSD1": false,
+        "NUP98::KMD5A": false,
+        "ETV6::MNX1": false,
+        "KAT6A::CREBBP": false,
+        "PICALM::MLLT10": false,
+        "FUS::ERG": false,
+        "RUNX1::CBFA2T3": false,
+        "CBFA2T3::GLIS2": false
+    }},
+    "Biallelic_TP53_mutation": {{
+        "2_x_TP53_mutations": false,
+        "1_x_TP53_mutation_del_17p": false,
+        "1_x_TP53_mutation_LOH": false,
+        "1_x_TP53_mutation_10_percent_vaf": false
+    }},
+    "MDS_related_mutation": {{
+        "ASXL1": false,
+        "BCOR": false,
+        "EZH2": false,
+        "RUNX1": false,
+        "SF3B1": false,
+        "SRSF2": false,
+        "STAG2": false,
+        "U2AF1": false,
+        "ZRSR2": false
+    }},
+    "MDS_related_cytogenetics": {{
+        "Complex_karyotype": false,
+        "del_5q": false,
+        "t_5q": false,
+        "add_5q": false,
+        "-7": false,
+        "del_7q": false,
+        "+8": false,
+        "del_11q": false,
+        "del_12p": false,
+        "t_12p": false,
+        "add_12p": false,
+        "-13": false,
+        "i_17q": false,
+        "-17": false,
+        "add_17p": false,
+        "del_17p": false,
+        "del_20q": false,
+        "idic_X_q13": false
+    }},
     "AML_differentiation": null,
-    "differentiation_reasoning": null,
-    "qualifiers": {{ ... }}
+    "qualifiers": {{
+        "previous_MDS_diagnosed_over_3_months_ago": false,
+        "previous_MDS/MPN_diagnosed_over_3_months_ago": false,
+        "previous_cytotoxic_therapy": false,
+        "predisposing_germline_variant": "None"
+    }}
 }}
 
+**Instructions:**
+1. Return **valid JSON only** with no extra text or commentary.
+2. Ensure all fields are present as specified.
+3. If a field is not applicable or not mentioned, set it to false or null as appropriate.
+4. Do not wrap the JSON in Markdown or any other formatting.
+
 Here is the free-text hematological report to parse:
-{report_text}
-    """
+{report_text}"""
     try:
         first_response = client.chat.completions.create(
             model="o3-mini",  # Adjust the model name as appropriate
@@ -196,11 +338,7 @@ suggest the most appropriate category of AML differentiation and convert that su
     M6b: Pure erythroid leukaemia
     M7: Acute megakaryoblastic leukaemia
 
-Return "ambiguous" if you are unsure.
-
-Additionally, justify your differentiation decision using simple bullet points. Include only information relevant to the differentiation; add no additional text and do not mention the blast cell count.
-
-Return a JSON object with the keys "AML_differentiation" and "differentiation_reasoning".
+Return a JSON object with the keys "AML_differentiation".
 Report: {report_text}
         """
         second_response = client.chat.completions.create(

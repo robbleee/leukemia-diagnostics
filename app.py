@@ -505,7 +505,6 @@ def app_main():
             unsafe_allow_html=True
         )
 
-
         clear_keys = [
             "expanded_aml_section",
             "expanded_mds_section",
@@ -534,15 +533,12 @@ def app_main():
                     st.session_state.pop(key, None)
                 st.rerun()
 
-
         with col_download:
             if st.button("Download Report"):
                 st.session_state["show_pdf_form"] = True
 
         with col_report:
             if st.button("Report Incorrect Result"):
-                st.session_state["show_report_incorrect"] = True
-
                 st.session_state["show_report_incorrect"] = True
 
         if st.session_state.get("show_pdf_form"):
@@ -603,9 +599,7 @@ def app_main():
                     </script>
                     """
                     components.html(js_code, height=0)
-                    st.markdown("### PDF Preview")
-                    pdf_display = f'<iframe src="data:application/pdf;base64,{base_pdf_b64}" width="100%" height="600"></iframe>'
-                    st.markdown(pdf_display, unsafe_allow_html=True)
+                    # PDF preview display code has been removed.
                     st.session_state.show_pdf_form = False
 
         if st.session_state.get("show_report_incorrect"):
