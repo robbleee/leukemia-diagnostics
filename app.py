@@ -138,27 +138,38 @@ def show_login_page():
         else:
             st.error("Invalid username or password!")
 
-##################################
-# APP MAIN
-##################################
-def app_main():
-    full_report_text = ""
-    token = st.session_state.get("jwt_token")
-    user_data = verify_jwt_token(token) if token else None
-    if not user_data:
-        st.info("🔒 **Log in** to use the classification features.")
-        show_login_page()
-        return
 
-    # Sidebar expander with logout.
-    with st.sidebar.expander("User Options", expanded=True):
-        st.write("Logged in as:", st.session_state["username"])
-        if st.button("Logout"):
-            st.session_state["jwt_token"] = None
-            st.session_state["username"] = ""
-            cookies["jwt_token"] = ""
-            cookies.save()
-            st.rerun()
+
+##################################
+# 1. DATA ENTRY PAGE
+##################################
+def data_entry_page():
+    """
+    This page handles:
+      - User login check (done in app_main, so not repeated here).
+      - Initialization of session state variables.
+      - User input toggles (Free-text Mode vs Manual Mode).
+      - Data collection.
+      - Parsing calls.
+      - Transition to the Results page (session_state["page"] = "results").
+    """
+    
+    # Title / Header
+    st.markdown(
+        """
+        <div style="
+            background-color: #FFFFFF;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            ">
+            <h2 style="color: #009688; text-align: left;">
+                AML/MDS Diagnostic Support Tool
+            </h2>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     # Initialize session state variables.
     for key in [
@@ -179,34 +190,22 @@ def app_main():
             else:
                 st.session_state[key] = None
 
-    st.markdown(
-        """
-        <div style="
-            background-color: #FFFFFF;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 20px;
-            ">
-            <h2 style="color: #009688; text-align: left;">
-                AML/MDS Diagnostic Support Tool
-            </h2>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
+    # Toggle for free-text vs. manual mode
     aml_mode_toggle = st.toggle("Free-text Mode", key="aml_mode_toggle", value=True)
     if "aml_busy" not in st.session_state:
         st.session_state["aml_busy"] = False
 
-    # --- MANUAL MODE ---
+    # -----------------------------------------------------------
+    # MANUAL MODE
+    # -----------------------------------------------------------
     if not aml_mode_toggle:
         manual_data = build_manual_aml_data()
         if st.button("Analyse Genetics", key="analyse_genetics_manual"):
             st.session_state["aml_manual_expanded"] = False
             st.session_state["aml_busy"] = True
             with st.spinner("Compiling results. Please wait..."):
-                for key in [
+                # Clear previous results.
+                for k in [
                     "aml_manual_result",
                     "aml_ai_result",
                     "aml_class_review",
@@ -216,10 +215,12 @@ def app_main():
                     "initial_parsed_data",
                     "blast_percentage_known"
                 ]:
-                    st.session_state.pop(key, None)
+                    st.session_state.pop(k, None)
+
                 classification_who, who_derivation = classify_combined_WHO2022(manual_data, not_erythroid=False)
                 classification_icc, icc_derivation = classify_combined_ICC2022(manual_data)
                 classification_eln, eln_derivation = classify_ELN2022(manual_data)
+                
                 st.session_state["aml_manual_result"] = {
                     "parsed_data": manual_data,
                     "who_class": classification_who,
@@ -231,16 +232,17 @@ def app_main():
                 }
                 st.session_state["expanded_aml_section"] = "classification"
             st.session_state["aml_busy"] = False
+            
+            # Move to the results page
+            st.session_state["page"] = "results"
+            st.rerun()
 
-    # --- FREE TEXT MODE ---
+    # -----------------------------------------------------------
+    # FREE TEXT MODE
+    # -----------------------------------------------------------
     else:
         # Free text input area
         with st.expander("Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
-            # Optional fields container in 4 columns:
-            #   col0: Bone Marrow Blasts Override (%)
-            #   col1: Prior cytotoxic chemotherapy (dropdown)
-            #   col2: Germline predisposition (dropdown with default "No")
-            #   col3: Previous MDS/MDS-MPN
             with st.container():
                 col0, col1, col2, col3 = st.columns(4)
                 with col0:
@@ -270,7 +272,10 @@ def app_main():
                         index=0
                     )
                 with col3:
-                    previous_mds = st.selectbox("Previous MDS/MDS-MPN", options=["None", "Previous MDS", "Previous MDS/MPN"])
+                    previous_mds = st.selectbox(
+                        "Previous MDS/MDS-MPN", 
+                        options=["None", "Previous MDS", "Previous MDS/MPN"]
+                    )
             
             full_report_text = st.text_area(
                 "Enter all relevant AML/MDS data here (Blast % is required; everything else is optional):",
@@ -278,12 +283,12 @@ def app_main():
                 key="full_text_input",
                 height=200
             )
-        
+
         # Only show the "Analyse Report" button if manual input is not pending.
         if not (st.session_state.get("initial_parsed_data") and st.session_state.get("manual_inputs_visible") is False):
             if st.button("Analyse Report", key="analyse_report"):
                 # Clear previous results.
-                for key in [
+                for k in [
                     "aml_ai_result",
                     "aml_class_review",
                     "aml_mrd_review",
@@ -292,13 +297,14 @@ def app_main():
                     "initial_parsed_data",
                     "blast_percentage_known"
                 ]:
-                    st.session_state.pop(key, None)
+                    st.session_state.pop(k, None)
+
                 if full_report_text.strip():
-                    # Build optional text from the 4 fields.
+                    # Build optional text from the 4 fields
                     opt_text = ""
-                    opt_text += "Bone Marrow Blasts Override: " + str(st.session_state["bone_marrow_blasts_initial"]) + "%. "
+                    opt_text += f"Bone Marrow Blasts Override: {bone_marrow_blasts}%. "
                     if germline_pred != "No":
-                        opt_text += "Germline predisposition: " + germline_pred + ". "
+                        opt_text += f"Germline predisposition: {germline_pred}. "
                     else:
                         opt_text += "Germline predisposition: None. "
                     if prior_chemo != "No":
@@ -306,13 +312,17 @@ def app_main():
                     else:
                         opt_text += "Prior cytotoxic chemotherapy: No. "
                     if previous_mds != "None":
-                        opt_text += "Previous MDS/MDS-MPN: " + previous_mds + ". "
-                    full_report_text = opt_text + "\n" + full_report_text
+                        opt_text += f"Previous MDS/MDS-MPN: {previous_mds}. "
+
+                    # Combine optional text + actual free text
+                    full_text_combined = opt_text + "\n" + full_report_text
+
                     with st.spinner("Parsing report..."):
-                        parsed_data = parse_genetics_report_aml(full_report_text)
+                        parsed_data = parse_genetics_report_aml(full_text_combined)
                         if (parsed_data.get("blasts_percentage") == "Unknown" or 
                             parsed_data.get("AML_differentiation") is None or 
                             (parsed_data.get("AML_differentiation") or "").lower() == "ambiguous"):
+
                             st.session_state["initial_parsed_data"] = parsed_data
                             st.session_state["manual_inputs_visible"] = True
                             st.rerun()
@@ -329,20 +339,28 @@ def app_main():
                                 "icc_derivation": icc_deriv,
                                 "eln_class": eln_class,
                                 "eln_derivation": eln_deriv,
-                                "free_text_input": full_report_text
+                                "free_text_input": full_text_combined
                             }
                             st.session_state["expanded_aml_section"] = "classification"
                             st.session_state["manual_inputs_visible"] = False
+
+                    # Move to the results page
+                    st.session_state["page"] = "results"
+                    st.rerun()
                 else:
                     st.error("No AML data provided.")
-        
-        # Always show the manual input form if initial data exists.
+
+        # Always show the manual input form if initial data exists (to override unknown blasts or differentiation).
         if st.session_state.get("initial_parsed_data"):
             st.warning("Either the blast percentage could not be automatically determined or the differentiation is ambiguous/missing. Please provide the missing information to proceed with classification.")
+
             with st.expander("Enter Manual Inputs", expanded=True):
                 col1, col2 = st.columns(2)
                 with col1:
-                    default_blast = float(st.session_state["initial_parsed_data"].get("blasts_percentage")) if st.session_state["initial_parsed_data"].get("blasts_percentage") != "Unknown" else 0.0
+                    default_blast = 0.0
+                    if st.session_state["initial_parsed_data"].get("blasts_percentage") not in [None, "Unknown"]:
+                        default_blast = float(st.session_state["initial_parsed_data"]["blasts_percentage"])
+
                     manual_blast_percentage = st.number_input(
                         "Enter Blast Percentage (%)", 
                         min_value=0.0, 
@@ -370,13 +388,18 @@ def app_main():
                             list(diff_map.keys()),
                             key="manual_differentiation_input"
                         )
+
             if st.button("Analyse With Manual Inputs", key="submit_manual"):
-                updated_parsed_data = st.session_state.get("initial_parsed_data") or {}
+                updated_parsed_data = st.session_state["initial_parsed_data"] or {}
                 updated_parsed_data["blasts_percentage"] = manual_blast_percentage
-                # Propagate the override value from the initial form.
                 updated_parsed_data["bone_marrow_blasts_override"] = st.session_state["bone_marrow_blasts_initial"]
-                if updated_parsed_data.get("AML_differentiation") is None or (updated_parsed_data.get("AML_differentiation") or "").lower() == "ambiguous":
-                    updated_parsed_data["AML_differentiation"] = diff_map[manual_differentiation]
+
+                # Fill in the user’s chosen differentiation if needed.
+                if updated_parsed_data.get("AML_differentiation") is None or \
+                   (updated_parsed_data.get("AML_differentiation") or "").lower() == "ambiguous":
+                    diff_str = diff_map[manual_differentiation]
+                    updated_parsed_data["AML_differentiation"] = diff_str
+
                 with st.spinner("Re-classifying with manual inputs..."):
                     who_class, who_deriv = classify_combined_WHO2022(updated_parsed_data, not_erythroid=False)
                     icc_class, icc_deriv = classify_combined_ICC2022(updated_parsed_data)
@@ -389,252 +412,319 @@ def app_main():
                         "icc_derivation": icc_deriv,
                         "eln_class": eln_class,
                         "eln_derivation": eln_deriv,
-                        "free_text_input": full_report_text
+                        "free_text_input": st.session_state.get("full_text_input", "")
                     }
                     st.session_state["expanded_aml_section"] = "classification"
-                    # Do not clear initial_parsed_data so the form remains for further updates.
 
-    # --- Display Results Sub-menu ---
-    if "aml_manual_result" in st.session_state or "aml_ai_result" in st.session_state:
-        res = st.session_state.get("aml_manual_result") or st.session_state.get("aml_ai_result")
-        mode = "manual" if "aml_manual_result" in st.session_state else "ai"
-        classification_dict = {
-            "WHO 2022": {
-                "Classification": res["who_class"],
-                "Derivation": res["who_derivation"]
-            },
-            "ICC 2022": {
-                "Classification": res["icc_class"],
-                "Derivation": res["icc_derivation"]
-            }
-        }
-        free_text_input_value = res.get("free_text_input") if mode == "ai" else None
-
-        sub_tab = option_menu(
-            menu_title=None,
-            options=["Classification", "Risk", "MRD Review", "Gene Review", "AI Comments", "Differentiation"],
-            icons=["clipboard", "graph-up-arrow", "recycle", "bar-chart", "chat-left-text", "funnel"],
-            default_index=0,
-            orientation="horizontal"
-        )
-
-        if sub_tab == "Classification":
-            display_aml_classification_results(
-                res["parsed_data"],
-                res["who_class"],
-                res["who_derivation"],
-                res["icc_class"],
-                res["icc_derivation"],
-                classification_eln=res["eln_class"],
-                mode=mode
-            )
-            if "aml_class_review" not in st.session_state:
-                with st.spinner("Generating Classification Review..."):
-                    st.session_state["aml_class_review"] = get_gpt4_review_aml_classification(
-                        classification_dict,
-                        res["parsed_data"],
-                        free_text_input=free_text_input_value
-                    )
-            st.markdown("### Classification Review")
-            st.markdown(st.session_state["aml_class_review"])
-
-        elif sub_tab == "MRD Review":
-            if "aml_mrd_review" not in st.session_state:
-                with st.spinner("Generating MRD Review..."):
-                    st.session_state["aml_mrd_review"] = get_gpt4_review_aml_mrd(
-                        classification_dict,
-                        res["parsed_data"],
-                        free_text_input=free_text_input_value
-                    )
-            with st.expander("MRD Review", expanded=True):
-                st.markdown(st.session_state["aml_mrd_review"])
-
-        elif sub_tab == "Gene Review":
-            if "aml_gene_review" not in st.session_state:
-                with st.spinner("Generating Gene Review..."):
-                    st.session_state["aml_gene_review"] = get_gpt4_review_aml_genes(
-                        classification_dict,
-                        res["parsed_data"],
-                        free_text_input=free_text_input_value
-                    )
-            with st.expander("Gene Review", expanded=True):
-                st.markdown(st.session_state["aml_gene_review"])
-
-        elif sub_tab == "AI Comments":
-            if "aml_additional_comments" not in st.session_state:
-                with st.spinner("Generating Additional Comments..."):
-                    st.session_state["aml_additional_comments"] = get_gpt4_review_aml_additional_comments(
-                        classification_dict,
-                        res["parsed_data"],
-                        free_text_input=free_text_input_value
-                    )
-            with st.expander("Additional Comments", expanded=True):
-                st.markdown(st.session_state["aml_additional_comments"])
-
-        elif sub_tab == "Risk":
-            st.markdown("### ELN 2022 Risk Classification")
-            st.markdown(f"**Risk Category:** {res['eln_class']}")
-            with st.expander("ELN Derivation", expanded=True):
-                for i, step in enumerate(res["eln_derivation"], start=1):
-                    st.markdown(f"- {step}")
-
-        elif sub_tab == "Differentiation":
-            if "differentiation" not in st.session_state:
-                with st.spinner("Generating Differentiation Review..."):
-                    st.session_state["differentiation"] = get_gpt4_review_aml_differentiation(
-                        classification_dict,
-                        res["parsed_data"],
-                        free_text_input=free_text_input_value
-                    )
-            with st.expander("Differentiation", expanded=True):
-                st.markdown(st.session_state["differentiation"])
-
-        # --- Download, Report Incorrect, and Clear Buttons ---
-
-        st.markdown(
-            """
-            <style>
-            /* This targets the button in the sixth column of a horizontal block */
-            div[data-testid="stHorizontalBlock"] > div:nth-of-type(6) button {
-                background-color: #FF4136 !important;
-                color: white !important;
-                margin-top: 0px !important;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-
-        clear_keys = [
-            "expanded_aml_section",
-            "expanded_mds_section",
-            "expanded_mds_risk_section",
-            "aml_free_text_expanded",
-            "mds_free_text_expanded",
-            "mds_risk_free_text_expanded",
-            "blast_percentage_known",
-            "manual_inputs_visible",
-            "aml_ai_result",
-            "aml_manual_result",
-            "aml_class_review",
-            "aml_mrd_review",
-            "aml_gene_review",
-            "aml_additional_comments",
-            "initial_parsed_data",
-            "free_text_input"
-        ]
-
-        # Arrange buttons in six columns so that Clear is the leftmost.
-        col_download, col_report, col3, col4, col5, col_clear = st.columns(6)
-
-        with col_clear:
-            if st.button("Clear Analysis Results", key="clear_button"):
-                for key in clear_keys:
-                    st.session_state.pop(key, None)
+                # Remain in free text mode but go to the results page.
+                st.session_state["page"] = "results"
                 st.rerun()
 
-        with col_download:
-            if st.button("Download Report"):
-                st.session_state["show_pdf_form"] = True
 
-        with col_report:
-            if st.button("Report Incorrect Result"):
-                st.session_state["show_report_incorrect"] = True
+##################################
+# 2. RESULTS PAGE
+##################################
+def results_page():
+    """
+    This page only displays results if they exist in session state.
+    It also includes the sub-tab navigation (Classification, Risk, MRD Review, etc.),
+    and the bottom controls (Download Report, Report Incorrect, Clear & Back).
+    """
+    
+    # Check if any result is available.
+    if "aml_manual_result" not in st.session_state and "aml_ai_result" not in st.session_state:
+        st.error("No results available. Please return to the data entry page to input and parse the report.")
+        if st.button("Back to Data Entry"):
+            st.session_state["page"] = "data_entry"
+            st.rerun()
+        return
 
-        if st.session_state.get("show_pdf_form"):
-            with st.form(key="pdf_info_form"):
-                patient_name = st.text_input("Enter patient name (client-side only):")
-                patient_dob = st.text_input("Enter patient date of birth (dd/mm/yyyy):", placeholder="dd/mm/yyyy")
-                user_comments = st.text_area("Enter user comments (optional):")
-                submit_pdf = st.form_submit_button("Submit")
-            if submit_pdf:
-                if not patient_name:
-                    st.error("Please enter the patient name.")
-                elif not patient_dob:
-                    st.error("Please enter the patient date of birth.")
-                else:
-                    try:
-                        dob = datetime.datetime.strptime(patient_dob, "%d/%m/%Y")
-                        dob_str = dob.strftime("%B %d, %Y")
-                    except Exception as e:
-                        st.error("Date of birth must be in dd/mm/yyyy format.")
-                        return
-                    base_pdf_bytes = create_base_pdf(user_comments=user_comments)
-                    base_pdf_b64 = base64.b64encode(base_pdf_bytes).decode("utf-8")
-                    js_code = f"""
-                    <input type="hidden" id="base_pdf" value="{base_pdf_b64}">
-                    <input type="hidden" id="patient_name" value="{patient_name}">
-                    <input type="hidden" id="patient_dob" value="{dob_str}">
-                    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
-                    <script>
-                    async function addPatientInfoAndDownload() {{
-                        const {{ PDFDocument, rgb }} = PDFLib;
-                        const basePdfB64 = document.getElementById("base_pdf").value;
-                        const patientName = document.getElementById("patient_name").value;
-                        const patientDob = document.getElementById("patient_dob").value;
-                        const basePdfBytes = Uint8Array.from(atob(basePdfB64), c => c.charCodeAt(0));
-                        const pdfDoc = await PDFDocument.load(basePdfBytes);
-                        const pages = pdfDoc.getPages();
-                        const firstPage = pages[0];
-                        firstPage.drawText("Patient Name: " + patientName, {{
-                            x: 50,
-                            y: firstPage.getHeight() - 50,
-                            size: 12,
-                            color: rgb(0, 0, 0)
-                        }});
-                        firstPage.drawText("Date of Birth: " + patientDob, {{
-                            x: 50,
-                            y: firstPage.getHeight() - 70,
-                            size: 12,
-                            color: rgb(0, 0, 0)
-                        }});
-                        const modifiedPdfBytes = await pdfDoc.save();
-                        const blob = new Blob([modifiedPdfBytes], {{ type: "application/pdf" }});
-                        const link = document.createElement("a");
-                        link.href = URL.createObjectURL(blob);
-                        link.download = patientName + "-diagnostic-report.pdf";
-                        link.click();
-                    }}
-                    addPatientInfoAndDownload();
-                    </script>
-                    """
-                    components.html(js_code, height=0)
-                    # PDF preview display code has been removed.
-                    st.session_state.show_pdf_form = False
+    # Retrieve whichever result is present.
+    res = st.session_state.get("aml_manual_result") or st.session_state.get("aml_ai_result")
+    mode = "manual" if "aml_manual_result" in st.session_state else "ai"
+    free_text_input_value = res.get("free_text_input") if mode == "ai" else None
 
-        if st.session_state.get("show_report_incorrect"):
-            incorrect_comment = st.text_area("Please explain why the report is incorrect:")
-            if st.button("Generate Email Link"):
-                report_pdf_bytes = create_base_pdf(user_comments="")
-                base_pdf_b64 = base64.b64encode(report_pdf_bytes).decode("utf-8")
+    classification_dict = {
+        "WHO 2022": {
+            "Classification": res["who_class"],
+            "Derivation": res["who_derivation"]
+        },
+        "ICC 2022": {
+            "Classification": res["icc_class"],
+            "Derivation": res["icc_derivation"]
+        }
+    }
+
+    # Sub-tab menu (Classification, Risk, MRD, etc.)
+    sub_tab = option_menu(
+        menu_title=None,
+        options=["Classification", "Risk", "MRD Review", "Gene Review", "AI Comments", "Differentiation"],
+        icons=["clipboard", "graph-up-arrow", "recycle", "bar-chart", "chat-left-text", "funnel"],
+        default_index=0,
+        orientation="horizontal"
+    )
+
+    if sub_tab == "Classification":
+        display_aml_classification_results(
+            res["parsed_data"],
+            res["who_class"],
+            res["who_derivation"],
+            res["icc_class"],
+            res["icc_derivation"],
+            classification_eln=res["eln_class"],
+            mode=mode
+        )
+        if "aml_class_review" not in st.session_state:
+            with st.spinner("Generating Classification Review..."):
+                st.session_state["aml_class_review"] = get_gpt4_review_aml_classification(
+                    classification_dict,
+                    res["parsed_data"],
+                    free_text_input=free_text_input_value
+                )
+        st.markdown("### Classification Review")
+        st.markdown(st.session_state["aml_class_review"])
+
+    elif sub_tab == "MRD Review":
+        if "aml_mrd_review" not in st.session_state:
+            with st.spinner("Generating MRD Review..."):
+                st.session_state["aml_mrd_review"] = get_gpt4_review_aml_mrd(
+                    classification_dict,
+                    res["parsed_data"],
+                    free_text_input=free_text_input_value
+                )
+        with st.expander("MRD Review", expanded=True):
+            st.markdown(st.session_state["aml_mrd_review"])
+
+    elif sub_tab == "Gene Review":
+        if "aml_gene_review" not in st.session_state:
+            with st.spinner("Generating Gene Review..."):
+                st.session_state["aml_gene_review"] = get_gpt4_review_aml_genes(
+                    classification_dict,
+                    res["parsed_data"],
+                    free_text_input=free_text_input_value
+                )
+        with st.expander("Gene Review", expanded=True):
+            st.markdown(st.session_state["aml_gene_review"])
+
+    elif sub_tab == "AI Comments":
+        if "aml_additional_comments" not in st.session_state:
+            with st.spinner("Generating Additional Comments..."):
+                st.session_state["aml_additional_comments"] = get_gpt4_review_aml_additional_comments(
+                    classification_dict,
+                    res["parsed_data"],
+                    free_text_input=free_text_input_value
+                )
+        with st.expander("Additional Comments", expanded=True):
+            st.markdown(st.session_state["aml_additional_comments"])
+
+    elif sub_tab == "Risk":
+        st.markdown("### ELN 2022 Risk Classification")
+        st.markdown(f"**Risk Category:** {res['eln_class']}")
+        with st.expander("ELN Derivation", expanded=True):
+            for i, step in enumerate(res["eln_derivation"], start=1):
+                st.markdown(f"- {step}")
+
+    elif sub_tab == "Differentiation":
+        if "differentiation" not in st.session_state:
+            with st.spinner("Generating Differentiation Review..."):
+                st.session_state["differentiation"] = get_gpt4_review_aml_differentiation(
+                    classification_dict,
+                    res["parsed_data"],
+                    free_text_input=free_text_input_value
+                )
+        with st.expander("Differentiation", expanded=True):
+            st.markdown(st.session_state["differentiation"])
+
+    # ------------------------------------------------------------------
+    # Bottom Controls (Download, Report Incorrect, Clear & Back)
+    # ------------------------------------------------------------------
+    st.markdown(
+        """
+        <style>
+        /* This targets the button in the sixth column of a horizontal block */
+        div[data-testid="stHorizontalBlock"] > div:nth-of-type(6) button {
+            background-color: #FF4136 !important;
+            color: white !important;
+            margin-top: 0px !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    clear_keys = [
+        "expanded_aml_section",
+        "expanded_mds_section",
+        "expanded_mds_risk_section",
+        "aml_free_text_expanded",
+        "mds_free_text_expanded",
+        "mds_risk_free_text_expanded",
+        "blast_percentage_known",
+        "manual_inputs_visible",
+        "aml_ai_result",
+        "aml_manual_result",
+        "aml_class_review",
+        "aml_mrd_review",
+        "aml_gene_review",
+        "aml_additional_comments",
+        "initial_parsed_data",
+        "free_text_input"
+    ]
+
+    col_download, col_report, col3, col4, col5, col_clear = st.columns(6)
+
+    # "Download Report" button
+    with col_download:
+        if st.button("Download Report"):
+            st.session_state["show_pdf_form"] = True
+
+    # "Report Incorrect Result" button
+    with col_report:
+        if st.button("Report Incorrect Result"):
+            st.session_state["show_report_incorrect"] = True
+
+    # "Clear Results and Back" button
+    with col_clear:
+        if st.button("Clear Results and Back", key="clear_and_back"):
+            for k in clear_keys:
+                st.session_state.pop(k, None)
+            # After clearing, go back to the data entry page
+            st.session_state["page"] = "data_entry"
+            st.rerun()
+
+    # PDF Download Form
+    if st.session_state.get("show_pdf_form"):
+        with st.form(key="pdf_info_form"):
+            patient_name = st.text_input("Enter patient name (client-side only):")
+            patient_dob = st.text_input("Enter patient date of birth (dd/mm/yyyy):", placeholder="dd/mm/yyyy")
+            user_comments = st.text_area("Enter user comments (optional):")
+            submit_pdf = st.form_submit_button("Submit")
+
+        if submit_pdf:
+            if not patient_name:
+                st.error("Please enter the patient name.")
+            elif not patient_dob:
+                st.error("Please enter the patient date of birth.")
+            else:
+                try:
+                    dob = datetime.datetime.strptime(patient_dob, "%d/%m/%Y")
+                    dob_str = dob.strftime("%B %d, %Y")
+                except Exception:
+                    st.error("Date of birth must be in dd/mm/yyyy format.")
+                    return
+                
+                base_pdf_bytes = create_base_pdf(user_comments=user_comments)
+                base_pdf_b64 = base64.b64encode(base_pdf_bytes).decode("utf-8")
                 js_code = f"""
                 <input type="hidden" id="base_pdf" value="{base_pdf_b64}">
+                <input type="hidden" id="patient_name" value="{patient_name}">
+                <input type="hidden" id="patient_dob" value="{dob_str}">
                 <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
                 <script>
-                async function autoDownloadPDF() {{
+                async function addPatientInfoAndDownload() {{
+                    const {{ PDFDocument, rgb }} = PDFLib;
                     const basePdfB64 = document.getElementById("base_pdf").value;
+                    const patientName = document.getElementById("patient_name").value;
+                    const patientDob = document.getElementById("patient_dob").value;
                     const basePdfBytes = Uint8Array.from(atob(basePdfB64), c => c.charCodeAt(0));
-                    const blob = new Blob([basePdfBytes], {{ type: "application/pdf" }});
+                    const pdfDoc = await PDFDocument.load(basePdfBytes);
+                    const pages = pdfDoc.getPages();
+                    const firstPage = pages[0];
+                    firstPage.drawText("Patient Name: " + patientName, {{
+                        x: 50,
+                        y: firstPage.getHeight() - 50,
+                        size: 12,
+                        color: rgb(0, 0, 0)
+                    }});
+                    firstPage.drawText("Date of Birth: " + patientDob, {{
+                        x: 50,
+                        y: firstPage.getHeight() - 70,
+                        size: 12,
+                        color: rgb(0, 0, 0)
+                    }});
+                    const modifiedPdfBytes = await pdfDoc.save();
+                    const blob = new Blob([modifiedPdfBytes], {{ type: "application/pdf" }});
                     const link = document.createElement("a");
                     link.href = URL.createObjectURL(blob);
-                    link.download = "diagnostic-report.pdf";
+                    link.download = patientName + "-diagnostic-report.pdf";
                     link.click();
                 }}
-                autoDownloadPDF();
+                addPatientInfoAndDownload();
                 </script>
                 """
                 components.html(js_code, height=0)
-                subject = urllib.parse.quote("Incorrect AML/MDS Diagnostic Report Feedback")
-                body = urllib.parse.quote(
-                    f"User reported an incorrect diagnostic result.\n\nComment:\n{incorrect_comment}\n\n"
-                    "Please attach the downloaded report PDF manually."
-                )
-                mailto_link = f"mailto:robbielee543@gmail.com?subject={subject}&body={body}"
-                st.markdown(f"[Click here to send your feedback]({mailto_link})", unsafe_allow_html=True)
-                st.session_state.show_report_incorrect = False
+                st.session_state.show_pdf_form = False
+
+    # Incorrect Result Form
+    if st.session_state.get("show_report_incorrect"):
+        incorrect_comment = st.text_area("Please explain why the report is incorrect:")
+        if st.button("Generate Email Link"):
+            report_pdf_bytes = create_base_pdf(user_comments="")
+            base_pdf_b64 = base64.b64encode(report_pdf_bytes).decode("utf-8")
+            js_code = f"""
+            <input type="hidden" id="base_pdf" value="{base_pdf_b64}">
+            <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+            <script>
+            async function autoDownloadPDF() {{
+                const basePdfB64 = document.getElementById("base_pdf").value;
+                const basePdfBytes = Uint8Array.from(atob(basePdfB64), c => c.charCodeAt(0));
+                const blob = new Blob([basePdfBytes], {{ type: "application/pdf" }});
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "diagnostic-report.pdf";
+                link.click();
+            }}
+            autoDownloadPDF();
+            </script>
+            """
+            components.html(js_code, height=0)
+            subject = urllib.parse.quote("Incorrect AML/MDS Diagnostic Report Feedback")
+            body = urllib.parse.quote(
+                f"User reported an incorrect diagnostic result.\n\nComment:\n{incorrect_comment}\n\n"
+                "Please attach the downloaded report PDF manually."
+            )
+            mailto_link = f"mailto:robbielee543@gmail.com?subject={subject}&body={body}"
+            st.markdown(f"[Click here to send your feedback]({mailto_link})", unsafe_allow_html=True)
+            st.session_state.show_report_incorrect = False
+
 
 ##################################
-# Main Execution
+# 3. APP MAIN
 ##################################
+def app_main():
+    """
+    The main function that manages login checks, sidebar user options,
+    and routes between the 'data_entry_page' and 'results_page'.
+    """
+    # Check for user authentication (omit or modify if you want no login).
+    token = st.session_state.get("jwt_token")
+    user_data = verify_jwt_token(token) if token else None
+    if not user_data:
+        st.info("🔒 **Log in** to use the classification features.")
+        show_login_page()
+        return
+
+    # Sidebar with user options.
+    with st.sidebar.expander("User Options", expanded=True):
+        st.write("Logged in as:", st.session_state["username"])
+        if st.button("Logout"):
+            st.session_state["jwt_token"] = None
+            st.session_state["username"] = ""
+            cookies["jwt_token"] = ""
+            cookies.save()
+            st.rerun()
+
+    # Decide which page to show based on session state.
+    if "page" not in st.session_state:
+        st.session_state["page"] = "data_entry"
+
+    if st.session_state["page"] == "data_entry":
+        data_entry_page()
+    elif st.session_state["page"] == "results":
+        results_page()
+
+
+# If you want to run this file directly with Streamlit, use:
+# streamlit run filename.py
 if __name__ == "__main__":
     app_main()
