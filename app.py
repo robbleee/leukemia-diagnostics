@@ -140,9 +140,6 @@ def show_login_page():
 
 
 
-##################################
-# 1. DATA ENTRY PAGE
-##################################
 def data_entry_page():
     """
     This page handles:
@@ -241,7 +238,6 @@ def data_entry_page():
     # FREE TEXT MODE
     # -----------------------------------------------------------
     else:
-        # Free text input area
         with st.expander("Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
             with st.container():
                 col0, col1, col2, col3 = st.columns(4)
@@ -255,27 +251,58 @@ def data_entry_page():
                         key="bone_marrow_blasts_initial"
                     )
                 with col1:
-                    prior_chemo = st.selectbox(
-                        "Prior cytotoxic chemotherapy",
-                        options=["No", "Yes"],
-                        index=0
+                    # Dropdown for previous cytotoxic chemotherapy options.
+                    prior_therapy = st.selectbox(
+                        "Previous cytotoxic chemotherapy",
+                        options=["None", "Ionising radiation", "Cytotoxic chemotherapy", "Immune interventions", "Any combination"],
+                        index=0,
+                        key="prior_therapy"
                     )
                 with col2:
-                    germline_options = [
-                        "No", "Down syndrome", "BRCA1", "BRCA2", "TP53", "CHEK2", "PALB2",
-                        "DDX1", "RUNX1", "CEBPA", "GATA2", "ETV6", "ANKRD26", 
-                        "SRP72", "SAMD9", "SAMD9L", "Other"
-                    ]
-                    germline_pred = st.selectbox(
-                        "Germline predisposition",
-                        options=germline_options,
-                        index=0
+                    # Dropdown for germline predisposition with three options.
+                    germline_status = st.selectbox(
+                        "Germline predisposition?",
+                        options=["Yes", "None", "Undetermined"],
+                        index=2,  # Default is "Undetermined"
+                        key="germline_status"
                     )
                 with col3:
                     previous_mds = st.selectbox(
                         "Previous MDS/MDS-MPN", 
-                        options=["None", "Previous MDS", "Previous MDS/MPN"]
+                        options=["None", "Previous MDS", "Previous MDS/MPN"],
+                        key="previous_mds"
                     )
+            
+            # Show a warning if germline status is "None" or "Undetermined".
+            if germline_status in ["None", "Undetermined"]:
+                st.warning("No germline mutation was indicated, but this should be reviewed at MDT.")
+            
+            # If the user selects "Yes", display multiselect for known germline variants.
+            if germline_status == "Yes":
+                selected_germline = st.multiselect(
+                    "Select known germline mutation(s):",
+                    options=[
+                        "germline CEBPA mutation",
+                        "germline DDX41 mutation",
+                        "germline TP53 mutation",
+                        "germline RUNX1 mutation",
+                        "germline ANKRD26 mutation",
+                        "germline ETV6 mutation",
+                        "germline GATA2 mutation",
+                        "germline SAMD9 mutation",
+                        "germline SAMD9L mutation",
+                        "RASopathy (including JMML with NF1, JMML with CBL)",
+                        "Fanconi anaemia",
+                        "Shwachman-Diamond syndrome",
+                        "telomere biology disorder",
+                        "severe congenital neutropenia",
+                        "JMML associated with neurofibromatosis",
+                        "Down Syndrome",
+                        "germline BLM mutation",
+                        "Diamond-Blackfan anemia"
+                    ],
+                    key="selected_germline"
+                )
             
             full_report_text = st.text_area(
                 "Enter all relevant AML/MDS data here (Blast % is required; everything else is optional):",
@@ -300,21 +327,30 @@ def data_entry_page():
                     st.session_state.pop(k, None)
 
                 if full_report_text.strip():
-                    # Build optional text from the 4 fields
+                    # Build optional text from the 4 fields.
                     opt_text = ""
                     opt_text += f"Bone Marrow Blasts Override: {bone_marrow_blasts}%. "
-                    if germline_pred != "No":
-                        opt_text += f"Germline predisposition: {germline_pred}. "
+                    
+                    # For germline predisposition:
+                    if germline_status == "Yes":
+                        if st.session_state.get("selected_germline"):
+                            chosen = ", ".join(st.session_state["selected_germline"])
+                            opt_text += f"Germline predisposition: {chosen}. "
+                        else:
+                            opt_text += "Germline predisposition: Yes. "
                     else:
                         opt_text += "Germline predisposition: None. "
-                    if prior_chemo != "No":
-                        opt_text += "Prior cytotoxic chemotherapy: Yes. "
+
+                    # Previous cytotoxic therapy from our new dropdown.
+                    if prior_therapy != "None":
+                        opt_text += f"Previous cytotoxic chemotherapy: {prior_therapy}. "
                     else:
-                        opt_text += "Prior cytotoxic chemotherapy: No. "
+                        opt_text += "Previous cytotoxic chemotherapy: None. "
+                    
                     if previous_mds != "None":
                         opt_text += f"Previous MDS/MDS-MPN: {previous_mds}. "
 
-                    # Combine optional text + actual free text
+                    # Combine optional text and free text.
                     full_text_combined = opt_text + "\n" + full_report_text
 
                     with st.spinner("Parsing report..."):
@@ -322,7 +358,6 @@ def data_entry_page():
                         if (parsed_data.get("blasts_percentage") == "Unknown" or 
                             parsed_data.get("AML_differentiation") is None or 
                             (parsed_data.get("AML_differentiation") or "").lower() == "ambiguous"):
-
                             st.session_state["initial_parsed_data"] = parsed_data
                             st.session_state["manual_inputs_visible"] = True
                             st.rerun()
@@ -344,23 +379,19 @@ def data_entry_page():
                             st.session_state["expanded_aml_section"] = "classification"
                             st.session_state["manual_inputs_visible"] = False
 
-                    # Move to the results page
                     st.session_state["page"] = "results"
                     st.rerun()
                 else:
                     st.error("No AML data provided.")
 
-        # Always show the manual input form if initial data exists (to override unknown blasts or differentiation).
         if st.session_state.get("initial_parsed_data"):
             st.warning("Either the blast percentage could not be automatically determined or the differentiation is ambiguous/missing. Please provide the missing information to proceed with classification.")
-
             with st.expander("Enter Manual Inputs", expanded=True):
                 col1, col2 = st.columns(2)
                 with col1:
                     default_blast = 0.0
                     if st.session_state["initial_parsed_data"].get("blasts_percentage") not in [None, "Unknown"]:
                         default_blast = float(st.session_state["initial_parsed_data"]["blasts_percentage"])
-
                     manual_blast_percentage = st.number_input(
                         "Enter Blast Percentage (%)", 
                         min_value=0.0, 
@@ -390,13 +421,11 @@ def data_entry_page():
                         )
 
             if st.button("Analyse With Manual Inputs", key="submit_manual"):
-                updated_parsed_data = st.session_state["initial_parsed_data"] or {}
+                updated_parsed_data = st.session_state.get("initial_parsed_data") or {}
                 updated_parsed_data["blasts_percentage"] = manual_blast_percentage
                 updated_parsed_data["bone_marrow_blasts_override"] = st.session_state["bone_marrow_blasts_initial"]
 
-                # Fill in the user’s chosen differentiation if needed.
-                if updated_parsed_data.get("AML_differentiation") is None or \
-                   (updated_parsed_data.get("AML_differentiation") or "").lower() == "ambiguous":
+                if updated_parsed_data.get("AML_differentiation") is None or (updated_parsed_data.get("AML_differentiation") or "").lower() == "ambiguous":
                     diff_str = diff_map[manual_differentiation]
                     updated_parsed_data["AML_differentiation"] = diff_str
 
@@ -416,7 +445,6 @@ def data_entry_page():
                     }
                     st.session_state["expanded_aml_section"] = "classification"
 
-                # Remain in free text mode but go to the results page.
                 st.session_state["page"] = "results"
                 st.rerun()
 

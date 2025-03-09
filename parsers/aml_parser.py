@@ -118,7 +118,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
         "qualifiers": {
             "previous_MDS_diagnosed_over_3_months_ago": False,
             "previous_MDS/MPN_diagnosed_over_3_months_ago": False,
-            "previous_cytotoxic_therapy": False,
+            "previous_cytotoxic_therapy": None,
             "predisposing_germline_variant": "None"
         }
     }
@@ -250,7 +250,7 @@ Extract these fields:
 "qualifiers": {{
     "previous_MDS_diagnosed_over_3_months_ago": false,
     "previous_MDS/MPN_diagnosed_over_3_months_ago": false,
-    "previous_cytotoxic_therapy": false,
+    "previous_cytotoxic_therapy": None,
     "predisposing_germline_variant": "None"
 }}
 
@@ -332,6 +332,7 @@ The previous hematological report needs to be evaluated for AML differentiation.
 Using only data from morphology, histology, and flow cytometry (ignore any genetic or cytogenetic data),
 suggest the most appropriate category of AML differentiation and convert that suggestion to the corresponding FAB classification code according to the mapping below:
 
+    None: No differentiation mentioned
     M0: Acute myeloid leukaemia with minimal differentiation
     M1: Acute myeloid leukaemia without maturation
     M2: Acute myeloid leukaemia with maturation

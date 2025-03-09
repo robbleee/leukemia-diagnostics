@@ -72,6 +72,7 @@ Derivation: {icc_deriv}
 **Task**:
 1. Using the heading: “Classification Review”. State any significant differences in the classification of this case given by WHO and ICC focussing particularly on the genetic and cytogenetic elements of this classification if present.
 2. Using the heading: “Sample Quality”. If genetic testing or cytogenetic test results are not present in the provided data, then state any impact this may have on the classification. If these are stated in the reviewed information, please discuss the sample quality statement for clinical report, DNA quality metric and the cytogenetics report. Based on each of these values discuss any concerns around sample quality. If the morphology report suggests poor sample quality, then consider whether this may affect the representation of cells in the genetic sample and how it may affect VAF or sensitivity.
+3. If no germline predisposition is mentioned then state that this should be reviewed in the MDT
 
 **Response**:
 - Be concise and professional. Provide only the headings stated. Headings should be in bold type followed by a colon, then the text should follow on the next line. - Use UK English spelling. The text elements should not use bold font at any point.
