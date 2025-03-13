@@ -10,12 +10,12 @@ def classify_AML_WHO2022(parsed_data: dict, not_erythroid: bool = False) -> tupl
     If the final classification is "Acute myeloid leukaemia, [define by differentiation]",
     we attempt to insert AML_differentiation from parsed_data if available.
 
-    WHO accepts these 'post_cytotoxic_therapy' options:
+    WHO accepts these 'previous_cytotoxic_therapy' options:
       - Ionising radiation
       - Cytotoxic chemotherapy
       - Any combination
 
-    If any of these is found, we append "post cytotoxic therapy" as a qualifier.
+    If any of these is found, we append "previous cytotoxic therapy" as a qualifier.
     'Immune interventions' is not recognized by WHO.
 
     Args:
@@ -149,12 +149,12 @@ def classify_AML_WHO2022(parsed_data: dict, not_erythroid: bool = False) -> tupl
     qualifier_list = []
     q = parsed_data.get("qualifiers", {})
 
-    # Use "post_cytotoxic_therapy" for WHO.
-    therapy_type = q.get("post_cytotoxic_therapy", "None")
+    # Use "previous_cytotoxic_therapy" for WHO.
+    therapy_type = q.get("previous_cytotoxic_therapy", "None")
     who_accepted = ["Ionising radiation", "Cytotoxic chemotherapy", "Any combination"]
     if therapy_type in who_accepted:
-        qualifier_list.append("post cytotoxic therapy")
-        derivation.append(f"Detected WHO therapy => post cytotoxic therapy: {therapy_type}")
+        qualifier_list.append("previous cytotoxic therapy")
+        derivation.append(f"Detected WHO therapy => previous cytotoxic therapy: {therapy_type}")
     # 'Immune interventions' is not accepted for WHO, so we add nothing.
 
     # Germline predisposition: WHO uses "associated with"
@@ -189,7 +189,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     """
     Classifies AML subtypes based on ICC 2022 criteria, including qualifiers.
 
-    ICC accepts these 'post_cytotoxic_therapy' options:
+    ICC accepts these 'previous_cytotoxic_therapy' options:
       - Ionising radiation
       - Cytotoxic chemotherapy
       - Immune interventions
@@ -352,8 +352,8 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
 
     # STEP 6: Append Qualifiers
     q_list = []
-    # For ICC, we now read the therapy value from "post_cytotoxic_therapy"
-    therapy = qualifiers.get("post_cytotoxic_therapy", "None")
+    # For ICC, we now read the therapy value from "previous_cytotoxic_therapy"
+    therapy = qualifiers.get("previous_cytotoxic_therapy", "None")
     icc_accepted = ["Ionising radiation", "Cytotoxic chemotherapy", "Immune interventions", "Any combination"]
     if therapy in icc_accepted:
         q_list.append("therapy related")

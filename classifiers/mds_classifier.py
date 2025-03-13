@@ -79,12 +79,12 @@ def classify_MDS_WHO2022(parsed_data: dict) -> tuple:
     qualifiers = parsed_data.get("qualifiers", {})
     qualifier_list = []
 
-    # For MDS WHO, use field "post_cytotoxic_therapy".
-    therapy = qualifiers.get("post_cytotoxic_therapy", "None")
+    # For MDS WHO, use field "previous_cytotoxic_therapy".
+    therapy = qualifiers.get("previous_cytotoxic_therapy", "None")
     who_accepted = ["Ionising radiation", "Cytotoxic chemotherapy", "Any combination"]
     if therapy in who_accepted:
-        qualifier_list.append("post cytotoxic therapy")
-        derivation.append(f"Detected WHO therapy => post cytotoxic therapy: {therapy}")
+        qualifier_list.append("previous cytotoxic therapy")
+        derivation.append(f"Detected WHO therapy => previous cytotoxic therapy: {therapy}")
     # If therapy is "Immune interventions" (or not accepted), we add nothing for WHO.
 
     # Germline predisposition (WHO uses "associated with")
@@ -176,8 +176,8 @@ def classify_MDS_ICC2022(parsed_data: dict) -> tuple:
     qualifier_list = []
     qualifiers = parsed_data.get("qualifiers", {})
 
-    # For ICC, use field "post_cytotoxic_therapy" (ICC accepts: Ionising radiation, Cytotoxic chemotherapy, Immune interventions, Any combination)
-    therapy = qualifiers.get("post_cytotoxic_therapy", "None")
+    # For ICC, use field "previous_cytotoxic_therapy" (ICC accepts: Ionising radiation, Cytotoxic chemotherapy, Immune interventions, Any combination)
+    therapy = qualifiers.get("previous_cytotoxic_therapy", "None")
     icc_accepted = ["Ionising radiation", "Cytotoxic chemotherapy", "Immune interventions", "Any combination"]
     if therapy in icc_accepted:
         qualifier_list.append("therapy related")

@@ -130,7 +130,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
         "qualifiers": {
             "previous_MDS_diagnosed_over_3_months_ago": False,
             "previous_MDS/MPN_diagnosed_over_3_months_ago": False,
-            "post_cytotoxic_therapy": None,
+            "previous_cytotoxic_therapy": None,
             "predisposing_germline_variant": "None"
         }
     }
@@ -268,7 +268,7 @@ Extract these fields:
 "qualifiers": {{
     "previous_MDS_diagnosed_over_3_months_ago": false,
     "previous_MDS/MPN_diagnosed_over_3_months_ago": false,
-    "post_cytotoxic_therapy": None,
+    "previous_cytotoxic_therapy": None,
     "predisposing_germline_variant": "None"
 }}
 
