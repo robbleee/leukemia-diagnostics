@@ -305,7 +305,7 @@ def data_entry_page():
                 )
             
             full_report_text = st.text_area(
-                "Enter all relevant AML/MDS data here (Blast % is required; everything else is optional):",
+                "Enter all relevant AML/MDS data here:",
                 placeholder="Paste all reports and clinical info here",
                 key="full_text_input",
                 height=200
@@ -452,11 +452,20 @@ def data_entry_page():
 ##################################
 # 2. RESULTS PAGE
 ##################################
+
+def back_without_clearing():
+    """
+    Navigates back to the data entry page without clearing any session state.
+    """
+    st.session_state["page"] = "data_entry"
+    st.rerun()
+
+
 def results_page():
     """
     This page only displays results if they exist in session state.
     It also includes the sub-tab navigation (Classification, Risk, MRD Review, etc.),
-    and the bottom controls (Download Report, Report Incorrect, Clear & Back).
+    and the bottom controls (Download Report, Report Incorrect, Clear Results and Back, Back without Clearing).
     """
     
     # Check if any result is available.
@@ -483,7 +492,7 @@ def results_page():
         }
     }
 
-    # Sub-tab menu (Classification, Risk, MRD, etc.)
+    # Sub-tab menu (Classification, Risk, MRD Review, etc.)
     sub_tab = option_menu(
         menu_title=None,
         options=["Classification", "Risk", "MRD Review", "Gene Review", "AI Comments", "Differentiation"],
@@ -564,13 +573,13 @@ def results_page():
             st.markdown(st.session_state["differentiation"])
 
     # ------------------------------------------------------------------
-    # Bottom Controls (Download, Report Incorrect, Clear & Back)
+    # Bottom Controls (Download, Report Incorrect, Clear Results and Back, Back without Clearing)
     # ------------------------------------------------------------------
     st.markdown(
         """
         <style>
-        /* This targets the button in the sixth column of a horizontal block */
-        div[data-testid="stHorizontalBlock"] > div:nth-of-type(6) button {
+        /* This targets the button in the seventh column of a horizontal block */
+        div[data-testid="stHorizontalBlock"] > div:nth-of-type(7) button {
             background-color: #FF4136 !important;
             color: white !important;
             margin-top: 0px !important;
@@ -599,7 +608,8 @@ def results_page():
         "free_text_input"
     ]
 
-    col_download, col_report, col3, col4, col5, col_clear = st.columns(6)
+    # Create seven columns to accommodate all bottom controls.
+    col_download, col_report, col3, col4, col5, col_back, col_clear = st.columns(7)
 
     # "Download Report" button
     with col_download:
@@ -611,14 +621,18 @@ def results_page():
         if st.button("Report Incorrect Result"):
             st.session_state["show_report_incorrect"] = True
 
-    # "Clear Results and Back" button
+    # "Clear Results and Back" button (clears session state before navigating back)
     with col_clear:
-        if st.button("Clear Results and Back", key="clear_and_back"):
+        if st.button("Clear Results", key="clear_and_back"):
             for k in clear_keys:
                 st.session_state.pop(k, None)
-            # After clearing, go back to the data entry page
             st.session_state["page"] = "data_entry"
             st.rerun()
+
+    # "Back without Clearing" button (navigates back without clearing session state)
+    with col_back:
+        if st.button("Back"):
+            back_without_clearing()
 
     # PDF Download Form
     if st.session_state.get("show_pdf_form"):

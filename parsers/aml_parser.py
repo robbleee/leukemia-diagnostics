@@ -7,32 +7,44 @@ from openai import OpenAI
 ##############################
 client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
-# ----------------------------
-# PARSE GENETICS AML
-# ----------------------------
+def get_json_from_prompt(prompt: str) -> dict:
+    """Helper function to call OpenAI and return the JSON-parsed response."""
+    response = client.chat.completions.create(
+        model="o3-mini",
+        messages=[
+            {"role": "system", "content": "You are a knowledgeable hematologist who returns valid JSON."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    raw = response.choices[0].message.content.strip()
+    return json.loads(raw)
+
 def parse_genetics_report_aml(report_text: str) -> dict:
     """
-    Sends the free-text hematological report to OpenAI and requests a structured JSON
-    with all fields needed for classification. Note that the FAB classification for AML
-    differentiation is not extracted in the first pass. Instead, a second pass is always
-    executed to determine the AML differentiation along with a bullet point reasoning.
-    
+    Sends the free-text hematological report to OpenAI using four separate prompts:
+      1) Basic clinical numeric/boolean values,
+      2) Genetic abnormalities,
+      3) Qualifiers,
+      4) AML differentiation.
+
+    Then merges all four JSON objects into one dictionary. 
+    No second pass is performed—each section's data is returned from its dedicated prompt.
+
     Returns:
-        dict: A dictionary containing the extracted fields, including "AML_differentiation" and
-              "differentiation_reasoning". If parsing fails to determine blast percentage, the value
-              will be set to "Unknown".
+        dict: A dictionary containing all fields needed for classification, 
+              including 'AML_differentiation' and 'differentiation_reasoning'.
     """
-    # Safety check: if the user didn’t type anything, return an empty dict
+    # Safety check: if user typed nothing, return empty.
     if not report_text.strip():
         st.warning("Empty report text received.")
         return {}
 
-    # Updated required JSON structure with new markers including differentiation_reasoning
+    # The original required JSON structure (including differentiation_reasoning).
     required_json_structure = {
-        "blasts_percentage": None,  # Changed from 0.0 to None
-        "fibrotic": False,         # True if the report suggests MDS with fibrosis
-        "hypoplasia": False,       # True if the report suggests MDS with hypoplasia
-        "number_of_dysplastic_lineages": None,  # integer or None
+        "blasts_percentage": None,  # if unknown, set to None => "Unknown"
+        "fibrotic": False,
+        "hypoplasia": False,
+        "number_of_dysplastic_lineages": None,
         "AML_defining_recurrent_genetic_abnormalities": {
             "PML::RARA": False,
             "NPM1": False,
@@ -113,20 +125,20 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "del_20q": False,
             "idic_X_q13": False
         },
-        "AML_differentiation": None,          # To be determined in the second pass
-        "differentiation_reasoning": None,      # To store bullet point reasoning
+        "AML_differentiation": None,
+        "differentiation_reasoning": None,
         "qualifiers": {
             "previous_MDS_diagnosed_over_3_months_ago": False,
             "previous_MDS/MPN_diagnosed_over_3_months_ago": False,
-            "previous_cytotoxic_therapy": None,
+            "post_cytotoxic_therapy": None,
             "predisposing_germline_variant": "None"
         }
     }
 
-    # -----------------------------
-    # FIRST PASS: SPLIT INTO 3 PROMPTS
-    # -----------------------------
-    # Prompt 1: Extract basic clinical numeric and boolean values.
+    # -------------------------------------------------------
+    # Prompt #1: Basic clinical numeric & boolean values.
+    # (Exact wording from "previous" code)
+    # -------------------------------------------------------
     first_prompt_1 = f"""
 The user has pasted a free-text hematological report.
 Please extract the following fields from the text and format them into a valid JSON object exactly as specified below.
@@ -145,7 +157,10 @@ Here is the free-text hematological report to parse:
 {report_text}
     """
 
-    # Prompt 2: Extract genetic abnormalities.
+    # -------------------------------------------------------
+    # Prompt #2: Genetic abnormalities.
+    # (Exact wording from "previous" code)
+    # -------------------------------------------------------
     first_prompt_2 = f"""
 The user has pasted a free-text hematological report.
 Please extract the following nested fields from the text and format them into a valid JSON object exactly as specified below.
@@ -240,7 +255,10 @@ Here is the free-text hematological report to parse:
 {report_text}
     """
 
-    # Prompt 3: Extract qualifiers.
+    # -------------------------------------------------------
+    # Prompt #3: Qualifiers.
+    # (Exact wording from "previous" code)
+    # -------------------------------------------------------
     first_prompt_3 = f"""
 The user has pasted a free-text hematological report.
 Please extract the following nested fields under "qualifiers" from the text and format them into a valid JSON object exactly as specified below.
@@ -250,7 +268,7 @@ Extract these fields:
 "qualifiers": {{
     "previous_MDS_diagnosed_over_3_months_ago": false,
     "previous_MDS/MPN_diagnosed_over_3_months_ago": false,
-    "previous_cytotoxic_therapy": None,
+    "post_cytotoxic_therapy": None,
     "predisposing_germline_variant": "None"
 }}
 
@@ -260,74 +278,11 @@ Here is the free-text hematological report to parse:
 {report_text}
     """
 
-    try:
-        # Execute first prompt (Prompt 1)
-        first_response_1 = client.chat.completions.create(
-            model="o3-mini",  # Adjust the model name as appropriate
-            messages=[
-                {"role": "system", "content": "You are a knowledgeable hematologist who formats output strictly in JSON."},
-                {"role": "user", "content": first_prompt_1}
-            ]
-        )
-        first_raw_1 = first_response_1.choices[0].message.content.strip()
-        data1 = json.loads(first_raw_1)
-
-        # Execute second prompt (Prompt 2)
-        first_response_2 = client.chat.completions.create(
-            model="o3-mini",
-            messages=[
-                {"role": "system", "content": "You are a knowledgeable hematologist who formats output strictly in JSON."},
-                {"role": "user", "content": first_prompt_2}
-            ]
-        )
-        first_raw_2 = first_response_2.choices[0].message.content.strip()
-        data2 = json.loads(first_raw_2)
-
-        # Execute third prompt (Prompt 3)
-        first_response_3 = client.chat.completions.create(
-            model="o3-mini",
-            messages=[
-                {"role": "system", "content": "You are a knowledgeable hematologist who formats output strictly in JSON."},
-                {"role": "user", "content": first_prompt_3}
-            ]
-        )
-        first_raw_3 = first_response_3.choices[0].message.content.strip()
-        data3 = json.loads(first_raw_3)
-
-        # Merge all three responses into one dictionary.
-        parsed_data = {}
-        parsed_data.update(data1)
-        parsed_data.update(data2)
-        parsed_data.update(data3)
-
-        # Ensure AML_differentiation and differentiation_reasoning are present (to be updated in second pass)
-        if "AML_differentiation" not in parsed_data:
-            parsed_data["AML_differentiation"] = None
-        if "differentiation_reasoning" not in parsed_data:
-            parsed_data["differentiation_reasoning"] = None
-
-        # Ensure all required fields are present; fill missing fields with defaults
-        for key, value in required_json_structure.items():
-            if key not in parsed_data:
-                parsed_data[key] = value
-            elif isinstance(value, dict):
-                for sub_key, sub_value in value.items():
-                    if sub_key not in parsed_data[key]:
-                        parsed_data[key][sub_key] = sub_value
-
-        # Handle blasts_percentage and validation
-        blasts = parsed_data.get("blasts_percentage")
-        if blasts is None:
-            parsed_data["blasts_percentage"] = "Unknown"
-        elif blasts != "Unknown":
-            if not isinstance(blasts, (int, float)) or not (0.0 <= blasts <= 100.0):
-                st.error("❌ Invalid `blasts_percentage` value. It must be a number between 0 and 100.")
-                return {}
-
-        # -----------------------------
-        # SECOND PASS: AML Differentiation
-        # -----------------------------
-        second_prompt = f"""
+    # -------------------------------------------------------
+    # Prompt #4: AML differentiation (including reasoning).
+    # (Exact wording from "previous" code)
+    # -------------------------------------------------------
+    second_prompt = f"""
 The previous hematological report needs to be evaluated for AML differentiation.
 Using only data from morphology, histology, and flow cytometry (ignore any genetic or cytogenetic data),
 suggest the most appropriate category of AML differentiation and convert that suggestion to the corresponding FAB classification code according to the mapping below:
@@ -346,37 +301,57 @@ suggest the most appropriate category of AML differentiation and convert that su
     M7: Acute megakaryoblastic leukaemia
 
 Return a JSON object with the key "AML_differentiation".
+You may also provide a "differentiation_reasoning" key with bullet point logic.
+
 Report: {report_text}
-        """
-        second_response = client.chat.completions.create(
-            model="o3-mini",
-            messages=[
-                {"role": "system", "content": "You are a knowledgeable hematologist who returns valid JSON."},
-                {"role": "user", "content": second_prompt}
-            ]
-        )
-        second_raw = second_response.choices[0].message.content.strip()
-        try:
-            second_data = json.loads(second_raw)
-            if "AML_differentiation" in second_data:
-                parsed_data["AML_differentiation"] = second_data["AML_differentiation"]
-            else:
-                st.warning("Second pass did not return a valid AML_differentiation. Keeping original value.")
-            if "differentiation_reasoning" in second_data:
-                parsed_data["differentiation_reasoning"] = second_data["differentiation_reasoning"]
+    """
 
-        except json.JSONDecodeError:
-            st.error("❌ Failed to parse second pass response into JSON. Leaving AML_differentiation and differentiation_reasoning null.")
+    try:
+        # Gather data from each prompt (4 total).
+        first_raw_1 = get_json_from_prompt(first_prompt_1)
+        first_raw_2 = get_json_from_prompt(first_prompt_2)
+        first_raw_3 = get_json_from_prompt(first_prompt_3)
+        diff_data = get_json_from_prompt(second_prompt)
 
-        # Print the parsed JSON object to stdout for debugging
+        # Merge all data into one dictionary.
+        parsed_data = {}
+        parsed_data.update(first_raw_1)
+        parsed_data.update(first_raw_2)
+        parsed_data.update(first_raw_3)
+        parsed_data.update(diff_data)
+
+        # Ensure keys for AML_differentiation and reasoning exist.
+        if "AML_differentiation" not in parsed_data:
+            parsed_data["AML_differentiation"] = None
+        if "differentiation_reasoning" not in parsed_data:
+            parsed_data["differentiation_reasoning"] = None
+
+        # Fill missing keys from required structure.
+        for key, val in required_json_structure.items():
+            if key not in parsed_data:
+                parsed_data[key] = val
+            elif isinstance(val, dict):
+                for sub_key, sub_val in val.items():
+                    if sub_key not in parsed_data[key]:
+                        parsed_data[key][sub_key] = sub_val
+
+        # Validate blasts_percentage.
+        blasts = parsed_data.get("blasts_percentage")
+        if blasts is None:
+            parsed_data["blasts_percentage"] = "Unknown"
+        elif blasts != "Unknown":
+            if not isinstance(blasts, (int, float)) or not (0 <= blasts <= 100):
+                st.error("❌ Invalid blasts_percentage value. Must be a number between 0 and 100.")
+                return {}
+
+        # Debug print
         print("Parsed Haematology Report JSON:")
         print(json.dumps(parsed_data, indent=2))
-
         return parsed_data
 
     except json.JSONDecodeError:
-        st.error("❌ Failed to parse the AI response into JSON. Please ensure the report is well-formatted.")
-        print("❌ JSONDecodeError: Failed to parse AI response.")
+        st.error("❌ Failed to parse AI response into JSON. Ensure the report is well-formatted.")
+        print("❌ JSONDecodeError: Could not parse AI JSON response.")
         return {}
     except Exception as e:
         st.error(f"❌ Error communicating with OpenAI: {str(e)}")
