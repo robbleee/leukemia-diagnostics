@@ -1,5 +1,53 @@
 import json
 
+def classify_eln2024_non_intensive_risk(mut_dict: dict) -> dict:
+    """
+    Classify AML risk according to the revised ELN24 (non-intensive cohort),
+    returning a dictionary with 'risk_level' and 'median_os'.
+
+    The classification hierarchy is:
+      1) Adverse if TP53, KRAS, or PTPN11 is mutated (OS ~5.4 months)
+      2) Otherwise, Intermediate if NRAS or FLT3-ITD is mutated
+         (or other unclassified mutations), OS ~13 months
+      3) Otherwise, Favorable if NPM1, IDH1, IDH2, or DDX41 is mutated
+         (OS ~34.8 months)
+      4) Otherwise, Intermediate risk
+
+    Args:
+        mut_dict (dict): A dictionary of booleans for relevant genes, e.g.:
+            {
+                "TP53": True/False,
+                "KRAS": True/False,
+                "PTPN11": True/False,
+                "NRAS": True/False,
+                "FLT3_ITD": True/False,
+                "NPM1": True/False,
+                "IDH1": True/False,
+                "IDH2": True/False,
+                "DDX41": True/False,
+                ...
+            }
+
+    Returns:
+        dict: {"risk_level": (str), "median_os": (float)}
+    """
+    # 1) Adverse check
+    if mut_dict.get("TP53", False) or mut_dict.get("KRAS", False) or mut_dict.get("PTPN11", False):
+        return {"risk_level": "Adverse", "median_os": 5.4}
+
+    # 2) Intermediate check (NRAS or FLT3-ITD or unclassified, assuming no TP53/KRAS/PTPN11)
+    if mut_dict.get("NRAS", False) or mut_dict.get("FLT3_ITD", False):
+        return {"risk_level": "Intermediate", "median_os": 13.0}
+
+    # 3) Favorable check (NPM1, IDH1, IDH2, DDX41), if not adverse/intermediate
+    if (mut_dict.get("NPM1", False) or mut_dict.get("IDH1", False) or
+        mut_dict.get("IDH2", False) or mut_dict.get("DDX41", False)):
+        return {"risk_level": "Favorable", "median_os": 34.8}
+
+    # 4) Default => Intermediate
+    return {"risk_level": "Intermediate", "median_os": 13.0}
+
+
 def classify_ELN2022(parsed_data: dict) -> tuple:
     derivation = []
     step = 1
