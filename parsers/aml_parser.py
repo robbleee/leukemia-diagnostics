@@ -28,7 +28,8 @@ def parse_genetics_report_aml(report_text: str) -> dict:
       2b) Biallelic TP53 mutation,
       2c) MDS-related mutations and MDS-related cytogenetics,
       3) Qualifiers,
-      4) AML differentiation.
+      4) AML differentiation,
+      5) Revised ELN24 genes (added prompt).
 
     Then merges all JSON objects into one dictionary. 
     No second pass is performed—each section's data is returned from its dedicated prompt.
@@ -135,12 +136,23 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "previous_MDS/MPN_diagnosed_over_3_months_ago": False,
             "previous_cytotoxic_therapy": None,
             "predisposing_germline_variant": "None"
+        },
+        # NEW: Revised ELN24 Genes
+        "ELN2024_risk_genes": {
+            "TP53": False,
+            "KRAS": False,
+            "PTPN11": False,
+            "NRAS": False,
+            "FLT3_ITD": False,
+            "NPM1": False,
+            "IDH1": False,
+            "IDH2": False,
+            "DDX41": False
         }
     }
 
     # -------------------------------------------------------
     # Prompt #1: Basic clinical numeric & boolean values.
-    # (Exact wording from "previous" code)
     # -------------------------------------------------------
     first_prompt_1 = f"""
 The user has pasted a free-text hematological report.
@@ -160,10 +172,7 @@ Here is the free-text hematological report to parse:
 {report_text}
     """
 
-    # -------------------------------------------------------
-    # Prompt #2a: AML_defining_recurrent_genetic_abnormalities.
-    # (Exact wording from "previous" code, part 1)
-    # -------------------------------------------------------
+    # Prompt #2a: AML_defining_recurrent_genetic_abnormalities
     first_prompt_2a = f"""
 The user has pasted a free-text hematological report.
 Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
@@ -221,10 +230,7 @@ Here is the free-text hematological report to parse:
 {report_text}
     """
 
-    # -------------------------------------------------------
-    # Prompt #2b: Biallelic_TP53_mutation.
-    # (Exact wording from "previous" code, part 2)
-    # -------------------------------------------------------
+    # Prompt #2b: Biallelic_TP53_mutation
     first_prompt_2b = f"""
 The user has pasted a free-text hematological report.
 Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
@@ -245,10 +251,7 @@ Here is the free-text hematological report to parse:
 {report_text}
     """
 
-    # -------------------------------------------------------
-    # Prompt #2c: MDS_related_mutation and MDS_related_cytogenetics.
-    # (Exact wording from "previous" code, part 3)
-    # -------------------------------------------------------
+    # Prompt #2c: MDS_related_mutation and MDS_related_cytogenetics
     first_prompt_2c = f"""
 The user has pasted a free-text hematological report.
 Please extract the following information from the text and format them into a valid JSON object exactly as specified below.
@@ -294,10 +297,7 @@ Here is the free-text hematological report to parse:
 {report_text}
     """
 
-    # -------------------------------------------------------
-    # Prompt #3: Qualifiers.
-    # (Exact wording from "previous" code)
-    # -------------------------------------------------------
+    # Prompt #3: Qualifiers
     first_prompt_3 = f"""
 The user has pasted a free-text hematological report.
 Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
@@ -318,10 +318,7 @@ Here is the free-text hematological report to parse:
 {report_text}
     """
 
-    # -------------------------------------------------------
-    # Prompt #4: AML differentiation (including reasoning).
-    # (Exact wording from "previous" code)
-    # -------------------------------------------------------
+    # Prompt #4: AML differentiation
     second_prompt = f"""
 The previous hematological report needs to be evaluated for AML differentiation.
 Using only data from morphology, histology, and flow cytometry (ignore any genetic or cytogenetic data),
@@ -346,23 +343,49 @@ You may also provide a "differentiation_reasoning" key with bullet point logic.
 Report: {report_text}
     """
 
+    # Prompt #5: Revised ELN24 genes
+    eln2024_prompt = f"""
+The user has pasted a free-text hematological report.
+Please extract whether the following genes are mutated (true/false) or not mentioned (false).
+For each gene, set the value to true if the text indicates that gene is mutated; otherwise false.
+
+"ELN2024_risk_genes": {{
+    "TP53": false,
+    "KRAS": false,
+    "PTPN11": false,
+    "NRAS": false,
+    "FLT3_ITD": false,
+    "NPM1": false,
+    "IDH1": false,
+    "IDH2": false,
+    "DDX41": false
+}}
+
+Return valid JSON only with these keys and no extra text.
+
+Here is the free-text hematological report to parse:
+{report_text}
+    """
+
     try:
         # Parallelize the prompt calls
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(get_json_from_prompt, first_prompt_1)
-            future2a = executor.submit(get_json_from_prompt, first_prompt_2a)
-            future2b = executor.submit(get_json_from_prompt, first_prompt_2b)
-            future2c = executor.submit(get_json_from_prompt, first_prompt_2c)
-            future3 = executor.submit(get_json_from_prompt, first_prompt_3)
-            future4 = executor.submit(get_json_from_prompt, second_prompt)
+            future1   = executor.submit(get_json_from_prompt, first_prompt_1)
+            future2a  = executor.submit(get_json_from_prompt, first_prompt_2a)
+            future2b  = executor.submit(get_json_from_prompt, first_prompt_2b)
+            future2c  = executor.submit(get_json_from_prompt, first_prompt_2c)
+            future3   = executor.submit(get_json_from_prompt, first_prompt_3)
+            future4   = executor.submit(get_json_from_prompt, second_prompt)
+            future_eln2024 = executor.submit(get_json_from_prompt, eln2024_prompt)
 
             # Gather results when all are complete
-            first_raw_1 = future1.result()
+            first_raw_1  = future1.result()
             first_raw_2a = future2a.result()
             first_raw_2b = future2b.result()
             first_raw_2c = future2c.result()
-            first_raw_3 = future3.result()
-            diff_data = future4.result()
+            first_raw_3  = future3.result()
+            diff_data     = future4.result()
+            eln2024_data  = future_eln2024.result()
 
         # Merge all data into one dictionary.
         parsed_data = {}
@@ -372,6 +395,7 @@ Report: {report_text}
         parsed_data.update(first_raw_2c)
         parsed_data.update(first_raw_3)
         parsed_data.update(diff_data)
+        parsed_data.update(eln2024_data)
 
         # Ensure keys for AML_differentiation and reasoning exist.
         if "AML_differentiation" not in parsed_data:
