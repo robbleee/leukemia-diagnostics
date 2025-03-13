@@ -1,5 +1,6 @@
 import streamlit as st
 import json
+import concurrent.futures
 from openai import OpenAI
 
 ##############################
@@ -21,13 +22,15 @@ def get_json_from_prompt(prompt: str) -> dict:
 
 def parse_genetics_report_aml(report_text: str) -> dict:
     """
-    Sends the free-text hematological report to OpenAI using four separate prompts:
+    Sends the free-text hematological report to OpenAI using separate prompts:
       1) Basic clinical numeric/boolean values,
-      2) Genetic abnormalities,
+      2a) AML-defining recurrent genetic abnormalities,
+      2b) Biallelic TP53 mutation,
+      2c) MDS-related mutations and MDS-related cytogenetics,
       3) Qualifiers,
       4) AML differentiation.
 
-    Then merges all four JSON objects into one dictionary. 
+    Then merges all JSON objects into one dictionary. 
     No second pass is performed—each section's data is returned from its dedicated prompt.
 
     Returns:
@@ -158,16 +161,16 @@ Here is the free-text hematological report to parse:
     """
 
     # -------------------------------------------------------
-    # Prompt #2: Genetic abnormalities.
-    # (Exact wording from "previous" code)
+    # Prompt #2a: AML_defining_recurrent_genetic_abnormalities.
+    # (Exact wording from "previous" code, part 1)
     # -------------------------------------------------------
-    first_prompt_2 = f"""
+    first_prompt_2a = f"""
 The user has pasted a free-text hematological report.
-Please extract the following nested fields from the text and format them into a valid JSON object exactly as specified below.
+Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
 Only record a genetic abnormality as true if the report exactly mentions it as described.
 For boolean fields, use true/false.
 
-Extract these nested fields:
+Extract this nested field:
 "AML_defining_recurrent_genetic_abnormalities": {{
     "PML::RARA": false,
     "NPM1": false,
@@ -210,13 +213,49 @@ Extract these nested fields:
     "FUS::ERG": false,
     "RUNX1::CBFA2T3": false,
     "CBFA2T3::GLIS2": false
-}},
+}}
+
+Return valid JSON only with these keys and no extra text.
+
+Here is the free-text hematological report to parse:
+{report_text}
+    """
+
+    # -------------------------------------------------------
+    # Prompt #2b: Biallelic_TP53_mutation.
+    # (Exact wording from "previous" code, part 2)
+    # -------------------------------------------------------
+    first_prompt_2b = f"""
+The user has pasted a free-text hematological report.
+Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
+Only record a genetic abnormality as true if the report exactly mentions it as described.
+For boolean fields, use true/false.
+
+Extract this nested field:
 "Biallelic_TP53_mutation": {{
     "2_x_TP53_mutations": false,
     "1_x_TP53_mutation_del_17p": false,
     "1_x_TP53_mutation_LOH": false,
     "1_x_TP53_mutation_10_percent_vaf": false
-}},
+}}
+
+Return valid JSON only with these keys and no extra text.
+
+Here is the free-text hematological report to parse:
+{report_text}
+    """
+
+    # -------------------------------------------------------
+    # Prompt #2c: MDS_related_mutation and MDS_related_cytogenetics.
+    # (Exact wording from "previous" code, part 3)
+    # -------------------------------------------------------
+    first_prompt_2c = f"""
+The user has pasted a free-text hematological report.
+Please extract the following information from the text and format them into a valid JSON object exactly as specified below.
+Only record a genetic abnormality as true if the report exactly mentions it as described.
+For boolean fields, use true/false.
+
+Extract these nested fields:
 "MDS_related_mutation": {{
     "ASXL1": false,
     "BCOR": false,
@@ -261,8 +300,9 @@ Here is the free-text hematological report to parse:
     # -------------------------------------------------------
     first_prompt_3 = f"""
 The user has pasted a free-text hematological report.
-Please extract the following nested fields under "qualifiers" from the text and format them into a valid JSON object exactly as specified below.
+Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
 For boolean fields, use true/false and for text fields, output the value exactly. If a field is not found or unclear, set it to false or "None" as appropriate.
+Assume MDS is over 3 months ago unless stated otherwise.
 
 Extract these fields:
 "qualifiers": {{
@@ -307,16 +347,29 @@ Report: {report_text}
     """
 
     try:
-        # Gather data from each prompt (4 total).
-        first_raw_1 = get_json_from_prompt(first_prompt_1)
-        first_raw_2 = get_json_from_prompt(first_prompt_2)
-        first_raw_3 = get_json_from_prompt(first_prompt_3)
-        diff_data = get_json_from_prompt(second_prompt)
+        # Parallelize the prompt calls
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future1 = executor.submit(get_json_from_prompt, first_prompt_1)
+            future2a = executor.submit(get_json_from_prompt, first_prompt_2a)
+            future2b = executor.submit(get_json_from_prompt, first_prompt_2b)
+            future2c = executor.submit(get_json_from_prompt, first_prompt_2c)
+            future3 = executor.submit(get_json_from_prompt, first_prompt_3)
+            future4 = executor.submit(get_json_from_prompt, second_prompt)
+
+            # Gather results when all are complete
+            first_raw_1 = future1.result()
+            first_raw_2a = future2a.result()
+            first_raw_2b = future2b.result()
+            first_raw_2c = future2c.result()
+            first_raw_3 = future3.result()
+            diff_data = future4.result()
 
         # Merge all data into one dictionary.
         parsed_data = {}
         parsed_data.update(first_raw_1)
-        parsed_data.update(first_raw_2)
+        parsed_data.update(first_raw_2a)
+        parsed_data.update(first_raw_2b)
+        parsed_data.update(first_raw_2c)
         parsed_data.update(first_raw_3)
         parsed_data.update(diff_data)
 

@@ -18,6 +18,10 @@ def classify_AML_WHO2022(parsed_data: dict, not_erythroid: bool = False) -> tupl
     If any of these is found, we append "previous cytotoxic therapy" as a qualifier.
     'Immune interventions' is not recognized by WHO.
 
+    Additionally, if either 'previous_MDS_diagnosed_over_3_months_ago' or
+    'previous_MDS/MPN_diagnosed_over_3_months_ago' is true, we add a qualifier
+    "progressed from MDS".
+
     Args:
         parsed_data (dict): Extracted report data.
         not_erythroid (bool): If True, prevents overriding classification with an erythroid subtype.
@@ -155,7 +159,6 @@ def classify_AML_WHO2022(parsed_data: dict, not_erythroid: bool = False) -> tupl
     if therapy_type in who_accepted:
         qualifier_list.append("previous cytotoxic therapy")
         derivation.append(f"Detected WHO therapy => previous cytotoxic therapy: {therapy_type}")
-    # 'Immune interventions' is not accepted for WHO, so we add nothing.
 
     # Germline predisposition: WHO uses "associated with"
     germline_var = q.get("predisposing_germline_variant", "").strip()
@@ -169,6 +172,15 @@ def classify_AML_WHO2022(parsed_data: dict, not_erythroid: bool = False) -> tupl
             derivation.append("Detected germline predisposition => associated with " + ", ".join(final_germ))
     else:
         derivation.append("No germline predisposition indicated (review at MDT)")
+
+    # NEW: check if "previous_MDS_diagnosed_over_3_months_ago" or "previous_MDS/MPN_diagnosed_over_3_months_ago" is True
+    progressed_from_mds = (
+        q.get("previous_MDS_diagnosed_over_3_months_ago", False) or
+        q.get("previous_MDS/MPN_diagnosed_over_3_months_ago", False)
+    )
+    if progressed_from_mds:
+        qualifier_list.append("progressed from MDS")
+        derivation.append("Either previous_MDS or previous_MDS/MPN is True => 'progressed from MDS'")
 
     if qualifier_list:
         classification += ", " + ", ".join(qualifier_list)
@@ -197,6 +209,10 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
 
     If any are found, "therapy related" is appended as a qualifier.
     'Immune interventions' is recognized by ICC only.
+
+    Additionally, if either 'previous_MDS_diagnosed_over_3_months_ago' or
+    'previous_MDS/MPN_diagnosed_over_3_months_ago' is true, we add a qualifier
+    "arising post MDS".
 
     Args:
         parsed_data (dict): Extracted report data.
@@ -352,7 +368,7 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
 
     # STEP 6: Append Qualifiers
     q_list = []
-    # For ICC, we now read the therapy value from "previous_cytotoxic_therapy"
+    # For ICC, we read the therapy value from "previous_cytotoxic_therapy"
     therapy = qualifiers.get("previous_cytotoxic_therapy", "None")
     icc_accepted = ["Ionising radiation", "Cytotoxic chemotherapy", "Immune interventions", "Any combination"]
     if therapy in icc_accepted:
@@ -372,6 +388,15 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
             derivation.append("Qualifier => " + phrase)
     else:
         derivation.append("No germline predisposition indicated (review at MDT)")
+
+    # NEW: check if "previous_MDS_diagnosed_over_3_months_ago" or "previous_MDS/MPN_diagnosed_over_3_months_ago" is True
+    progressed_from_mds = (
+        qualifiers.get("previous_MDS_diagnosed_over_3_months_ago", False)
+        or qualifiers.get("previous_MDS/MPN_diagnosed_over_3_months_ago", False)
+    )
+    if progressed_from_mds:
+        q_list.append("arising post MDS")
+        derivation.append("Either previous_MDS or previous_MDS/MPN => 'arising post MDS'")
 
     if q_list and "Not AML" not in classification:
         classification += ", " + ", ".join(q_list) + " (ICC 2022)"
