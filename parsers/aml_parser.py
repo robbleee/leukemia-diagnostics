@@ -176,7 +176,6 @@ Here is the free-text hematological report to parse:
     first_prompt_2a = f"""
 The user has pasted a free-text hematological report.
 Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
-Only record a genetic abnormality as true if the report exactly mentions it as described.
 For boolean fields, use true/false.
 
 Extract this nested field:
@@ -234,7 +233,6 @@ Here is the free-text hematological report to parse:
     first_prompt_2b = f"""
 The user has pasted a free-text hematological report.
 Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
-Only record a genetic abnormality as true if the report exactly mentions it as described.
 For boolean fields, use true/false.
 
 Extract this nested field:
@@ -255,7 +253,6 @@ Here is the free-text hematological report to parse:
     first_prompt_2c = f"""
 The user has pasted a free-text hematological report.
 Please extract the following information from the text and format them into a valid JSON object exactly as specified below.
-Only record a genetic abnormality as true if the report exactly mentions it as described.
 For boolean fields, use true/false.
 
 Extract these nested fields:
