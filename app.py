@@ -444,7 +444,7 @@ def results_page():
     """
     This page only displays results if they exist in session state.
     It also includes the sub-tab navigation (Classification, Risk, MRD Review, etc.),
-    and the bottom controls (Download Report, Report Incorrect, Clear Results and Back, Back without Clearing).
+    and the bottom controls (Download Report, Clear Results and Back).
     """
     if "aml_manual_result" not in st.session_state and "aml_ai_result" not in st.session_state:
         st.error("No results available. Please return to the data entry page to input and parse the report.")
@@ -598,13 +598,10 @@ def results_page():
         "free_text_input"
     ]
 
-    col_download, col_report, col3, col4, col5, col_back, col_clear = st.columns(7)
+    col_download, col3, col4, col5, col6, col_back, col_clear = st.columns(7)
     with col_download:
         if st.button("Download Report"):
             st.session_state["show_pdf_form"] = True
-    with col_report:
-        if st.button("Report Incorrect Result"):
-            st.session_state["show_report_incorrect"] = True
     with col_clear:
         if st.button("Clear Results", key="clear_and_back"):
             for k in clear_keys:
@@ -617,10 +614,6 @@ def results_page():
 
     if st.session_state.get("show_pdf_form"):
         # [PDF download form code...]
-        pass
-
-    if st.session_state.get("show_report_incorrect"):
-        # [Incorrect result form code...]
         pass
 
 ##################################
