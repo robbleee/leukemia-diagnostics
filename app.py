@@ -122,20 +122,192 @@ def authenticate_user(username: str, password: str) -> bool:
 # LOGIN PAGE
 ##################################
 def show_login_page():
-    st.title("Diagnosis Support Tool")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if authenticate_user(username, password):
-            token = create_jwt_token(username)
-            st.session_state["jwt_token"] = token
-            st.session_state["username"] = username
-            cookies["jwt_token"] = token
-            cookies.save()
-            st.success("Logged in successfully!")
-            st.rerun()
-        else:
-            st.error("Invalid username or password!")
+    # Remove the default Streamlit padding/margin
+    st.markdown("""
+    <style>
+        /* Remove all containers and backgrounds */
+        .stApp {
+            background-color: #f5f8fa !important;
+        }
+        
+        .block-container {
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            margin: 0 !important;
+        }
+        
+        /* Hide Streamlit elements */
+        #MainMenu, footer, header {
+            visibility: hidden;
+        }
+        
+        /* Logo and title styling */
+        .logo-text {
+            color: #009688;
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            margin-top: 80px;
+        }
+        
+        .logo-subtext {
+            color: #555;
+            text-align: center;
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+        }
+        
+        /* Medical icon */
+        .medical-icon {
+            text-align: center;
+            font-size: 60px;
+            color: #009688;
+            margin-bottom: 15px;
+        }
+        
+        /* Style the input fields */
+        .stTextInput > div {
+            background-color: transparent !important;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .stTextInput > div > div > input {
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            background-color: white;
+            padding: 10px 15px;
+        }
+        
+        .stTextInput > label {
+            font-weight: 500;
+            max-width: 400px;
+            margin: 0 auto;
+            display: block;
+        }
+        
+        /* Fix password field eye button spacing */
+        .stTextInput > div > div[data-baseweb="input"] {
+            width: 100% !important;
+        }
+        
+        .stTextInput > div > div[data-baseweb="input"] > div {
+            display: flex !important;
+            width: 100% !important;
+        }
+        
+        /* Fix password field container */
+        div[data-baseweb="input"] {
+            display: flex !important;
+            align-items: center !important;
+            width: 100% !important;
+        }
+        
+        /* Control width of password eye icon */
+        div[data-baseweb="input"] > div:last-child {
+            margin-right: 0 !important;
+            padding-right: 0 !important;
+        }
+        
+        div[data-baseweb="input"] > div:after {
+            content: none !important;
+            display: none !important;
+            width: 0 !important;
+        }
+        
+        /* Target the password eye icon specifically */
+        button[aria-label="Toggle password visibility"] {
+            margin-right: 0 !important;
+            padding-right: 0 !important;
+        }
+        
+        /* Button styling */
+        .stButton > button {
+            background-color: #009688;
+            color: white;
+            border-radius: 6px;
+            padding: 10px 15px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            font-weight: 600;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0, 150, 136, 0.2);
+            transition: all 0.3s ease;
+            margin: 0 auto;
+            display: block;
+        }
+        
+        .stButton > button:hover {
+            background-color: #00796b;
+            border-color: #00796b;
+            color: white;
+            box-shadow: 0 4px 8px rgba(0, 150, 136, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        /* Error message styling */
+        .stAlert {
+            background-color: #ffebee;
+            color: #c62828;
+            border-radius: 5px;
+            margin: 15px auto;
+            max-width: 400px;
+        }
+        
+        /* Success message styling */
+        .element-container:has(.stAlert.success) {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border-radius: 5px;
+            margin: 15px auto;
+            max-width: 400px;
+        }
+        
+        /* Version styling */
+        .version {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 30px;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # DNA icon and title
+    st.markdown('<div class="medical-icon">🧬</div>', unsafe_allow_html=True)
+    st.markdown('<div class="logo-text">Haematology Diagnosis</div>', unsafe_allow_html=True)
+    st.markdown('<div class="logo-subtext">Blood Cancer Classification Support Tool</div>', unsafe_allow_html=True)
+    
+    # Create simple centered columns for the form
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        # Login form
+        username = st.text_input("Username", placeholder="Enter your username")
+        password = st.text_input("Password", type="password", placeholder="Enter your password")
+        
+        # Login button
+        login_button = st.empty()
+        if login_button.button("Sign In", key="login_button"):
+            if authenticate_user(username, password):
+                with login_button:
+                    st.markdown('<div style="text-align: center;">Signing in...</div>', unsafe_allow_html=True)
+                token = create_jwt_token(username)
+                st.session_state["jwt_token"] = token
+                st.session_state["username"] = username
+                cookies["jwt_token"] = token
+                cookies.save()
+                st.success("Logged in successfully!")
+                st.rerun()
+            else:
+                st.error("Invalid username or password!")
+    
+    # Version at the bottom
+    st.markdown('<div class="version">Version 1.2.0</div>', unsafe_allow_html=True)
 
 ##################################
 # DATA ENTRY PAGE
@@ -627,7 +799,6 @@ def app_main():
     token = st.session_state.get("jwt_token")
     user_data = verify_jwt_token(token) if token else None
     if not user_data:
-        st.info("🔒 **Log in** to use the classification features.")
         show_login_page()
         return
 
