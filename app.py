@@ -33,15 +33,6 @@ from classifiers.aml_classifier import classify_AML_WHO2022, classify_AML_ICC202
 from classifiers.aml_response_classifier import classify_AML_Response_ELN2022
 from classifiers.mds_classifier import classify_MDS_WHO2022, classify_MDS_ICC2022
 from classifiers.aml_risk_classifier import classify_ELN2022, eln2024_non_intensive_risk
-from classifiers.ipss_classifiers import ( 
-    compute_ipssr, 
-    compute_ipssm, 
-    betas, 
-    IPSSR_CATEGORIES, 
-    IPSSM_CATEGORIES, 
-    CYTO_IPSSR_MAP, 
-    VARIABLE_CONFIG
-)
 from reviewers.aml_reviewer import (
     get_gpt4_review_aml_classification,
     get_gpt4_review_aml_genes,
@@ -788,6 +779,423 @@ def results_page():
         # [PDF download form code...]
         pass
 
+def ipcc_risk_calculator_page():
+    """
+    This page handles:
+      - Display of form for IPSS-M and IPSS-R data entry
+      - Calculation of IPSS-M and IPSS-R risk scores
+      - Visualization of results including contribution of each factor
+    """
+    # Title / Header
+    st.markdown(
+        """
+        <div style="
+            background-color: #FFFFFF;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            ">
+            <h2 style="color: #009688; text-align: left;">
+                IPSS-M/R Risk Tool
+            </h2>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # Import the calculator functions
+    from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    
+    # Get patient data using the existing form
+    patient_data = build_manual_ipss_data()
+    
+    # Calculate button
+    if st.button("Calculate Risk Scores", type="primary"):
+        with st.spinner("Calculating risk scores..."):
+            try:
+                # Calculate IPSS-M with contributions
+                ipssm_result = calculate_ipssm(patient_data, include_contributions=True)
+                
+                # Calculate IPSS-R with return_components=True
+                ipssr_result = calculate_ipssr(patient_data, return_components=True)
+                
+                # Format results for display
+                formatted_ipssm = {
+                    'means': {
+                        'riskScore': ipssm_result['means']['risk_score'],
+                        'riskCat': ipssm_result['means']['risk_cat'],
+                        'contributions': ipssm_result['means'].get('contributions', {})
+                    },
+                    'worst': {
+                        'riskScore': ipssm_result['worst']['risk_score'],
+                        'riskCat': ipssm_result['worst']['risk_cat'],
+                        'contributions': ipssm_result['worst'].get('contributions', {})
+                    },
+                    'best': {
+                        'riskScore': ipssm_result['best']['risk_score'],
+                        'riskCat': ipssm_result['best']['risk_cat'],
+                        'contributions': ipssm_result['best'].get('contributions', {})
+                    },
+                    'derivation': []  # Add derivation if needed
+                }
+                
+                formatted_ipssr = {
+                    'IPSSR_SCORE': ipssr_result['IPSSR_SCORE'],
+                    'IPSSR_CAT': ipssr_result['IPSSR_CAT'],
+                    'IPSSRA_SCORE': ipssr_result['IPSSRA_SCORE'],
+                    'IPSSRA_CAT': ipssr_result['IPSSRA_CAT'],
+                    'derivation': []  # Add derivation if needed
+                }
+                
+                # Store results in session state
+                st.session_state['ipssm_result'] = formatted_ipssm
+                st.session_state['ipssr_result'] = formatted_ipssr
+                st.session_state['ipss_patient_data'] = patient_data
+                
+                # Add CSS for styling the results display
+                st.markdown("""
+                <style>
+                    .risk-card {
+                        background-color: white;
+                        border-radius: 8px;
+                        padding: 20px;
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                        margin-bottom: 20px;
+                    }
+                    .risk-header {
+                        font-size: 1.2rem;
+                        font-weight: 600;
+                        margin-bottom: 15px;
+                        color: #333;
+                        border-bottom: 1px solid #eee;
+                        padding-bottom: 10px;
+                    }
+                    .score-container {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 15px;
+                        margin-bottom: 15px;
+                    }
+                    .score-box {
+                        flex: 1;
+                        min-width: 120px;
+                        padding: 15px;
+                        border-radius: 6px;
+                        text-align: center;
+                    }
+                    .score-label {
+                        font-size: 0.9rem;
+                        margin-bottom: 5px;
+                        font-weight: 500;
+                    }
+                    .score-value {
+                        font-size: 1.5rem;
+                        font-weight: 700;
+                    }
+                    .category-value {
+                        font-size: 1.2rem;
+                        padding: 5px 10px;
+                        border-radius: 4px;
+                        display: inline-block;
+                        font-weight: 600;
+                        margin-top: 5px;
+                    }
+                    .risk-very-low {
+                        background-color: #c8e6c9;
+                        color: #2e7d32;
+                    }
+                    .risk-low {
+                        background-color: #dcedc8;
+                        color: #558b2f;
+                    }
+                    .risk-moderate {
+                        background-color: #fff9c4;
+                        color: #f9a825;
+                    }
+                    .risk-high {
+                        background-color: #ffccbc;
+                        color: #d84315;
+                    }
+                    .risk-very-high {
+                        background-color: #ffcdd2;
+                        color: #c62828;
+                    }
+                    .corner-ribbon {
+                        position: absolute;
+                        top: 0;
+                        right: 0;
+                        background-color: #009688;
+                        color: white;
+                        padding: 5px 10px;
+                        font-size: 0.8rem;
+                        border-radius: 0 8px 0 8px;
+                    }
+                    .divider-line {
+                        height: 1px;
+                        background-color: #eee;
+                        margin: 15px 0;
+                    }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                # Create a unified results summary section
+                st.markdown("## Risk Assessment Results")
+                
+                # Create colored category display helper function
+                def get_risk_class_color(category):
+                    if 'very low' in category.lower():
+                        return "#c8e6c9"  # Light green
+                    elif 'low' in category.lower():
+                        return "#dcedc8"  # Lighter green
+                    elif 'moderate' in category.lower() or 'intermediate' in category.lower() or 'mod' in category.lower():
+                        return "#fff9c4"  # Light yellow
+                    elif 'high' in category.lower() and 'very' not in category.lower():
+                        return "#ffccbc"  # Light orange/red
+                    elif 'very high' in category.lower():
+                        return "#ffcdd2"  # Light red
+                    else:
+                        return "#f5f7fa"  # Light gray
+                
+                # IPSS-M and IPSS-R results side by side
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # IPSS-M section
+                    st.subheader("IPSS-M Risk Classification")
+                    
+                    # Display mean risk score and category
+                    mean_score_col, mean_cat_col = st.columns(2)
+                    with mean_score_col:
+                        st.metric(label="Mean Risk Score", value=f"{formatted_ipssm['means']['riskScore']:.2f}")
+                    with mean_cat_col:
+                        cat_color = get_risk_class_color(formatted_ipssm['means']['riskCat'])
+                        st.markdown(f"""
+                        <div style="background-color: {cat_color}; padding: 10px; border-radius: 5px; text-align: center;">
+                            <span style="font-weight: bold; font-size: 1.2em;">{formatted_ipssm['means']['riskCat']}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # Alternative scenarios
+                    st.markdown("#### Alternative Scenarios")
+                    best_col, worst_col = st.columns(2)
+                    
+                    with best_col:
+                        best_color = get_risk_class_color(formatted_ipssm['best']['riskCat'])
+                        st.markdown(f"""
+                        <div style="background-color: #e8f5e9; padding: 8px; border-radius: 5px; text-align: center;">
+                            <div style="font-weight: 500; margin-bottom: 5px;">Best Case</div>
+                            <div style="font-size: 1.2em; font-weight: bold;">{formatted_ipssm['best']['riskScore']:.2f}</div>
+                            <div style="background-color: {best_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
+                                {formatted_ipssm['best']['riskCat']}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    with worst_col:
+                        worst_color = get_risk_class_color(formatted_ipssm['worst']['riskCat'])
+                        st.markdown(f"""
+                        <div style="background-color: #fbe9e7; padding: 8px; border-radius: 5px; text-align: center;">
+                            <div style="font-weight: 500; margin-bottom: 5px;">Worst Case</div>
+                            <div style="font-size: 1.2em; font-weight: bold;">{formatted_ipssm['worst']['riskScore']:.2f}</div>
+                            <div style="background-color: {worst_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
+                                {formatted_ipssm['worst']['riskCat']}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                with col2:
+                    # IPSS-R section
+                    st.subheader("IPSS-R Risk Classification")
+                    
+                    # Display IPSS-R score and category
+                    ipssr_score_col, ipssr_cat_col = st.columns(2)
+                    with ipssr_score_col:
+                        st.metric(label="IPSS-R Score", value=f"{formatted_ipssr['IPSSR_SCORE']:.2f}")
+                    with ipssr_cat_col:
+                        ipssr_color = get_risk_class_color(formatted_ipssr['IPSSR_CAT'])
+                        st.markdown(f"""
+                        <div style="background-color: {ipssr_color}; padding: 10px; border-radius: 5px; text-align: center;">
+                            <span style="font-weight: bold; font-size: 1.2em;">{formatted_ipssr['IPSSR_CAT']}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # Age-adjusted score
+                    st.markdown("#### Age-adjusted Score")
+                    ipssra_score_col, ipssra_cat_col = st.columns(2)
+                    with ipssra_score_col:
+                        st.metric(label="IPSS-RA Score", value=f"{formatted_ipssr['IPSSRA_SCORE']:.2f}")
+                    with ipssra_cat_col:
+                        ipssra_color = get_risk_class_color(formatted_ipssr['IPSSRA_CAT'])
+                        st.markdown(f"""
+                        <div style="background-color: {ipssra_color}; padding: 10px; border-radius: 5px; text-align: center;">
+                            <span style="font-weight: bold; font-size: 1.2em;">{formatted_ipssr['IPSSRA_CAT']}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # Display IPSS-R components
+                    if 'components' in ipssr_result:
+                        st.markdown("#### Score Components")
+                        
+                        components = ipssr_result['components']
+                        components_info = [
+                            {"name": "Cytogenetics", "value": components["Cytogenetics"]},
+                            {"name": "Bone Marrow Blasts", "value": components["Bone Marrow Blasts"]},
+                            {"name": "Hemoglobin", "value": components["Hemoglobin"]},
+                            {"name": "Platelets", "value": components["Platelets"]},
+                            {"name": "ANC", "value": components["ANC"]}
+                        ]
+                        
+                        # Sort by contribution and display as a simple table
+                        components_info.sort(key=lambda x: x["value"], reverse=True)
+                        
+                        # Convert to DataFrame and display
+                        comp_df = pd.DataFrame(components_info)
+                        st.dataframe(comp_df, hide_index=True, use_container_width=True)
+                
+                # Create tabs for IPSS-M and IPSS-R visualizations
+                vis_tab1, vis_tab2 = st.tabs(["IPSS-M Visualizations", "IPSS-R Visualizations"])
+                
+                # IPSS-M Visualizations tab
+                with vis_tab1:
+                    if 'contributions' in ipssm_result['means']:
+                        st.markdown("## IPSS-M Risk Score Contributors")
+                        contributions = ipssm_result['means']['contributions']
+                        
+                        # Sort contributions by absolute value
+                        sorted_contributions = sorted(
+                            contributions.items(),
+                            key=lambda x: abs(x[1]),
+                            reverse=True
+                        )
+                        
+                        # Convert to DataFrame for easier plotting
+                        df = pd.DataFrame(sorted_contributions, columns=['Factor', 'Contribution'])
+                        
+                        # Create a color map (red for positive/risk-increasing, green for negative/risk-decreasing)
+                        colors = ['#d62728' if c > 0 else '#2ca02c' for c in df['Contribution']]
+                        
+                        # Create the bar chart
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        bars = ax.barh(df['Factor'], df['Contribution'], color=colors)
+                        
+                        # Add a vertical line at x=0
+                        ax.axvline(x=0, color='black', linestyle='-', alpha=0.3)
+                        
+                        # Set labels and title
+                        ax.set_xlabel('Contribution to Risk Score')
+                        ax.set_title('IPSS-M Risk Score Contributors')
+                        
+                        # Invert the y-axis so the largest contributors are at the top
+                        ax.invert_yaxis()
+                        
+                        # Show the plot
+                        st.pyplot(fig)
+                        
+                        # Add a detailed table of gene contributions
+                        st.markdown("### Detailed Gene Contribution Values")
+                        st.markdown("This table shows the exact contribution of each gene and factor to the IPSS-M risk score:")
+                        
+                        # Create a styled DataFrame with positive/negative highlighting
+                        df_styled = df.copy()
+                        df_styled['Impact'] = ['Risk-increasing' if c > 0 else 'Risk-decreasing' for c in df['Contribution']]
+                        
+                        # Separate genetic and clinical factors
+                        genetic_factors = df_styled[df_styled['Factor'].str.contains('_mut|residual', case=False, regex=True)]
+                        clinical_factors = df_styled[~df_styled['Factor'].str.contains('_mut|residual', case=False, regex=True)]
+                        
+                        # Show tables with styling
+                        if not genetic_factors.empty:
+                            st.markdown("#### Genetic Factors")
+                            st.dataframe(
+                                genetic_factors,
+                                column_config={
+                                    "Factor": "Gene/Mutation",
+                                    "Contribution": st.column_config.NumberColumn(
+                                        "Contribution Value",
+                                        format="%.3f",
+                                        help="Contribution to overall risk score"
+                                    ),
+                                    "Impact": "Impact on Risk"
+                                },
+                                use_container_width=True,
+                                hide_index=True
+                            )
+                        
+                        if not clinical_factors.empty:
+                            st.dataframe(
+                                clinical_factors,
+                                column_config={
+                                    "Factor": "Clinical Parameter",
+                                    "Contribution": st.column_config.NumberColumn(
+                                        "Contribution Value",
+                                        format="%.3f",
+                                        help="Contribution to overall risk score"
+                                    ),
+                                    "Impact": "Impact on Risk"
+                                },
+                                use_container_width=True,
+                                hide_index=True
+                            )
+                        
+                        # Summary statistics
+                        total_positive = df[df['Contribution'] > 0]['Contribution'].sum()
+                        total_negative = df[df['Contribution'] < 0]['Contribution'].sum()
+                        
+                        st.markdown(f"""
+                        **Summary:**
+                        - Total risk-increasing contributions: +{total_positive:.3f}
+                        - Total risk-decreasing contributions: {total_negative:.3f}
+                        - Net risk score contribution: {(total_positive + total_negative):.3f}
+                        """)
+                
+                # IPSS-R Visualizations tab
+                with vis_tab2:
+                    if 'components' in ipssr_result:
+                        st.markdown("## IPSS-R Score Components")
+                        components = ipssr_result['components']
+                        
+                        # Convert components to DataFrame for plotting
+                        df_ipssr = pd.DataFrame({
+                            'Component': list(components.keys()),
+                            'Score': list(components.values())
+                        })
+                        
+                        # Create the bar chart
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        bars = ax.barh(df_ipssr['Component'], df_ipssr['Score'], color='#1f77b4')
+                        
+                        # Set labels and title
+                        ax.set_xlabel('Score Contribution')
+                        ax.set_title('IPSS-R Score Components')
+                        
+                        # Show the plot
+                        st.pyplot(fig)
+                        
+                        # Display parameter categorization table
+                        st.markdown("### Parameter Categorization")
+                        st.markdown("This table shows how each parameter is categorized in the IPSS-R scoring system:")
+                        
+                        # Create DataFrame for parameter categorization
+                        param_data = {
+                            "Parameter": ["Hemoglobin", "Platelets", "ANC", "Bone Marrow Blasts", "Cytogenetics"],
+                            "Value": [patient_data["HB"], patient_data["PLT"], patient_data["ANC"], patient_data["BM_BLAST"], patient_data["CYTO_IPSSR"]],
+                            "Category": [
+                                f"{ipssr_result['hb_category']} ({components['Hemoglobin']} points)",
+                                f"{ipssr_result['plt_category']} ({components['Platelets']} points)",
+                                f"{ipssr_result['anc_category']} ({components['ANC']} points)",
+                                f"{ipssr_result['blast_category']} ({components['Bone Marrow Blasts']} points)",
+                                f"{ipssr_result['cyto_category']} ({components['Cytogenetics']} points)"
+                            ]
+                        }
+                        
+                        df_params = pd.DataFrame(param_data)
+                        st.table(df_params)
+                
+            except Exception as e:
+                st.error(f"Error calculating risk scores: {str(e)}")
+
 ##################################
 # APP MAIN
 ##################################
@@ -811,13 +1219,31 @@ def app_main():
             cookies.save()
             st.rerun()
 
+    # Add sidebar navigation options
+    with st.sidebar:
+        selected = option_menu(
+            menu_title="Navigation",
+            options=["AML/MDS Classifier", "IPSS-M/R Risk Tool"],
+            icons=["clipboard-data", "calculator"],
+            menu_icon="cast",
+            default_index=0,
+        )
+        
     if "page" not in st.session_state:
+        st.session_state["page"] = "data_entry"
+    
+    # Handle navigation selection
+    if selected == "IPSS-M/R Risk Tool":
+        st.session_state["page"] = "ipcc_risk_calculator"
+    elif selected == "AML/MDS Classifier" and st.session_state["page"] != "results":
         st.session_state["page"] = "data_entry"
 
     if st.session_state["page"] == "data_entry":
         data_entry_page()
     elif st.session_state["page"] == "results":
         results_page()
+    elif st.session_state["page"] == "ipcc_risk_calculator":
+        ipcc_risk_calculator_page()
 
 if __name__ == "__main__":
     app_main()

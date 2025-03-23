@@ -220,24 +220,7 @@ def display_ipss_classification_results(
         st.markdown(f"- **Risk Score:** {ipssm_result['best']['riskScore']}")
         st.markdown(f"- **Risk Category:** {ipssm_result['best']['riskCat']}")
 
-    ##########################################
-    # 2. Display Derivation Logs Side-by-Side
-    ##########################################
-    st.markdown("## Detailed Derivation")
-    col3, col4 = st.columns(2)
-    with col3:
-        with st.expander("View IPSS-R Derivation", expanded=False):
-            ipssr_deriv = "\n\n".join(
-                [f"**Step {idx}:** {step}" for idx, step in enumerate(ipssr_result.get("derivation", []), start=1)]
-            )
-            st.markdown(ipssr_deriv)
-    with col4:
-        with st.expander("View IPSS-M Derivation", expanded=False):
-            ipssm_deriv = "\n\n".join(
-                [f"**Step {idx}:** {step}" for idx, step in enumerate(ipssm_result.get("derivation", []), start=1)]
-            )
-            st.markdown(ipssm_deriv)
-
+ 
     ##########################################
     # 3. Optionally, Show Parsed Input Fields
     ##########################################
