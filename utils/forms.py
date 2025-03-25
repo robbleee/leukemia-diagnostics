@@ -537,51 +537,89 @@ def build_manual_ipss_data() -> dict:
             del17_17p = st.checkbox("del(17) or del(17p)", key="ipss_del17_17p")
             complex_kary = st.checkbox("Complex Karyotype", key="ipss_complex")
 
-        # If you have more cytogenetic flags for IPSS-M, add them here.
-
         # ---------------------------------------------------------------------
         # Molecular Data / Genes
         # ---------------------------------------------------------------------
         st.subheader("Molecular Markers (Gene Mutations)")
-        st.markdown("Check any that are **detected** in this patient. If undetected or unknown, leave unchecked.")
-        # You can group them in columns or in toggles, as you prefer.
-
-        # Example: 2 columns for main genes
-        col_m1, col_m2 = st.columns(2)
-        with col_m1:
-            asxl1 = st.checkbox("ASXL1 mutation", key="ipss_asxl1")
-            srsf2 = st.checkbox("SRSF2 mutation", key="ipss_srsf2")
-            dnmt3a = st.checkbox("DNMT3A mutation", key="ipss_dnmt3a")
-            runx1 = st.checkbox("RUNX1 mutation", key="ipss_runx1")
-            u2af1 = st.checkbox("U2AF1 mutation", key="ipss_u2af1")
-            ezh2 = st.checkbox("EZH2 mutation", key="ipss_ezh2")
-        with col_m2:
-            sf3b1 = st.checkbox("SF3B1 mutation", key="ipss_sf3b1")
-            cbl = st.checkbox("CBL mutation", key="ipss_cbl")
-            nras = st.checkbox("NRAS mutation", key="ipss_nras")
-            idh2 = st.checkbox("IDH2 mutation", key="ipss_idh2")
-            kras = st.checkbox("KRAS mutation", key="ipss_kras")
-            npm1 = st.checkbox("NPM1 mutation", key="ipss_npm1")
-
-        # Additional lines for other genes if needed:
-        col_m3, col_m4 = st.columns(2)
-        with col_m3:
-            # Example placeholders
-            srsf2_extra = st.checkbox("TP53 multi-hit", key="ipss_tp53multi")
-            flt3 = st.checkbox("FLT3 (ITD / TKD)", key="ipss_flt3")
-        with col_m4:
-            # More placeholders
-            mll_ptd = st.checkbox("MLL PTD", key="ipss_mll_ptd")
-            etv6 = st.checkbox("ETV6 mutation", key="ipss_etv6")
-
-        # If you want to collect additional numeric data (like VAFs), add them here:
-        tp53_vaf = st.number_input(
-            "Max VAF of TP53 mutation (%)",
-            min_value=0.0,
-            max_value=100.0,
-            value=0.0,
-            key="ipss_tp53maxvaf"
-        )
+        
+        st.markdown("""
+        <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+            <p style="margin-bottom: 5px; font-size: 0.9em;"><strong>Gene Status Options:</strong></p>
+            <ul style="margin-bottom: 5px; font-size: 0.9em;">
+                <li><strong>Not Mutated</strong>: Gene was tested and mutation not found</li>
+                <li><strong>Mutated</strong>: Gene was tested and mutation was found</li>
+                <li><strong>Not Assessed</strong>: Gene was not tested or results are inconclusive</li>
+            </ul>
+            <p style="font-size: 0.9em; color: #666;">Note: "Not Assessed" genes allow the calculator to show different Mean/Best/Worst scenarios</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # TP53 Status
+        st.markdown("#### TP53 Status")
+        col_tp53a, col_tp53b = st.columns(2)
+        with col_tp53a:
+            tp53_multi = st.radio(
+                "TP53 multi-hit (biallelic)",
+                options=["Not Mutated", "Mutated", "Not Assessed"],
+                horizontal=True,
+                key="ipss_tp53multi"
+            )
+        with col_tp53b:
+            tp53_loh = st.radio(
+                "TP53 LOH (Loss of Heterozygosity)",
+                options=["Not Mutated", "Mutated", "Not Assessed"],
+                horizontal=True,
+                key="ipss_tp53loh"
+            )
+        
+        # Main genes
+        st.markdown("#### Main Gene Mutations")
+        
+        # Create a list of main genes and distribute them in 3 columns
+        main_genes = [
+            "ASXL1", "SRSF2", "DNMT3A", "RUNX1", "U2AF1",
+            "SF3B1", "CBL", "NRAS", "IDH2", "MLL_PTD",
+            "KRAS", "NPM1", "EZH2", "ETV6", "FLT3"
+        ]
+        
+        col_m1, col_m2, col_m3 = st.columns(3)
+        columns = [col_m1, col_m2, col_m3]
+        main_gene_status = {}
+        
+        # Distribute genes evenly across the columns
+        for i, gene in enumerate(main_genes):
+            col_idx = i % 3
+            col = columns[col_idx]
+            with col:
+                main_gene_status[gene] = st.radio(
+                    f"{gene}",
+                    options=["Not Mutated", "Mutated", "Not Assessed"],
+                    horizontal=True,
+                    key=f"ipss_{gene.lower()}"
+                )
+        
+        # Residual genes that contribute to Nres2 calculation
+        st.markdown("#### Residual Genes (for Nres2 calculation)")
+        
+        # Create a list of the residual genes
+        residual_genes = ["BCOR", "BCORL1", "CEBPA", "ETNK1", "GATA2", 
+                         "GNB1", "IDH1", "NF1", "PHF6", "PPM1D", 
+                         "PRPF8", "PTPN11", "SETBP1", "STAG2", "WT1"]
+        
+        res_col1, res_col2, res_col3 = st.columns(3)
+        residual_gene_status = {}
+        
+        # Distribute genes evenly across columns
+        for i, gene in enumerate(residual_genes):
+            col_idx = i % 3
+            col = [res_col1, res_col2, res_col3][col_idx]
+            with col:
+                residual_gene_status[gene] = st.radio(
+                    f"{gene}",
+                    options=["Not Mutated", "Mutated", "Not Assessed"],
+                    horizontal=True,
+                    key=f"ipss_{gene.lower()}"
+                )
 
     # -------------------------------------------------------------------------
     # Build a dictionary to hold the user's input
@@ -596,31 +634,23 @@ def build_manual_ipss_data() -> dict:
         "CYTO_IPSSR": cyto_ipssr,
 
         # Additional cytogenetics for IPSS-M
-        "del5q": del5q,
-        "del7_7q": del7_7q,
-        "del17_17p": del17_17p,
-        "complex": complex_kary,
+        "del5q": 1 if del5q else 0,
+        "del7_7q": 1 if del7_7q else 0,
+        "del17_17p": 1 if del17_17p else 0,
+        "complex": 1 if complex_kary else 0,
 
-        # Example molecular markers (you can expand as needed).
-        "ASXL1": asxl1,
-        "SRSF2": srsf2,
-        "DNMT3A": dnmt3a,
-        "RUNX1": runx1,
-        "U2AF1": u2af1,
-        "EZH2": ezh2,
-        "SF3B1": sf3b1,
-        "CBL": cbl,
-        "NRAS": nras,
-        "IDH2": idh2,
-        "KRAS": kras,
-        "NPM1": npm1,
-        "TP53multi": srsf2_extra,  # rename as needed
-        "FLT3": flt3,
-        "MLL_PTD": mll_ptd,
-        "ETV6": etv6,
+        # TP53 status
+        "TP53mut": "1" if tp53_multi == "Mutated" else "0" if tp53_multi == "Not Mutated" else "NA",
+        "TP53loh": "1" if tp53_loh == "Mutated" else "0" if tp53_loh == "Not Mutated" else "NA",
+        "TP53multi": 1 if tp53_multi == "Mutated" else 0 if tp53_multi == "Not Mutated" else "NA",
 
-        # Example numeric field for TP53 VAF
-        "TP53maxvaf": tp53_vaf,
+        # Main gene mutations - convert from radio button selection to appropriate value
+        **{gene: "1" if status == "Mutated" else "0" if status == "Not Mutated" else "NA" 
+           for gene, status in main_gene_status.items()},
+        
+        # Residual genes
+        **{gene: "1" if status == "Mutated" else "0" if status == "Not Mutated" else "NA" 
+           for gene, status in residual_gene_status.items()}
     }
 
     return manual_data

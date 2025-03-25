@@ -942,12 +942,6 @@ def ipcc_risk_calculator_page():
                     if patient_data.get("CYTO_IPSSR") is None:
                         patient_data["CYTO_IPSSR"] = "Good"
                     
-                    # Add a few residual genes as NA to ensure we get different mean/best/worst calculations
-                    # This is needed because when all genes are known (0 or 1), all three scenarios become identical
-                    patient_data["BCOR"] = "NA"
-                    patient_data["BCORL1"] = "NA"
-                    patient_data["SETBP1"] = "NA"
-                    
                     # If we processed text, retain other data like specific gene mutations
                     if parsed_data or 'original_ipcc_data' in st.session_state:
                         original_data = parsed_data or st.session_state.get('original_ipcc_data', {})
@@ -1041,12 +1035,6 @@ def ipcc_risk_calculator_page():
                     # Store original manual data in session state
                     st.session_state['original_ipcc_data'] = patient_data.copy()
                     st.session_state['ipss_patient_data'] = patient_data.copy()
-                    
-                    # Add a few residual genes as NA to ensure we get different mean/best/worst calculations
-                    # This is needed because when all genes are known (0 or 1), all three scenarios become identical
-                    patient_data["BCOR"] = "NA"
-                    patient_data["BCORL1"] = "NA"
-                    patient_data["SETBP1"] = "NA"
                     
                     # Calculate IPSS-M with contributions
                     ipssm_result = calculate_ipssm(patient_data, include_contributions=True)
