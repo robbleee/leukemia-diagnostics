@@ -845,6 +845,7 @@ def ipcc_risk_calculator_page():
                     max_value=20.0,
                     value=0.0,
                     step=0.1,
+                    help="Leave at 0 to use value from report. Only set if you want to override.",
                     key="hb_override"
                 )
                 
@@ -854,6 +855,7 @@ def ipcc_risk_calculator_page():
                     max_value=1000,
                     value=0,
                     step=1,
+                    help="Leave at 0 to use value from report. Only set if you want to override.",
                     key="plt_override"
                 )
             
@@ -864,6 +866,7 @@ def ipcc_risk_calculator_page():
                     max_value=20.0,
                     value=0.0,
                     step=0.1,
+                    help="Leave at 0 to use value from report. Only set if you want to override.",
                     key="anc_override"
                 )
                 
@@ -873,6 +876,7 @@ def ipcc_risk_calculator_page():
                     max_value=30.0,
                     value=0.0,
                     step=0.1,
+                    help="Leave at 0 to use value from report. Only set if you want to override.",
                     key="blast_override"
                 )
             
@@ -881,41 +885,13 @@ def ipcc_risk_calculator_page():
                     "Age (years)",
                     min_value=18, 
                     max_value=120,
-                    value=65,
+                    value=18,  # Min allowable value to indicate "not set"
                     step=1,
+                    help="Leave at 18 to use value from report. Only values > 18 will override.",
                     key="age_override"
                 )
                 
-                # Enhanced TP53 status overrides
-                col1, col2 = st.columns(2)
-                with col1:
-                    # Updated options to match manual form
-                    tp53_mutation_options = ["0", "1", "2+", "Not Assessed"]
-                    tp53_mutation_override = st.selectbox(
-                        "TP53 Mutations",
-                        options=tp53_mutation_options,
-                        index=0,
-                        key="tp53_mutation_override"
-                    )
-                
-                    tp53_loh_options = ["No", "Yes", "Not Assessed"]
-                    tp53_loh_override = st.selectbox(
-                        "TP53 LOH",
-                        options=tp53_loh_options,
-                        index=0,
-                        key="tp53_loh_override"
-                    )
-                
-                with col2:
-                    tp53_maxvaf_override = st.number_input(
-                        "Max VAF of TP53 mutation (%)",
-                        min_value=0.0,
-                        max_value=100.0,
-                        value=0.0,
-                        step=1.0,
-                        key="tp53_maxvaf_override"
-                    )
-            
+                # TP53 status will be extracted directly from the report
             
             free_report_text = st.text_area(
                 "Enter MDS report data:",
@@ -933,44 +909,47 @@ def ipcc_risk_calculator_page():
                     with st.spinner("Processing report text..."):
                         parsed_data = parse_ipcc_report(free_report_text)
                         if parsed_data:
-                            st.info("Report processed successfully. Using override values for calculation.")
+                            st.info("Report processed successfully.")
                             # Store parsed data for gene mutations and other details
                             st.session_state['original_ipcc_data'] = parsed_data.copy()
                             # We'll display JSON in a dedicated section later
                 
-                # Always use the override values for calculation
+                # Start with parsed data as the base, then apply overrides only if set
                 with st.spinner("Calculating risk scores..."):
-                    # Create patient data dictionary from override values
-                    patient_data = {
-                        "HB": hb_override,
-                        "PLT": plt_override,
-                        "ANC": anc_override,
-                        "BM_BLAST": blast_override,
-                        "AGE": age_override
-                    }
+                    # Start with any parsed data we have
+                    if parsed_data or 'original_ipcc_data' in st.session_state:
+                        original_data = parsed_data or st.session_state.get('original_ipcc_data', {})
+                        patient_data = original_data.copy()
+                    else:
+                        patient_data = {}
                     
-                    # Handle TP53 overrides - updated to match manual form
-                    patient_data["TP53mut"] = tp53_mutation_override if tp53_mutation_override != "Not Assessed" else "NA"
-                    patient_data["TP53loh"] = "1" if tp53_loh_override == "Yes" else "0" if tp53_loh_override == "No" else "NA"
-                    patient_data["TP53maxvaf"] = tp53_maxvaf_override if tp53_maxvaf_override > 0 else "NA"
+                    # Only apply overrides if they're set to non-zero values
+                    if hb_override > 0:
+                        patient_data["HB"] = hb_override
                     
-                    # Calculate TP53multi based on mutations and LOH
-                    patient_data["TP53multi"] = 1 if (tp53_mutation_override == "2+" or 
-                                                    (tp53_mutation_override == "1" and tp53_loh_override == "Yes")) else \
-                                             0 if (tp53_mutation_override == "0" or 
-                                                  (tp53_mutation_override == "1" and tp53_loh_override == "No")) else "NA"
+                    if plt_override > 0:
+                        patient_data["PLT"] = plt_override
+                    
+                    if anc_override > 0:
+                        patient_data["ANC"] = anc_override
+                    
+                    if blast_override > 0:
+                        patient_data["BM_BLAST"] = blast_override
+                    
+                    if age_override > 18:  # Age 18 is the minimum and signals "not set"
+                        patient_data["AGE"] = age_override
                     
                     # Default cytogenetic value if not available - normal karyotype
                     if patient_data.get("CYTO_IPSSR") is None:
                         patient_data["CYTO_IPSSR"] = "Good"
                     
-                    # If we processed text, retain other data like specific gene mutations
-                    if parsed_data or 'original_ipcc_data' in st.session_state:
-                        original_data = parsed_data or st.session_state.get('original_ipcc_data', {})
-                        # Preserve keys that aren't in the overrides
-                        for key, value in original_data.items():
-                            if key not in patient_data and key not in ["HB", "PLT", "ANC", "BM_BLAST", "AGE", "TP53mut", "TP53loh", "TP53maxvaf", "TP53multi"]:
-                                patient_data[key] = value
+                    # Handle TP53 overrides - updated to match manual form
+                    patient_data["TP53mut"] = "NA"
+                    patient_data["TP53loh"] = "NA"
+                    patient_data["TP53maxvaf"] = "NA"
+                    
+                    # Calculate TP53multi based on mutations and LOH
+                    patient_data["TP53multi"] = "NA"
                     
                     # Store for calculations but keep the prompts intact
                     if 'original_ipcc_data' in st.session_state and '__prompts' in st.session_state['original_ipcc_data']:
