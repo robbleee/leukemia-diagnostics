@@ -136,7 +136,12 @@ Extract these fields:
 Return valid JSON only with these keys and no extra text.
 
 Here is the free-text hematological report to parse:
+
+[START OF REPORT]
+
 {report_text}
+
+[END OF REPORT]   
     """
     
     # -------------------------------------------------------
@@ -185,7 +190,12 @@ For "cyto_category_ipssr", choose from "Very Good", "Good", "Intermediate", "Poo
 Return valid JSON only with these keys and no extra text.
 
 Here is the free-text hematological report to parse:
+
+[START OF REPORT]
+
 {report_text}
+
+[END OF REPORT]   
     """
     
     # -------------------------------------------------------
@@ -198,15 +208,22 @@ If a field is not found or unclear, use the default value.
 
 Extract these fields:
 "tp53_details": {{
-    "TP53mut": [0 if no TP53 mutation, 1 if any TP53 mutation is present, as a string - "0" or "1"],
+    "TP53mut": [TP53 mutation count: "0" if none, "1" if single mutation, "2" if multiple mutations are present],
     "TP53maxvaf": [Maximum variant allele frequency (VAF) of the TP53 mutation in percentage (0-100), default: 0.0],
     "TP53loh": [true if there's loss of heterozygosity in TP53, false otherwise]
 }}
 
+Take care to distinguish between single and multiple TP53 mutations. If the text mentions "biallelic" TP53 or multiple mutations, use "2" for TP53mut.
+
 Return valid JSON only with these keys and no extra text.
 
 Here is the free-text hematological report to parse:
+
+[START OF REPORT]
+
 {report_text}
+
+[END OF REPORT]   
     """
     
     # -------------------------------------------------------
@@ -254,15 +271,33 @@ Extract these fields:
     "WT1": false
 }}
 
-For "TP53multi", set to true if there are multiple TP53 mutations or biallelic TP53 abnormalities.
+Be particularly careful with "TP53multi" - set it to true if ANY of these conditions are met:
+1. Multiple TP53 mutations are mentioned (e.g., "2 TP53 mutations", "two TP53 mutations")
+2. Biallelic TP53 mutation or abnormality is mentioned
+3. One TP53 mutation with loss of heterozygosity (LOH) is mentioned
+4. One TP53 mutation with deletion of the other allele (e.g., del(17p)) is mentioned
 
 Return valid JSON only with these keys and no extra text.
 
 Here is the free-text hematological report to parse:
+
+[START OF REPORT]
+
 {report_text}
+
+[END OF REPORT]   
+   
     """
     
     try:
+        # Store prompts for debugging
+        prompts = {
+            "clinical_prompt": clinical_prompt,
+            "cytogenetics_prompt": cytogenetics_prompt,
+            "tp53_prompt": tp53_prompt,
+            "genes_prompt": genes_prompt
+        }
+        
         # Parallelize the prompt calls
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future1 = executor.submit(get_json_from_prompt, clinical_prompt)
@@ -282,6 +317,9 @@ Here is the free-text hematological report to parse:
         parsed_data.update(cytogenetics_data)
         parsed_data.update(tp53_data)
         parsed_data.update(genes_data)
+        
+        # Add prompts to the parsed data for debugging
+        parsed_data["__prompts"] = prompts
 
         # Fill missing keys from required structure
         for key, val in required_json_structure.items():
@@ -311,11 +349,11 @@ Here is the free-text hematological report to parse:
             "del17_17p": 1 if parsed_data["cytogenetics"]["del17p"] else 0,
             "complex": 1 if parsed_data["cytogenetics"]["karyotype_complexity"] in ["Complex (3 abnormalities)", "Very complex (>3 abnormalities)"] else 0,
             
-            # TP53 status
-            "TP53mut": parsed_data["tp53_details"]["TP53mut"],
-            "TP53maxvaf": parsed_data["tp53_details"]["TP53maxvaf"],
-            "TP53loh": 1 if parsed_data["tp53_details"]["TP53loh"] else 0,
-            "TP53multi": 1 if parsed_data["gene_mutations"]["TP53multi"] else 0
+            # TP53 status - updated to match manual form format
+            "TP53mut": parsed_data["tp53_details"]["TP53mut"],  # Should now be "0", "1", or "2"
+            "TP53maxvaf": parsed_data["tp53_details"]["TP53maxvaf"] if parsed_data["tp53_details"]["TP53maxvaf"] > 0 else "NA",
+            "TP53loh": "1" if parsed_data["tp53_details"]["TP53loh"] else "0",
+            "TP53multi": 1 if parsed_data["gene_mutations"]["TP53multi"] or parsed_data["tp53_details"]["TP53mut"] == "2" else 0
         }
         
         # Add gene mutations
@@ -323,6 +361,9 @@ Here is the free-text hematological report to parse:
             for gene, value in parsed_data[gene_category].items():
                 if gene != "TP53multi":  # Already handled above
                     ipssm_data[gene] = 1 if value else 0
+        
+        # Add the prompts to the ipssm_data for debugging
+        ipssm_data["__prompts"] = parsed_data["__prompts"]
         
         # Debug print
         print("Parsed IPCC Report JSON:")

@@ -254,7 +254,15 @@ def preprocess_patient_data(patient_data: Dict[str, Any]) -> Dict[str, Any]:
         processed["SF3B1_alpha"] = "1"
     
     # Construction of TP53multi feature
-    tp53_max_vaf = float(processed.get("TP53maxvaf", 0))
+    try:
+        # Safely convert TP53maxvaf to float, handling 'NA' values
+        if processed.get("TP53maxvaf") == "NA" or processed.get("TP53maxvaf") is None:
+            tp53_max_vaf = 0.0
+        else:
+            tp53_max_vaf = float(processed.get("TP53maxvaf", 0))
+    except (ValueError, TypeError):
+        tp53_max_vaf = 0.0
+        
     del17_17p = _safe_number(processed.get("del17_17p", 0))
     
     # If VAF > 55% or del17/17p present, set TP53loh to 1
@@ -352,31 +360,38 @@ def calculate_ipssm(
             else:
                 value = processed_data.get(var_name)
                 
-                # Handle missing values by using scenario-specific defaults
-                if value == "NA" or value is None:
+                # Calculate contribution
+                try:
+                    # Handle missing values by using scenario-specific defaults
+                    if value == "NA" or value is None:
+                        value = beta[scenario]
+                    
+                    # Safely convert to float
+                    contribution = ((float(value) - beta["means"]) * beta["coeff"]) / math.log(2)
+                    contributions[var_name] = contribution
+                except (ValueError, TypeError):
+                    # If conversion fails, use the default for this scenario
                     value = beta[scenario]
+                    contribution = ((float(value) - beta["means"]) * beta["coeff"]) / math.log(2)
+                    contributions[var_name] = contribution
             
-            # Calculate contribution
-            contribution = ((float(value) - beta["means"]) * beta["coeff"]) / math.log(2)
-            contributions[var_name] = contribution
-        
-        # Calculate total risk score
-        risk_score = sum(contributions.values())
-        if rounding:
-            risk_score = round_number(risk_score, rounding_digits)
-        
-        # Determine risk category
-        extended_cutpoints = [-float('inf')] + IPSSM_CUTPOINTS + [float('inf')]
-        cat_index = find_category_index(risk_score, extended_cutpoints)
-        risk_cat = IPSSM_CATEGORIES[cat_index] if 0 <= cat_index < len(IPSSM_CATEGORIES) else "Unknown"
-        
-        # Set results
-        scores[scenario]["risk_score"] = risk_score
-        scores[scenario]["risk_cat"] = risk_cat
-        
-        # Add contributions if requested
-        if include_contributions:
-            scores[scenario]["contributions"] = contributions
+            # Calculate total risk score
+            risk_score = sum(contributions.values())
+            if rounding:
+                risk_score = round_number(risk_score, rounding_digits)
+            
+            # Determine risk category
+            extended_cutpoints = [-float('inf')] + IPSSM_CUTPOINTS + [float('inf')]
+            cat_index = find_category_index(risk_score, extended_cutpoints)
+            risk_cat = IPSSM_CATEGORIES[cat_index] if 0 <= cat_index < len(IPSSM_CATEGORIES) else "Unknown"
+            
+            # Set results
+            scores[scenario]["risk_score"] = risk_score
+            scores[scenario]["risk_cat"] = risk_cat
+            
+            # Add contributions if requested
+            if include_contributions:
+                scores[scenario]["contributions"] = contributions
     
     return scores
 

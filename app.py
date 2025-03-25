@@ -886,14 +886,35 @@ def ipcc_risk_calculator_page():
                     key="age_override"
                 )
                 
-                # Simplified TP53 status override
-                tp53_options = ["Not Detected", "Detected (Single Hit)", "Detected (Double Hit)"]
-                tp53_override = st.selectbox(
-                    "TP53 Status",
-                    options=tp53_options,
-                    index=0,
-                    key="tp53_override"
-                )
+                # Enhanced TP53 status overrides
+                col1, col2 = st.columns(2)
+                with col1:
+                    # Updated options to match manual form
+                    tp53_mutation_options = ["0", "1", "2+", "Not Assessed"]
+                    tp53_mutation_override = st.selectbox(
+                        "TP53 Mutations",
+                        options=tp53_mutation_options,
+                        index=0,
+                        key="tp53_mutation_override"
+                    )
+                
+                    tp53_loh_options = ["No", "Yes", "Not Assessed"]
+                    tp53_loh_override = st.selectbox(
+                        "TP53 LOH",
+                        options=tp53_loh_options,
+                        index=0,
+                        key="tp53_loh_override"
+                    )
+                
+                with col2:
+                    tp53_maxvaf_override = st.number_input(
+                        "Max VAF of TP53 mutation (%)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=0.0,
+                        step=1.0,
+                        key="tp53_maxvaf_override"
+                    )
             
             
             free_report_text = st.text_area(
@@ -915,6 +936,7 @@ def ipcc_risk_calculator_page():
                             st.info("Report processed successfully. Using override values for calculation.")
                             # Store parsed data for gene mutations and other details
                             st.session_state['original_ipcc_data'] = parsed_data.copy()
+                            # We'll display JSON in a dedicated section later
                 
                 # Always use the override values for calculation
                 with st.spinner("Calculating risk scores..."):
@@ -927,16 +949,16 @@ def ipcc_risk_calculator_page():
                         "AGE": age_override
                     }
                     
-                    # Handle TP53 overrides
-                    if tp53_override == "Not Detected":
-                        patient_data["TP53mut"] = "0"
-                        patient_data["TP53loh"] = "0"
-                    elif tp53_override == "Detected (Single Hit)":
-                        patient_data["TP53mut"] = "1"
-                        patient_data["TP53loh"] = "0"
-                    elif tp53_override == "Detected (Double Hit)":
-                        patient_data["TP53mut"] = "1"
-                        patient_data["TP53loh"] = "1"
+                    # Handle TP53 overrides - updated to match manual form
+                    patient_data["TP53mut"] = tp53_mutation_override if tp53_mutation_override != "Not Assessed" else "NA"
+                    patient_data["TP53loh"] = "1" if tp53_loh_override == "Yes" else "0" if tp53_loh_override == "No" else "NA"
+                    patient_data["TP53maxvaf"] = tp53_maxvaf_override if tp53_maxvaf_override > 0 else "NA"
+                    
+                    # Calculate TP53multi based on mutations and LOH
+                    patient_data["TP53multi"] = 1 if (tp53_mutation_override == "2+" or 
+                                                    (tp53_mutation_override == "1" and tp53_loh_override == "Yes")) else \
+                                             0 if (tp53_mutation_override == "0" or 
+                                                  (tp53_mutation_override == "1" and tp53_loh_override == "No")) else "NA"
                     
                     # Default cytogenetic value if not available - normal karyotype
                     if patient_data.get("CYTO_IPSSR") is None:
@@ -947,11 +969,21 @@ def ipcc_risk_calculator_page():
                         original_data = parsed_data or st.session_state.get('original_ipcc_data', {})
                         # Preserve keys that aren't in the overrides
                         for key, value in original_data.items():
-                            if key not in patient_data and key not in ["HB", "PLT", "ANC", "BM_BLAST", "AGE", "TP53mut", "TP53loh"]:
+                            if key not in patient_data and key not in ["HB", "PLT", "ANC", "BM_BLAST", "AGE", "TP53mut", "TP53loh", "TP53maxvaf", "TP53multi"]:
                                 patient_data[key] = value
                     
-                    # Store for calculations
-                    st.session_state['original_ipcc_data'] = patient_data.copy()
+                    # Store for calculations but keep the prompts intact
+                    if 'original_ipcc_data' in st.session_state and '__prompts' in st.session_state['original_ipcc_data']:
+                        # Save the prompts
+                        prompts = st.session_state['original_ipcc_data']['__prompts']
+                        # Update the original data with new calculation values but keep prompts
+                        st.session_state['original_ipcc_data'] = patient_data.copy()
+                        st.session_state['original_ipcc_data']['__prompts'] = prompts
+                    else:
+                        # Just store the new data if no prompts exist
+                        st.session_state['original_ipcc_data'] = patient_data.copy()
+                    
+                    # Always update the calculation data
                     st.session_state['ipss_patient_data'] = patient_data.copy()
                     
                     try:
@@ -961,26 +993,7 @@ def ipcc_risk_calculator_page():
                         # Calculate IPSS-R with return_components=True
                         ipssr_result = calculate_ipssr(patient_data, return_components=True)
                         
-                        # Debug information about the actual IPSS-M results
-                        st.info(f"""
-                        Debug - Raw IPSS-M Results:
-                        - Mean: {ipssm_result['means']['risk_score']:.2f} ({ipssm_result['means']['risk_cat']})
-                        - Best: {ipssm_result['best']['risk_score']:.2f} ({ipssm_result['best']['risk_cat']})
-                        - Worst: {ipssm_result['worst']['risk_score']:.2f} ({ipssm_result['worst']['risk_cat']})
-                        """)
-                        
-                        # Debug the residual genes calculation
-                        residual_genes_data = {}
-                        for gene in RESIDUAL_GENES:
-                            if gene in patient_data:
-                                value = patient_data[gene]
-                                residual_genes_data[gene] = value
-                        
-                        st.info(f"""
-                        Debug - Residual Genes:
-                        {residual_genes_data}
-                        """)
-                        
+                        # Remove debug information now that we have a proper JSON viewer
                         # Format results for display
                         formatted_ipssm = {
                             'means': {
@@ -1042,6 +1055,7 @@ def ipcc_risk_calculator_page():
                     # Calculate IPSS-R with return_components=True
                     ipssr_result = calculate_ipssr(patient_data, return_components=True)
                     
+                    # Remove debug information now that we have a proper JSON viewer
                     # Format results for display
                     formatted_ipssm = {
                         'means': {
@@ -1088,47 +1102,45 @@ def ipcc_risk_calculator_page():
     
     # Remove the separate overrides panel, since it's now integrated above
     
-    # Add help information
-    with st.expander("Help & Information", expanded=False):
-        st.markdown("""
-        ### About IPSS-M and IPSS-R
-        
-        The **International Prognostic Scoring System (IPSS)** is used to assess risk in Myelodysplastic Syndromes (MDS).
-        
-        **IPSS-R (Revised)** uses:
-        - Cytogenetics
-        - Bone marrow blast %
-        - Hemoglobin
-        - Platelets
-        - Absolute neutrophil count
-        
-        **IPSS-M (Molecular)** adds:
-        - TP53 and other gene mutations
-        - Additional refinement of cytogenetic findings
-        
-        This tool calculates both scores to provide a comprehensive risk assessment.
-        """)
-        
-        # Tutorial for free text mode
-        if ipcc_mode_toggle:
-            st.markdown("""
-            #### Free Text Mode Tutorial
+    # Add JSON data display expander before the help information
+    if 'ipss_patient_data' in st.session_state:
+        with st.expander("Data Inspector - View JSON Data", expanded=False):
+            # Create tabs for different data views
+            inspector_tabs = st.tabs(["Final Calculation Data", "Parsed Free Text Data", "AI Prompts"])
             
-            To get the best results, include details such as:
+            with inspector_tabs[0]:
+                st.subheader("Final Data Used for Calculations")
+                st.json(st.session_state['ipss_patient_data'])
             
-            ```
-            Patient is a 73-year-old male.
-            Labs show: Hemoglobin 8.4 g/dL, Platelets 38 K/uL, ANC 0.8 K/uL.
-            Bone marrow with 6% blasts.
+            with inspector_tabs[1]:
+                if 'original_ipcc_data' in st.session_state:
+                    st.subheader("Parsed Data from Free Text")
+                    st.json(st.session_state['original_ipcc_data'])
+                else:
+                    st.info("No free text data has been parsed yet.")
             
-            Cytogenetics: Complex karyotype with del(5q), trisomy 8, and del(7q).
-            
-            NGS panel shows mutations in:
-            - TP53 (VAF 42%)
-            - ASXL1 (VAF 28%)
-            - RUNX1 (VAF 26%)
-            ```
-            """)
+            with inspector_tabs[2]:
+                st.subheader("AI Prompts Used for Parsing")
+                if 'original_ipcc_data' in st.session_state and '__prompts' in st.session_state['original_ipcc_data']:
+                    prompts = st.session_state['original_ipcc_data']['__prompts']
+                    
+                    prompt_sections = [
+                        ("Clinical Values Prompt", prompts.get("clinical_prompt", "Not available")),
+                        ("Cytogenetics Prompt", prompts.get("cytogenetics_prompt", "Not available")),
+                        ("TP53 Details Prompt", prompts.get("tp53_prompt", "Not available")),
+                        ("Gene Mutations Prompt", prompts.get("genes_prompt", "Not available"))
+                    ]
+                    
+                    for title, prompt in prompt_sections:
+                        show_prompt = st.checkbox(f"Show {title}", key=f"show_{title.replace(' ', '_').lower()}")
+                        if show_prompt:
+                            st.markdown(f"**{title}**")
+                            st.code(prompt, language="text")
+                            st.markdown("---")
+                else:
+                    st.info("No AI prompts data available. Please parse free text first.")
+    
+    # Remove help information section - moved to sidebar
     
     # Display results only if they exist in session state
     if st.session_state['ipssm_result'] and st.session_state['ipssr_result']:
@@ -1514,6 +1526,48 @@ def app_main():
             menu_icon="cast",
             default_index=0,
         )
+        
+        # Add help information to sidebar
+        with st.expander("Help & Information", expanded=False):
+            st.markdown("""
+            ### About IPSS-M and IPSS-R
+            
+            The **International Prognostic Scoring System (IPSS)** is used to assess risk in Myelodysplastic Syndromes (MDS).
+            
+            **IPSS-R (Revised)** uses:
+            - Cytogenetics
+            - Bone marrow blast %
+            - Hemoglobin
+            - Platelets
+            - Absolute neutrophil count
+            
+            **IPSS-M (Molecular)** adds:
+            - TP53 and other gene mutations
+            - Additional refinement of cytogenetic findings
+            
+            This tool calculates both scores to provide a comprehensive risk assessment.
+            """)
+            
+            # Tutorial for free text mode (conditionally shown)
+            if "ipcc_mode_toggle" in st.session_state and st.session_state.get("ipcc_mode_toggle", False):
+                st.markdown("""
+                #### Free Text Mode Tutorial
+                
+                To get the best results, include details such as:
+                
+                ```
+                Patient is a 73-year-old male.
+                Labs show: Hemoglobin 8.4 g/dL, Platelets 38 K/uL, ANC 0.8 K/uL.
+                Bone marrow with 6% blasts.
+                
+                Cytogenetics: Complex karyotype with del(5q), trisomy 8, and del(7q).
+                
+                NGS panel shows mutations in:
+                - TP53 (VAF 42%)
+                - ASXL1 (VAF 28%)
+                - RUNX1 (VAF 26%)
+                ```
+                """)
 
     with st.sidebar.expander("User Options", expanded=True):
         st.write("Logged in as:", st.session_state["username"])

@@ -556,20 +556,35 @@ def build_manual_ipss_data() -> dict:
         
         # TP53 Status
         st.markdown("#### TP53 Status")
-        col_tp53a, col_tp53b = st.columns(2)
+        
+        # TP53 mutations field with specific options (0, 1, 2+)
+        col_tp53a, col_tp53b, col_tp53c = st.columns(3)
         with col_tp53a:
-            tp53_multi = st.radio(
-                "TP53 multi-hit (biallelic)",
-                options=["Not Mutated", "Mutated", "Not Assessed"],
+            tp53_mutations = st.radio(
+                "TP53 Mutations",
+                options=["0", "1", "2+", "Not Assessed"],
                 horizontal=True,
-                key="ipss_tp53multi"
+                key="ipss_tp53mutations"
             )
+        
+        # TP53 LOH field with specific options (No, Yes, NA)
         with col_tp53b:
             tp53_loh = st.radio(
-                "TP53 LOH (Loss of Heterozygosity)",
-                options=["Not Mutated", "Mutated", "Not Assessed"],
+                "TP53 LOH",
+                options=["No", "Yes", "Not Assessed"],
                 horizontal=True,
                 key="ipss_tp53loh"
+            )
+        
+        # Add back the TP53 max VAF field
+        with col_tp53c:
+            tp53_max_vaf = st.number_input(
+                "Max VAF of TP53 mutation (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=0.0,
+                step=1.0,
+                key="ipss_tp53maxvaf"
             )
         
         # Main genes
@@ -640,9 +655,10 @@ def build_manual_ipss_data() -> dict:
         "complex": 1 if complex_kary else 0,
 
         # TP53 status
-        "TP53mut": "1" if tp53_multi == "Mutated" else "0" if tp53_multi == "Not Mutated" else "NA",
-        "TP53loh": "1" if tp53_loh == "Mutated" else "0" if tp53_loh == "Not Mutated" else "NA",
-        "TP53multi": 1 if tp53_multi == "Mutated" else 0 if tp53_multi == "Not Mutated" else "NA",
+        "TP53mut": "0" if tp53_mutations == "0" else "1" if tp53_mutations == "1" else "2" if tp53_mutations == "2+" else "NA",
+        "TP53loh": "1" if tp53_loh == "Yes" else "0" if tp53_loh == "No" else "NA",
+        "TP53maxvaf": tp53_max_vaf if tp53_max_vaf > 0 else "NA",
+        "TP53multi": 1 if (tp53_mutations == "2+" or (tp53_mutations == "1" and tp53_loh == "Yes")) else 0 if tp53_mutations == "0" or (tp53_mutations == "1" and tp53_loh == "No") else "NA",
 
         # Main gene mutations - convert from radio button selection to appropriate value
         **{gene: "1" if status == "Mutated" else "0" if status == "Not Mutated" else "NA" 

@@ -169,7 +169,12 @@ Extract these fields:
 Return valid JSON only with these keys and no extra text.
 
 Here is the free-text hematological report to parse:
+
+[START OF REPORT]
+
 {report_text}
+
+[END OF REPORT]   
     """
 
     # Prompt #2a: AML_defining_recurrent_genetic_abnormalities
@@ -226,7 +231,12 @@ Extract this nested field:
 Return valid JSON only with these keys and no extra text.
 
 Here is the free-text hematological report to parse:
+
+[START OF REPORT]
+
 {report_text}
+
+[END OF REPORT]   
     """
 
     # Prompt #2b: Biallelic_TP53_mutation
@@ -246,7 +256,12 @@ Extract this nested field:
 Return valid JSON only with these keys and no extra text.
 
 Here is the free-text hematological report to parse:
+
+[START OF REPORT]
+
 {report_text}
+
+[END OF REPORT]   
     """
 
     # Prompt #2c: MDS_related_mutation and MDS_related_cytogenetics
@@ -291,7 +306,12 @@ Extract these nested fields:
 Return valid JSON only with these keys and no extra text.
 
 Here is the free-text hematological report to parse:
+
+[START OF REPORT]
+
 {report_text}
+
+[END OF REPORT]   
     """
 
     # Prompt #3: Qualifiers
@@ -312,7 +332,12 @@ Extract these fields:
 Return valid JSON only with these keys and no extra text.
 
 Here is the free-text hematological report to parse:
+
+[START OF REPORT]
+
 {report_text}
+
+[END OF REPORT]
     """
 
     # Prompt #4: AML differentiation
@@ -337,7 +362,11 @@ suggest the most appropriate category of AML differentiation and convert that su
 Return a JSON object with the key "AML_differentiation".
 You may also provide a "differentiation_reasoning" key with bullet point logic.
 
-Report: {report_text}
+[START OF REPORT]
+
+{report_text}
+
+[END OF REPORT]   
     """
 
     # Prompt #5: Revised ELN24 genes
@@ -361,7 +390,12 @@ For each gene, set the value to true if the text indicates that gene is mutated;
 Return valid JSON only with these keys and no extra text.
 
 Here is the free-text hematological report to parse:
+
+[START OF REPORT]
+
 {report_text}
+
+[END OF REPORT]   
     """
 
     try:
