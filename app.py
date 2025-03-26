@@ -10,6 +10,9 @@ import urllib.parse
 import bcrypt
 import datetime
 import jwt
+import math
+import pandas as pd
+import matplotlib.pyplot as plt
 from streamlit_option_menu import option_menu
 import base64
 import streamlit.components.v1 as components
@@ -1173,8 +1176,6 @@ def ipcc_risk_calculator_page():
     
     # Import the calculator functions
     from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr
-    import pandas as pd
-    import matplotlib.pyplot as plt
     
     # Initialize session state for persisting results between tabs
     if 'ipssm_result' not in st.session_state:
@@ -1336,8 +1337,8 @@ def ipcc_risk_calculator_page():
                     st.session_state['ipss_patient_data'] = calculation_data
                     
                     try:
-                        # Calculate IPSS-M with contributions
-                        ipssm_result = calculate_ipssm(patient_data, include_contributions=True)
+                        # Calculate IPSS-M with contributions and detailed calculations
+                        ipssm_result = calculate_ipssm(patient_data, include_contributions=True, include_detailed_calculations=True)
                         
                         # Calculate IPSS-R with return_components=True
                         ipssr_result = calculate_ipssr(patient_data, return_components=True)
@@ -1348,18 +1349,22 @@ def ipcc_risk_calculator_page():
                             'means': {
                                 'riskScore': ipssm_result['means']['risk_score'],
                                 'riskCat': ipssm_result['means']['risk_cat'],
-                                'contributions': ipssm_result['means'].get('contributions', {})
+                                'contributions': ipssm_result['means'].get('contributions', {}),
+                                'detailed_calculations': ipssm_result['means'].get('detailed_calculations', {})
                             },
                             'worst': {
                                 'riskScore': ipssm_result['worst']['risk_score'],
                                 'riskCat': ipssm_result['worst']['risk_cat'],
-                                'contributions': ipssm_result['worst'].get('contributions', {})
+                                'contributions': ipssm_result['worst'].get('contributions', {}),
+                                'detailed_calculations': ipssm_result['worst'].get('detailed_calculations', {})
                             },
                             'best': {
                                 'riskScore': ipssm_result['best']['risk_score'],
                                 'riskCat': ipssm_result['best']['risk_cat'],
-                                'contributions': ipssm_result['best'].get('contributions', {})
+                                'contributions': ipssm_result['best'].get('contributions', {}),
+                                'detailed_calculations': ipssm_result['best'].get('detailed_calculations', {})
                             },
+                            'metadata': ipssm_result.get('metadata', {}),
                             'derivation': []  # Add derivation if needed
                         }
                         
@@ -1670,6 +1675,128 @@ def ipcc_risk_calculator_page():
                 </div>
                 """, unsafe_allow_html=True)
             
+            # Add calculation details table if available
+            if 'detailed_calculations' in formatted_ipssm['means'] and formatted_ipssm['means']['detailed_calculations']:
+                st.markdown("### Detailed Calculation Table")
+                st.markdown("This table shows how each factor contributes to the IPSS-M risk score:")
+                
+                # Get the detailed calculations
+                detailed_calcs = formatted_ipssm['means']['detailed_calculations']
+                
+                # Create a DataFrame for the table
+                calc_data = []
+                for var_name, details in detailed_calcs.items():
+                    # Calculate contribution
+                    contribution = ((details.get('raw_value', 0) - details.get('reference_value', 0)) * 
+                                  details.get('coefficient', 0)) / math.log(2)
+                    
+                    # Determine impact category
+                    if contribution > 0.5:
+                        impact = "Strong risk-increasing"
+                    elif contribution > 0.2:
+                        impact = "Moderate risk-increasing"
+                    elif contribution > 0:
+                        impact = "Mild risk-increasing"
+                    elif contribution < -0.5:
+                        impact = "Strong protective"
+                    elif contribution < -0.2:
+                        impact = "Moderate protective"
+                    elif contribution < 0:
+                        impact = "Mild protective"
+                    else:
+                        impact = "Neutral"
+                    
+                    # Add to data
+                    calc_data.append({
+                        "Factor": var_name,
+                        "Description": details.get('explanation', '').split('.')[0],  # Get first sentence
+                        "Value": details.get('raw_value', 0),
+                        "Reference": details.get('reference_value', 0),
+                        "Coefficient": details.get('coefficient', 0),
+                        "Contribution": contribution,
+                        "Impact": impact
+                    })
+                
+                # Convert to DataFrame
+                df_calcs = pd.DataFrame(calc_data)
+                
+                # Sort by absolute contribution
+                df_calcs = df_calcs.sort_values(by="Contribution", key=abs, ascending=False)
+                
+                # Split into two DataFrames for display
+                genetic_factors = df_calcs[df_calcs['Factor'].str.contains('ASXL1|RUNX1|SF3B1|SRSF2|U2AF1|EZH2|DNMT3A|MLL_PTD|CBL|NRAS|KRAS|IDH2|ETV6|NPM1|TP53|FLT3|Nres2', regex=True)]
+                clinical_factors = df_calcs[~df_calcs['Factor'].str.contains('ASXL1|RUNX1|SF3B1|SRSF2|U2AF1|EZH2|DNMT3A|MLL_PTD|CBL|NRAS|KRAS|IDH2|ETV6|NPM1|TP53|FLT3|Nres2', regex=True)]
+                
+                # Create tabs for different factor types
+                calc_tabs = st.tabs(["All Factors", "Genetic Factors", "Clinical Factors"])
+                
+                with calc_tabs[0]:
+                    # Display formatted table with all factors
+                    st.dataframe(
+                        df_calcs,
+                        column_config={
+                            "Factor": "Factor",
+                            "Description": "Description",
+                            "Value": st.column_config.NumberColumn("Value", format="%.3f"),
+                            "Reference": st.column_config.NumberColumn("Reference", format="%.3f"),
+                            "Coefficient": st.column_config.NumberColumn("Coefficient", format="%.3f"),
+                            "Contribution": st.column_config.NumberColumn(
+                                "Contribution",
+                                format="%.4f",
+                                help="Contribution to overall risk score"
+                            ),
+                            "Impact": "Impact on Risk"
+                        },
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                
+                with calc_tabs[1]:
+                    if not genetic_factors.empty:
+                        st.dataframe(
+                            genetic_factors,
+                            column_config={
+                                "Factor": "Gene/Mutation",
+                                "Description": "Description",
+                                "Value": st.column_config.NumberColumn("Value", format="%.3f"),
+                                "Reference": st.column_config.NumberColumn("Reference", format="%.3f"),
+                                "Coefficient": st.column_config.NumberColumn("Coefficient", format="%.3f"),
+                                "Contribution": st.column_config.NumberColumn(
+                                    "Contribution",
+                                    format="%.4f",
+                                    help="Contribution to overall risk score"
+                                ),
+                                "Impact": "Impact on Risk"
+                            },
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    else:
+                        st.info("No genetic factors found.")
+                
+                with calc_tabs[2]:
+                    if not clinical_factors.empty:
+                        st.dataframe(
+                            clinical_factors,
+                            column_config={
+                                "Factor": "Clinical Parameter",
+                                "Description": "Description",
+                                "Value": st.column_config.NumberColumn("Value", format="%.3f"),
+                                "Reference": st.column_config.NumberColumn("Reference", format="%.3f"),
+                                "Coefficient": st.column_config.NumberColumn("Coefficient", format="%.3f"),
+                                "Contribution": st.column_config.NumberColumn(
+                                    "Contribution", 
+                                    format="%.4f",
+                                    help="Contribution to overall risk score"
+                                ),
+                                "Impact": "Impact on Risk"
+                            },
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    else:
+                        st.info("No clinical factors found.")
+            
             # Add IPSS-M Contributors section below
             st.markdown("---")
             st.markdown("### IPSS-M Risk Score Contributors")
@@ -1763,6 +1890,52 @@ def ipcc_risk_calculator_page():
                 - Total risk-decreasing contributions: {total_negative:.3f}
                 - Net risk score contribution: {(total_positive + total_negative):.3f}
                 """)
+                
+                # Display detailed calculation steps if available
+                if 'detailed_calculations' in formatted_ipssm['means'] and formatted_ipssm['means']['detailed_calculations']:
+                    st.markdown("---")
+                    st.markdown("### Detailed Calculation Steps")
+                    
+                    # Metadata about the calculation process
+                    if 'metadata' in formatted_ipssm:
+                        metadata = formatted_ipssm['metadata']
+                        st.markdown("#### About IPSS-M Calculations")
+                        st.markdown(metadata.get('calculation_formula', ""))
+                        st.markdown(f"Log(2) value used: {metadata.get('log2_value', '')}")
+                        st.markdown(metadata.get('risk_interpretation', ""))
+                    
+                    # Create expanders for each variable's calculation details
+                    st.markdown("#### Individual Variable Calculations")
+                    st.markdown("Expand each section to see detailed calculation steps:")
+                    
+                    # Sort variables by absolute contribution value
+                    detailed_calcs = formatted_ipssm['means']['detailed_calculations']
+                    sorted_vars = sorted(
+                        detailed_calcs.items(),
+                        key=lambda x: abs(x[1]['raw_value'] if 'raw_value' in x[1] else 0),
+                        reverse=True
+                    )
+                    
+                    # Display each variable's calculation
+                    for var_name, details in sorted_vars:
+                        with st.expander(f"{var_name}: {details.get('interpretation', '')}"):
+                            st.markdown(f"**Description:** {details.get('explanation', '')}")
+                            st.markdown(f"**Raw Value:** {details.get('raw_value', '')}")
+                            st.markdown(f"**Reference Value:** {details.get('reference_value', '')}")
+                            st.markdown(f"**Coefficient:** {details.get('coefficient', '')}")
+                            st.markdown(f"**Calculation:** {details.get('calculation', '')}")
+                            
+                            # Format contribution with color based on whether it increases or decreases risk
+                            if 'raw_value' in details and 'reference_value' in details:
+                                contribution = ((details['raw_value'] - details['reference_value']) * 
+                                              details['coefficient']) / math.log(2)
+                                
+                                if contribution > 0:
+                                    st.markdown(f"**Contribution to Risk Score:** <span style='color:red'>+{contribution:.4f}</span>", unsafe_allow_html=True)
+                                elif contribution < 0:
+                                    st.markdown(f"**Contribution to Risk Score:** <span style='color:green'>{contribution:.4f}</span>", unsafe_allow_html=True)
+                                else:
+                                    st.markdown(f"**Contribution to Risk Score:** 0.0000")
         
         elif selected_tab == "IPSS-R":
             # IPSS-R Results section

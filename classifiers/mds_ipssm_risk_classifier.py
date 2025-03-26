@@ -317,7 +317,8 @@ def calculate_ipssm(
     patient_data: Dict[str, Any],
     rounding: bool = True,
     rounding_digits: int = 2,
-    include_contributions: bool = False
+    include_contributions: bool = False,
+    include_detailed_calculations: bool = False
 ) -> Dict[str, Any]:
     """
     Calculate IPSS-M risk score and categories.
@@ -327,6 +328,7 @@ def calculate_ipssm(
         rounding: Whether to round the results
         rounding_digits: Number of digits to round to
         include_contributions: Whether to include variable contributions in output
+        include_detailed_calculations: Whether to include detailed calculation steps with explanations
         
     Returns:
         Dictionary with IPSS-M scores
@@ -346,9 +348,15 @@ def calculate_ipssm(
         for scenario in scores:
             scores[scenario]["contributions"] = {}
     
+    # Include detailed calculation steps if requested
+    if include_detailed_calculations:
+        for scenario in scores:
+            scores[scenario]["detailed_calculations"] = {}
+    
     # Calculate scores for each scenario
     for scenario in scores:
         contributions = {}
+        detailed_calculations = {}
         
         # Calculate contribution from each variable
         for beta in BETAS:
@@ -359,41 +367,147 @@ def calculate_ipssm(
                 value = processed_data["Nres2"][scenario]
             else:
                 value = processed_data.get(var_name)
-                
-                # Calculate contribution
-                try:
-                    # Handle missing values by using scenario-specific defaults
-                    if value == "NA" or value is None:
-                        value = beta[scenario]
-                    
-                    # Safely convert to float
-                    contribution = ((float(value) - beta["means"]) * beta["coeff"]) / math.log(2)
-                    contributions[var_name] = contribution
-                except (ValueError, TypeError):
-                    # If conversion fails, use the default for this scenario
+            
+            # Calculate contribution
+            try:
+                # Handle missing values by using scenario-specific defaults
+                if value == "NA" or value is None:
                     value = beta[scenario]
-                    contribution = ((float(value) - beta["means"]) * beta["coeff"]) / math.log(2)
-                    contributions[var_name] = contribution
-            
-            # Calculate total risk score
-            risk_score = sum(contributions.values())
-            if rounding:
-                risk_score = round_number(risk_score, rounding_digits)
-            
-            # Determine risk category
-            extended_cutpoints = [-float('inf')] + IPSSM_CUTPOINTS + [float('inf')]
-            cat_index = find_category_index(risk_score, extended_cutpoints)
-            risk_cat = IPSSM_CATEGORIES[cat_index] if 0 <= cat_index < len(IPSSM_CATEGORIES) else "Unknown"
-            
-            # Set results
-            scores[scenario]["risk_score"] = risk_score
-            scores[scenario]["risk_cat"] = risk_cat
-            
-            # Add contributions if requested
-            if include_contributions:
-                scores[scenario]["contributions"] = contributions
+                
+                # Safely convert to float
+                float_value = float(value)
+                contribution = ((float_value - beta["means"]) * beta["coeff"]) / math.log(2)
+                contributions[var_name] = contribution
+                
+                # Add detailed calculation steps if requested
+                if include_detailed_calculations:
+                    variable_explanation = get_variable_explanation(var_name)
+                    detailed_calculations[var_name] = {
+                        "raw_value": float_value,
+                        "reference_value": beta["means"],
+                        "coefficient": beta["coeff"],
+                        "calculation": f"(({float_value} - {beta['means']}) * {beta['coeff']}) / {math.log(2):.4f} = {contribution:.4f}",
+                        "explanation": f"{variable_explanation}. Value {float_value} compared to reference value {beta['means']}. Coefficient {beta['coeff']} indicates impact on risk score.",
+                        "interpretation": get_contribution_interpretation(var_name, contribution),
+                    }
+            except (ValueError, TypeError):
+                # If conversion fails, use the default for this scenario
+                value = beta[scenario]
+                contribution = ((float(value) - beta["means"]) * beta["coeff"]) / math.log(2)
+                contributions[var_name] = contribution
+                
+                # Add detailed calculation steps if requested
+                if include_detailed_calculations:
+                    variable_explanation = get_variable_explanation(var_name)
+                    detailed_calculations[var_name] = {
+                        "raw_value": float(value),
+                        "reference_value": beta["means"],
+                        "coefficient": beta["coeff"],
+                        "calculation": f"(({value} - {beta['means']}) * {beta['coeff']}) / {math.log(2):.4f} = {contribution:.4f}",
+                        "explanation": f"{variable_explanation}. Default value {value} used due to missing data. Reference value {beta['means']}. Coefficient {beta['coeff']} indicates impact on risk score.",
+                        "interpretation": get_contribution_interpretation(var_name, contribution),
+                    }
+        
+        # Calculate total risk score
+        risk_score = sum(contributions.values())
+        if rounding:
+            risk_score = round_number(risk_score, rounding_digits)
+        
+        # Determine risk category
+        extended_cutpoints = [-float('inf')] + IPSSM_CUTPOINTS + [float('inf')]
+        cat_index = find_category_index(risk_score, extended_cutpoints)
+        risk_cat = IPSSM_CATEGORIES[cat_index] if 0 <= cat_index < len(IPSSM_CATEGORIES) else "Unknown"
+        
+        # Set results
+        scores[scenario]["risk_score"] = risk_score
+        scores[scenario]["risk_cat"] = risk_cat
+        
+        # Add contributions if requested
+        if include_contributions:
+            scores[scenario]["contributions"] = contributions
+        
+        # Add detailed calculations if requested
+        if include_detailed_calculations:
+            scores[scenario]["detailed_calculations"] = detailed_calculations
+    
+    # Add metadata about calculations if detailed calculations are included
+    if include_detailed_calculations:
+        scores["metadata"] = {
+            "calculation_formula": "IPSS-M uses a weighted sum of genetic and clinical factors: ((value - reference) * coefficient) / log(2)",
+            "log2_value": f"log(2) = {math.log(2):.4f}",
+            "cutpoints": {f"Cutpoint {i+1}": value for i, value in enumerate(IPSSM_CUTPOINTS)},
+            "categories": {f"Category {i+1}": category for i, category in enumerate(IPSSM_CATEGORIES)},
+            "risk_interpretation": "Positive contributions increase risk, negative contributions decrease risk."
+        }
     
     return scores
+
+
+def get_variable_explanation(var_name: str) -> str:
+    """
+    Get an explanation of what each variable in the IPSS-M model represents.
+    
+    Args:
+        var_name: Name of the variable
+        
+    Returns:
+        String explanation of the variable
+    """
+    explanations = {
+        "CYTOVEC": "Cytogenetic risk category (0=Very Good, 1=Good, 2=Intermediate, 3=Poor, 4=Very Poor)",
+        "BLAST5": "Bone marrow blast percentage normalized (divided by 5)",
+        "TRANSF_PLT100": "Platelet count normalized (divided by 100, capped at 250)",
+        "HB1": "Hemoglobin level in g/dL",
+        "SF3B1_alpha": "SF3B1 mutation without other adverse mutations (1=present, 0=absent)",
+        "SF3B1_5q": "SF3B1 mutation with del(5q) (1=present, 0=absent)",
+        "ASXL1": "ASXL1 mutation (1=present, 0=absent)",
+        "SRSF2": "SRSF2 mutation (1=present, 0=absent)",
+        "DNMT3A": "DNMT3A mutation (1=present, 0=absent)",
+        "RUNX1": "RUNX1 mutation (1=present, 0=absent)",
+        "U2AF1": "U2AF1 mutation (1=present, 0=absent)",
+        "EZH2": "EZH2 mutation (1=present, 0=absent)",
+        "CBL": "CBL mutation (1=present, 0=absent)",
+        "NRAS": "NRAS mutation (1=present, 0=absent)",
+        "IDH2": "IDH2 mutation (1=present, 0=absent)",
+        "KRAS": "KRAS mutation (1=present, 0=absent)",
+        "MLL_PTD": "MLL/KMT2A partial tandem duplication (1=present, 0=absent)",
+        "ETV6": "ETV6 mutation (1=present, 0=absent)",
+        "NPM1": "NPM1 mutation (1=present, 0=absent)",
+        "TP53multi": "Multiple TP53 mutations or mutation with deletion (1=present, 0=absent)",
+        "FLT3": "FLT3 mutation (1=present, 0=absent)",
+        "Nres2": "Number of additional residual gene mutations (capped at 2)"
+    }
+    
+    return explanations.get(var_name, f"Variable {var_name}")
+
+
+def get_contribution_interpretation(var_name: str, contribution: float) -> str:
+    """
+    Get an interpretation of what the contribution value means.
+    
+    Args:
+        var_name: Name of the variable
+        contribution: The calculated contribution value
+        
+    Returns:
+        String interpretation of the contribution
+    """
+    if contribution > 0:
+        if contribution > 0.5:
+            return f"Strong risk-increasing factor (+{contribution:.4f})"
+        elif contribution > 0.2:
+            return f"Moderate risk-increasing factor (+{contribution:.4f})"
+        else:
+            return f"Mild risk-increasing factor (+{contribution:.4f})"
+    elif contribution < 0:
+        if contribution < -0.5:
+            return f"Strong protective factor ({contribution:.4f})"
+        elif contribution < -0.2:
+            return f"Moderate protective factor ({contribution:.4f})"
+        else:
+            return f"Mild protective factor ({contribution:.4f})"
+    else:
+        return "Neutral factor (0.0000)"
 
 
 def calculate_ipssr(
