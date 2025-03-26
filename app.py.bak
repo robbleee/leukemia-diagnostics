@@ -491,7 +491,7 @@ def data_entry_page():
                     )
                 with col2:
                     germline_status = st.selectbox(
-                        "Germline predisposition?",
+                        "Germline predisposition",
                         options=["Yes", "None", "Undetermined"],
                         index=1,
                         key="germline_status"
