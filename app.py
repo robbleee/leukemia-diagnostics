@@ -332,6 +332,68 @@ def data_entry_page():
         """,
         unsafe_allow_html=True
     )
+    
+    # Data Entry Page Top Controls
+    logout_placeholder = st.empty()
+
+    with st.expander("📋 Instructions", expanded=False):
+        # Show different instructions based on which mode is active
+        if st.session_state.get("manual_inputs_visible", False):
+            st.markdown("""
+            ## Manual AML Input Mode - Instructions
+            
+            This tool allows direct input of diagnostic parameters to classify AML and MDS cases according to WHO 2022 and ICC 2022 guidelines.
+            
+            ### How to use the Manual Mode:
+            
+            1. **Clinical Parameters**:
+               - Enter blast percentage.
+               - Check any relevant clinical features (fibrotic marrow, hypoplasia).
+               - Indicate the number of dysplastic lineages.
+            
+            2. **Genetic Abnormalities**:
+               - Select all detected genetic abnormalities from the available options.
+               - These selections directly impact classification according to WHO and ICC criteria.
+            
+            3. **Additional Parameters**:
+               - Complete all fields applicable to your case.
+               - Pay special attention to driver mutations and cytogenetic findings.
+            
+            4. **Analyse Genetics**:
+               - Click the "Analyse Genetics" button to process the data.
+               - The system will classify according to WHO 2022 and ICC 2022 based on your inputs.
+               
+            5. **Review Results**:
+               - The results page will show classifications with detailed derivation steps.
+               - You can view risk assessments and additional insights in the different tabs.
+            """)
+        else:
+            st.markdown("""
+            ## AML/MDS Classifier - Free Text Mode Instructions
+            
+            This tool analyzes clinical reports to classify AML and MDS cases according to WHO 2022 and ICC 2022 guidelines.
+            
+            ### How to use the Free Text Mode:
+            
+            1. **Override Options** (Optional):
+               - **Bone Marrow Blasts Override**: Enter a value only if you want to override the blasts percentage detected in the report.
+               - **Previous cytotoxic chemotherapy**: Select if the patient has a history of cytotoxic therapy.
+               - **Germline predisposition**: Indicate if there are known germline mutations.
+               - **Previous MDS/MDS-MPN**: Select if the patient has a history of MDS or MDS/MPN.
+            
+            2. **Enter Report Data**:
+               - Paste your complete report text into the text area.
+               - Include clinical information, CBC, bone marrow findings, cytogenetics, and mutations.
+               - The more complete the data, the more accurate the classification.
+            
+            3. **Analyze Report**:
+               - Click the "Analyse Report" button to process the data.
+               - The system will extract relevant parameters and classify according to WHO 2022 and ICC 2022.
+               
+            4. **Review Results**:
+               - The results page will show classifications with detailed derivation steps.
+               - You can view risk assessments and additional insights in the different tabs.
+            """)
 
     # Initialize session state variables.
     for key in [
@@ -399,7 +461,7 @@ def data_entry_page():
     # FREE TEXT MODE
     # -----------------------------------------------------------
     else:
-        with st.expander("Free Text Input", expanded=st.session_state.get("aml_free_text_expanded", True)):
+        with st.expander("Free Text Input", expanded=False):
             st.markdown("""
             ### Input AML/MDS Report
             
@@ -550,7 +612,7 @@ def data_entry_page():
 
         if st.session_state.get("initial_parsed_data"):
             st.warning("Either the blast percentage could not be automatically determined or the differentiation is ambiguous/missing. Please provide the missing information to proceed with classification.")
-            with st.expander("Enter Manual Inputs", expanded=True):
+            with st.expander("Enter Manual Inputs", expanded=False):
                 col1, col2 = st.columns(2)
                 with col1:
                     default_blast = 0.0
@@ -654,6 +716,135 @@ def results_page():
             "Derivation": res["icc_derivation"]
         }
     }
+    
+    # Add instruction manual expander
+    with st.expander("📋 Results Interpretation Guide", expanded=False):
+        # Determine which tab is selected
+        sub_tab = st.session_state.get("results_sub_tab", "Classification")
+        
+        if sub_tab == "Classification":
+            st.markdown("""
+            ## Classification Results - Interpretation Guide
+            
+            This section displays the classification of the hematologic malignancy according to both WHO 2022 and ICC 2022 criteria.
+            
+            ### Understanding the Classifications:
+            
+            1. **WHO 2022 Classification**:
+               - The World Health Organization (WHO) classification is widely used for diagnosing hematologic neoplasms.
+               - The classification is based on a combination of morphology, cytochemistry, immunophenotype, genetics, and clinical features.
+               - The derivation section shows the step-by-step logic used to arrive at the classification.
+            
+            2. **ICC 2022 Classification**:
+               - The International Consensus Classification (ICC) provides an alternative classification system.
+               - It often includes additional genetic and molecular insights not fully captured in the WHO system.
+               - The derivation section explains the rationale behind the classification.
+            
+            3. **Classification Review**:
+               - This section provides an expert analysis of the classification results.
+               - It highlights key findings and potential implications for diagnosis and management.
+               - It may reconcile any differences between WHO and ICC classifications.
+            """)
+        elif sub_tab == "Risk":
+            st.markdown("""
+            ## Risk Assessment - Interpretation Guide
+            
+            This section provides risk stratification based on established prognostic models.
+            
+            ### Understanding the Risk Assessment:
+            
+            1. **ELN 2022 Risk Classification**:
+               - The European LeukemiaNet (ELN) 2022 classification stratifies AML patients into risk categories.
+               - Risk categories include Favorable, Intermediate, and Adverse (with qualifiers).
+               - The derivation section shows how genetic and clinical factors contributed to the risk assessment.
+               - Median overall survival estimates are provided based on the risk category.
+            
+            2. **Revised ELN24 (Non-Intensive) Risk**:
+               - This newer model focuses on patients receiving non-intensive therapies.
+               - It incorporates genetic mutations and their impact on outcomes with less intensive treatment approaches.
+               - The derivation section explains how specific genetic findings influence the risk category.
+               - Median overall survival is reported in months for the assigned risk group.
+            """)
+        elif sub_tab == "MRD Review":
+            st.markdown("""
+            ## Minimal Residual Disease (MRD) Review - Interpretation Guide
+            
+            This section provides guidance on MRD monitoring based on the disease characteristics.
+            
+            ### Understanding the MRD Review:
+            
+            1. **MRD Targets**:
+               - Identifies specific genetic or immunophenotypic markers that can be used to track disease burden.
+               - Highlights the most sensitive and specific markers for monitoring.
+            
+            2. **Monitoring Recommendations**:
+               - Suggests appropriate monitoring techniques (e.g., flow cytometry, PCR, NGS).
+               - Provides guidance on monitoring frequency and threshold interpretation.
+            
+            3. **Clinical Implications**:
+               - Explains how MRD results may influence treatment decisions.
+               - Discusses the prognostic significance of MRD status in the specific disease context.
+            """)
+        elif sub_tab == "Gene Review":
+            st.markdown("""
+            ## Gene Review - Interpretation Guide
+            
+            This section analyzes the genetic findings and their clinical significance.
+            
+            ### Understanding the Gene Review:
+            
+            1. **Driver Mutations**:
+               - Identifies key driver mutations that define the disease biology.
+               - Explains the functional impact of these mutations.
+            
+            2. **Prognostic Impact**:
+               - Discusses how specific mutations influence disease outcome.
+               - Stratifies mutations by their favorable, neutral, or adverse prognostic impact.
+            
+            3. **Therapeutic Implications**:
+               - Highlights mutations that may be targeted by specific therapies.
+               - Suggests potential clinical trials or treatment approaches based on the genetic profile.
+            """)
+        elif sub_tab == "AI Comments":
+            st.markdown("""
+            ## Additional Comments - Interpretation Guide
+            
+            This section provides supplementary insights not covered in other sections.
+            
+            ### Understanding the Additional Comments:
+            
+            1. **Unusual Features**:
+               - Highlights any atypical aspects of the case that merit special attention.
+               - Discusses rare or complex findings that may influence interpretation.
+            
+            2. **Diagnostic Challenges**:
+               - Addresses potential diagnostic dilemmas or borderline classifications.
+               - Suggests additional testing that might clarify ambiguous findings.
+            
+            3. **Clinical Considerations**:
+               - Offers broader context for clinical management.
+               - May include references to relevant literature or guidelines.
+            """)
+        elif sub_tab == "Differentiation":
+            st.markdown("""
+            ## Differentiation Analysis - Interpretation Guide
+            
+            This section focuses on the cellular differentiation patterns and their diagnostic significance.
+            
+            ### Understanding the Differentiation Analysis:
+            
+            1. **Lineage Assessment**:
+               - Identifies the predominant cell lineage(s) involved.
+               - Explains morphological, immunophenotypic, and genetic evidence of differentiation.
+            
+            2. **FAB Classification Context**:
+               - Relates findings to the traditional French-American-British (FAB) classification.
+               - Maps differentiation patterns to M0-M7 subtypes where applicable.
+            
+            3. **Clinical Implications**:
+               - Discusses how differentiation patterns may influence treatment response.
+               - Highlights any prognostic relevance of specific differentiation features.
+            """)
 
     sub_tab = option_menu(
         menu_title=None,
@@ -662,6 +853,20 @@ def results_page():
         default_index=0,
         orientation="horizontal"
     )
+    
+    # Store the current sub_tab in session state to use in the instruction expander
+    st.session_state["results_sub_tab"] = sub_tab
+
+    classification_dict = {
+        "WHO 2022": {
+            "Classification": res["who_class"],
+            "Derivation": res["who_derivation"]
+        },
+        "ICC 2022": {
+            "Classification": res["icc_class"],
+            "Derivation": res["icc_derivation"]
+        }
+    }
 
     if sub_tab == "Classification":
         display_aml_classification_results(
@@ -827,6 +1032,74 @@ def ipcc_risk_calculator_page():
         unsafe_allow_html=True
     )
     
+    # IPCC Risk Calculator Page Top Controls
+    logout_placeholder = st.empty()
+
+    with st.expander("📋 Instructions", expanded=False):
+        # Show different instructions based on which mode is active
+        if st.session_state.get("mds_risk_free_text_expanded", True):
+            st.markdown("""
+            ## IPSS-M/R Risk Tool - Free Text Mode Instructions
+            
+            This tool calculates risk scores for MDS patients according to the IPSS-M and IPSS-R risk stratification systems.
+            
+            ### How to use the Free Text Mode:
+            
+            1. **Override Options** (Optional):
+               - **Hemoglobin**: Enter a value only if you want to override what's detected in the report.
+               - **Platelets**: Enter a value only if you want to override what's detected in the report.
+               - **ANC (Absolute Neutrophil Count)**: Enter a value only if you want to override what's detected in the report.
+               - **Bone Marrow Blasts**: Enter a value only if you want to override what's detected in the report.
+               - **Age**: Enter a value only if you want to override what's detected in the report.
+               
+               Leave override fields at their default values (0 or 18 for age) if you want to use the values extracted from the report.
+            
+            2. **Enter Report Data**:
+               - Paste your complete MDS report text into the text area.
+               - Include clinical information, laboratory values, bone marrow findings, cytogenetics, and mutations.
+               - The more complete the data, the more accurate the risk calculation.
+            
+            3. **Calculate Risk Scores**:
+               - Click the "Calculate Risk Scores" button to process the data.
+               - The system will extract relevant parameters and calculate IPSS-M and IPSS-R scores.
+               
+            4. **Review Results**:
+               - The results will show risk stratification for both IPSS-M and IPSS-R.
+               - For IPSS-M, you'll see mean, best-case, and worst-case scenarios.
+               - The tool will display detailed breakdown of how each factor contributes to the risk score.
+            """)
+        else:  # Manual mode
+            st.markdown("""
+            ## IPSS-M/R Risk Tool - Manual Mode Instructions
+            
+            This tool calculates risk scores for MDS patients according to the IPSS-M and IPSS-R risk stratification systems.
+            
+            ### How to use the Manual Mode:
+            
+            1. **Clinical Parameters**:
+               - Enter the patient's age, hemoglobin level, platelet count, neutrophil count, and bone marrow blast percentage.
+               - These values directly impact both IPSS-M and IPSS-R calculations.
+            
+            2. **Cytogenetics**:
+               - Select the appropriate cytogenetic risk category.
+               - For IPSS-R: Very Good, Good, Intermediate, Poor, or Very Poor.
+               - For IPSS-M: Also indicate specific karyotype abnormalities when applicable.
+            
+            3. **Mutations**:
+               - Select all detected gene mutations from the available options.
+               - Pay special attention to TP53 status, as it significantly impacts risk calculation.
+               - Indicate VAF (Variant Allele Frequency) for mutations when available.
+            
+            4. **Calculate Risk Scores**:
+               - Click the "Calculate Risk Scores" button to process the data.
+               - The system will calculate both IPSS-M and IPSS-R scores based on your inputs.
+               
+            5. **Review Results**:
+               - The results will show risk stratification for both IPSS-M and IPSS-R.
+               - For IPSS-M, you'll see mean, best-case, and worst-case scenarios.
+               - The tool will display detailed breakdown of how each factor contributes to the risk score.
+            """)
+    
     # Import the calculator functions
     from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr
     import pandas as pd
@@ -849,7 +1122,7 @@ def ipcc_risk_calculator_page():
     
     # FREE TEXT MODE
     if ipcc_mode_toggle:
-        with st.expander("Free Text Input", expanded=True):
+        with st.expander("Free Text Input", expanded=False):
             st.markdown("""
             ### Input MDS/IPCC Report
             

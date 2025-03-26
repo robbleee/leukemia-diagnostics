@@ -144,18 +144,28 @@ def display_mds_classification_results(parsed_fields, classification_who, deriva
 
     col_who, col_icc = st.columns(2)
     with col_who:
-        with st.expander("🔍 WHO 2022 Derivation", expanded=False):
+        st.markdown("#### WHO 2022 Derivation")
+        with st.container():
+            st.markdown("""
+            <div style="border: 1px solid #ddd; border-radius: 5px; padding: 10px; background-color: #f8f9fa;">
+            """, unsafe_allow_html=True)
             derivation_text = "\n\n".join(
                 [f"**Step {i}**: {step}" for i, step in enumerate(derivation_who, start=1)]
             )
             st.markdown(derivation_text)
+            st.markdown("</div>", unsafe_allow_html=True)
     with col_icc:
-        with st.expander("🔍 ICC 2022 Derivation", expanded=False):
+        st.markdown("#### ICC 2022 Derivation")
+        with st.container():
+            st.markdown("""
+            <div style="border: 1px solid #ddd; border-radius: 5px; padding: 10px; background-color: #f8f9fa;">
+            """, unsafe_allow_html=True)
             derivation_text = "\n\n".join(
                 [f"**Step {i}**: {step}" for i, step in enumerate(derivation_icc, start=1)]
             )
             st.markdown(derivation_text)
-   
+            st.markdown("</div>", unsafe_allow_html=True)
+
 def display_aml_response_results(parsed_data, response, derivation, mode="manual"):
     with st.expander("### **View Parsed AML Response Values**", expanded=False):
         st.json(parsed_data)
@@ -169,9 +179,14 @@ def display_aml_response_results(parsed_data, response, derivation, mode="manual
 
     st.markdown(f"### **{response}**")
 
-    with st.expander("🔍 Derivation Steps", expanded=False):
+    st.markdown("#### Derivation Steps")
+    with st.container():
+        st.markdown("""
+        <div style="border: 1px solid #ddd; border-radius: 5px; padding: 10px; background-color: #f8f9fa;">
+        """, unsafe_allow_html=True)
         derivation_text = "\n\n".join([f"**Step {i}**: {step}" for i, step in enumerate(derivation, start=1)])
         st.markdown(derivation_text)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 def display_ipss_classification_results(
     parsed_fields: dict,
