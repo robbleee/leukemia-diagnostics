@@ -75,7 +75,7 @@ def parse_eln_report(report_text: str) -> Dict[str, Any]:
     # Build the OpenAI prompt
     prompt = f"""
     You are a specialized hematology AI assistant with expertise in AML and MDS genetics. 
-    Please analyze the clinical report provided below and extract information relevant 
+    Please analyse the clinical report provided below and extract information relevant 
     for ELN 2022 and ELN 2024 risk stratification.
     
     Return your analysis as a valid JSON object with exactly the following structure. 

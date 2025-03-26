@@ -374,7 +374,7 @@ def data_entry_page():
             st.markdown("""
             ## AML/MDS Classifier - Free Text Mode Instructions
             
-            This tool analyzes clinical reports to classify AML and MDS cases according to WHO 2022 and ICC 2022 guidelines.
+            This tool analyses clinical reports to classify AML and MDS cases according to WHO 2022 and ICC 2022 guidelines.
             
             ### How to use the Free Text Mode:
             
@@ -389,7 +389,7 @@ def data_entry_page():
                - Include clinical information, CBC, bone marrow findings, cytogenetics, and mutations.
                - The more complete the data, the more accurate the classification.
             
-            3. **Analyze Report**:
+            3. **analyse Report**:
                - Click the "Analyse Report" button to process the data.
                - The system will extract relevant parameters and classify according to WHO 2022 and ICC 2022.
                
@@ -792,7 +792,7 @@ def results_page():
             st.markdown("""
             ## Gene Review - Interpretation Guide
             
-            This section analyzes the genetic findings and their clinical significance.
+            This section analyses the genetic findings and their clinical significance.
             
             ### Understanding the Gene Review:
             
