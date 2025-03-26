@@ -461,10 +461,10 @@ def data_entry_page():
     # FREE TEXT MODE
     # -----------------------------------------------------------
     else:
-        with st.expander("Free Text Input", expanded=False):
-            st.markdown("""
-            ### Input AML/MDS Report
+        with st.expander("Free Text Input", expanded=True):
+            st.markdown("### Input AML/MDS Report")
             
+            st.markdown("""
             Enter your report data below. The system will extract relevant parameters for AML/MDS classification.
             """)
             
@@ -612,7 +612,7 @@ def data_entry_page():
 
         if st.session_state.get("initial_parsed_data"):
             st.warning("Either the blast percentage could not be automatically determined or the differentiation is ambiguous/missing. Please provide the missing information to proceed with classification.")
-            with st.expander("Enter Manual Inputs", expanded=False):
+            with st.expander("Enter Manual Inputs", expanded=True):
                 col1, col2 = st.columns(2)
                 with col1:
                     default_blast = 0.0
@@ -1122,10 +1122,10 @@ def ipcc_risk_calculator_page():
     
     # FREE TEXT MODE
     if ipcc_mode_toggle:
-        with st.expander("Free Text Input", expanded=False):
-            st.markdown("""
-            ### Input MDS/IPCC Report
+        with st.expander("Free Text Input", expanded=True):
+            st.markdown("### Input MDS/IPCC Report")
             
+            st.markdown("""
             Enter your MDS report data below. The system will extract relevant parameters for IPSS-M/R risk calculation.
             """)
             
