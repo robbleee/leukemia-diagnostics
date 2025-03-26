@@ -20,6 +20,31 @@ def get_json_from_prompt(prompt: str) -> dict:
     raw = response.choices[0].message.content.strip()
     return json.loads(raw)
 
+def try_convert_tp53_vaf(vaf_value):
+    """
+    Helper function to properly convert TP53 VAF values to the expected format.
+    Returns a number if VAF > 0, otherwise "NA".
+    
+    Args:
+        vaf_value: The VAF value to convert, could be a number or string
+        
+    Returns:
+        float or "NA": The converted VAF value
+    """
+    try:
+        # First try to convert to float if it's a string
+        if isinstance(vaf_value, str):
+            vaf_value = float(vaf_value)
+            
+        # Check if it's a number > 0
+        if isinstance(vaf_value, (int, float)) and vaf_value > 0:
+            return vaf_value
+        else:
+            return "NA"
+    except (ValueError, TypeError):
+        # If conversion fails, return "NA"
+        return "NA"
+
 def parse_ipcc_report(report_text: str) -> dict:
     """
     Sends the free-text hematological report to OpenAI to extract values 
@@ -205,13 +230,25 @@ Here is the free-text hematological report to parse:
 The user has pasted a free-text hematological report.
 Please extract the TP53 mutation information from the text and format it into a valid JSON object.
 
-
 Extract these fields:
 "tp53_details": {{
-    "TP53mut": [TP53 mutation count: "0" if none, "1" if single mutation, "2" if multiple mutations are present],
-    "TP53maxvaf": [Maximum variant allele frequency (VAF) of the TP53 mutation in percentage (0-100), default: 0.0],
+    "TP53mut": [TP53 mutation count as a string: "0" if none, "1" if single mutation, "2" if multiple mutations are present],
+    "TP53maxvaf": [Maximum variant allele frequency (VAF) of the TP53 mutation as a number (0-100), default: 0.0],
     "TP53loh": [true if there's loss of heterozygosity in TP53, false otherwise]
 }}
+
+IMPORTANT RULES:
+1. Return "TP53mut" as a STRING: "0", "1", or "2" 
+2. Return "TP53maxvaf" as a NUMBER (not a string): e.g., 45.2 for 45.2%
+3. If no VAF is mentioned but TP53 mutation is present, use 30.0 as a default value
+4. For "TP53loh", return a BOOLEAN: true or false
+
+Examples of what to look for:
+- "TP53 mutation with 45% VAF" → TP53mut: "1", TP53maxvaf: 45.0, TP53loh: false
+- "Biallelic TP53 mutation" → TP53mut: "2", TP53maxvaf: 30.0, TP53loh: true
+- "TP53 mutation with loss of heterozygosity" → TP53mut: "1", TP53maxvaf: 30.0, TP53loh: true
+- "Two TP53 mutations" → TP53mut: "2", TP53maxvaf: 30.0, TP53loh: false
+- "No TP53 mutation" → TP53mut: "0", TP53maxvaf: 0.0, TP53loh: false
 
 Take care to distinguish between single and multiple TP53 mutations. If the text mentions "biallelic" TP53 or multiple mutations, use "2" for TP53mut.
 
@@ -271,11 +308,20 @@ Extract these fields:
     "WT1": false
 }}
 
-Be particularly careful with "TP53multi" - set it to true if ANY of these conditions are met:
+CRITICAL INSTRUCTIONS FOR TP53multi:
+Set "TP53multi" to true if ANY of these conditions are met:
 1. Multiple TP53 mutations are mentioned (e.g., "2 TP53 mutations", "two TP53 mutations")
-2. Biallelic TP53 mutation or abnormality is mentioned
-3. One TP53 mutation with loss of heterozygosity (LOH) is mentioned
-4. One TP53 mutation with deletion of the other allele (e.g., del(17p)) is mentioned
+2. The text mentions "biallelic TP53" or "biallelic mutation of TP53"
+3. One TP53 mutation is mentioned along with LOH or loss of heterozygosity
+4. One TP53 mutation is mentioned along with deletion of the other allele (e.g., del(17p))
+5. The VAF of TP53 is >50% (suggesting loss of wild-type allele)
+6. The text mentions "compound heterozygous TP53 mutations"
+
+Examples of text that should set TP53multi to true:
+- "TP53 mutation (c.817C>T, p.R273C) with VAF 80% and chromosome 17p deletion"
+- "Biallelic inactivation of TP53"
+- "Two pathogenic mutations in TP53: p.R248W and p.R175H"
+- "TP53 mutation with loss of heterozygosity"
 
 Return valid JSON only with these keys and no extra text.
 
@@ -321,6 +367,64 @@ Here is the free-text hematological report to parse:
         # Add prompts to the parsed data for debugging
         parsed_data["__prompts"] = prompts
 
+        # -------------------------------------------------------
+        # Validate TP53 data and ensure it exists with proper format
+        # -------------------------------------------------------
+        # Check if tp53_details exists in the parsed data
+        if "tp53_details" not in parsed_data or not isinstance(parsed_data["tp53_details"], dict):
+            print("⚠️ tp53_details missing or not a dictionary! Creating default structure.")
+            parsed_data["tp53_details"] = {"TP53mut": "0", "TP53maxvaf": 0.0, "TP53loh": False}
+        
+        # Direct text analysis for TP53 as a fallback
+        if "tp53_details" in parsed_data and (
+            parsed_data["tp53_details"].get("TP53mut", "0") == "0" or 
+            parsed_data["tp53_details"].get("TP53maxvaf", 0) == 0
+        ):
+            # Fallback: direct text search for TP53 mutations
+            tp53_text_patterns = [
+                "TP53 mutation", "p53 mutation", "TP53 mutated", 
+                "TP53 pathogenic", "mutated TP53", "TP53 variant"
+            ]
+            
+            # Check if any TP53 patterns are in the text
+            if any(pattern.lower() in report_text.lower() for pattern in tp53_text_patterns):
+                print("⚠️ Found TP53 mutation in text but not in JSON response. Setting values manually.")
+                parsed_data["tp53_details"]["TP53mut"] = "1"
+                parsed_data["tp53_details"]["TP53maxvaf"] = 30.0  # Default VAF
+                
+                # Look for biallelic/double mutations
+                biallelic_patterns = [
+                    "biallelic", "multiple", "two TP53", "second TP53", 
+                    "both allele", "both copies", "compound heterozygous"
+                ]
+                if any(pattern.lower() in report_text.lower() for pattern in biallelic_patterns):
+                    parsed_data["tp53_details"]["TP53mut"] = "2"
+                    parsed_data["gene_mutations"]["TP53multi"] = True
+                
+                # Look for LOH
+                loh_patterns = ["LOH", "loss of heterozygosity", "17p deletion", "del(17p)"]
+                if any(pattern.lower() in report_text.lower() for pattern in loh_patterns):
+                    parsed_data["tp53_details"]["TP53loh"] = True
+                
+                # Look for VAF patterns like "40%", "VAF 40", etc.
+                import re
+                vaf_matches = re.findall(r'(?:VAF|variant allele frequency|allele frequency)[^\d]*(\d+(?:\.\d+)?)', report_text, re.IGNORECASE)
+                if vaf_matches:
+                    try:
+                        parsed_data["tp53_details"]["TP53maxvaf"] = float(vaf_matches[0])
+                    except (ValueError, TypeError):
+                        pass  # Keep the default value
+
+        # Ensure TP53_details has all required fields
+        required_tp53_fields = {"TP53mut": "0", "TP53maxvaf": 0.0, "TP53loh": False}
+        for field, default_value in required_tp53_fields.items():
+            if field not in parsed_data["tp53_details"]:
+                print(f"⚠️ Missing {field} in tp53_details! Setting default value.")
+                parsed_data["tp53_details"][field] = default_value
+            elif parsed_data["tp53_details"][field] is None:
+                print(f"⚠️ {field} is None in tp53_details! Setting default value.")
+                parsed_data["tp53_details"][field] = default_value
+
         # Fill missing keys from required structure
         for key, val in required_json_structure.items():
             if key not in parsed_data:
@@ -349,13 +453,36 @@ Here is the free-text hematological report to parse:
             "del17_17p": 1 if parsed_data["cytogenetics"]["del17p"] else 0,
             "complex": 1 if parsed_data["cytogenetics"]["karyotype_complexity"] in ["Complex (3 abnormalities)", "Very complex (>3 abnormalities)"] else 0,
             
-            # TP53 status - updated to match manual form format
-            "TP53mut": parsed_data["tp53_details"]["TP53mut"],  # Should now be "0", "1", or "2"
-            "TP53maxvaf": parsed_data["tp53_details"]["TP53maxvaf"] if parsed_data["tp53_details"]["TP53maxvaf"] > 0 else "NA",
+            # TP53 status - FIXED: Convert values and provide fallbacks
+            "TP53mut": str(parsed_data["tp53_details"]["TP53mut"]),  # Ensure it's a string
+            "TP53maxvaf": try_convert_tp53_vaf(parsed_data["tp53_details"]["TP53maxvaf"]),
             "TP53loh": "1" if parsed_data["tp53_details"]["TP53loh"] else "0",
-            "TP53multi": 1 if parsed_data["gene_mutations"]["TP53multi"] or parsed_data["tp53_details"]["TP53mut"] == "2" else 0
+            "TP53multi": 1 if parsed_data["gene_mutations"].get("TP53multi", False) or str(parsed_data["tp53_details"]["TP53mut"]) == "2" else 0
         }
         
+        # Additional validation for TP53 data
+        if isinstance(ipssm_data["TP53mut"], (int, float)):
+            ipssm_data["TP53mut"] = str(int(ipssm_data["TP53mut"]))
+        
+        # Check for TP53 data consistency and apply fallbacks
+        # If TP53mut is "1" or "2", ensure TP53maxvaf has a value other than "NA"
+        if ipssm_data["TP53mut"] in ["1", "2"] and ipssm_data["TP53maxvaf"] == "NA":
+            print("⚠️ TP53 mutation present but VAF is NA. Setting default value of 30.0")
+            ipssm_data["TP53maxvaf"] = 30.0  # Default value if mutation is present but VAF is missing
+            
+        # If TP53mut isn't one of the expected values, fix it
+        if ipssm_data["TP53mut"] not in ["0", "1", "2"]:
+            print(f"⚠️ Invalid TP53mut value: {ipssm_data['TP53mut']}. Converting to appropriate string.")
+            if ipssm_data["TP53mut"] and ipssm_data["TP53mut"].lower() not in ["0", "false", "no", "none"]:
+                ipssm_data["TP53mut"] = "1"  # Any non-zero/non-false value becomes "1"
+            else:
+                ipssm_data["TP53mut"] = "0"
+                
+        # If we have del17p and TP53 mutation, set TP53multi to 1
+        if ipssm_data["del17_17p"] == 1 and ipssm_data["TP53mut"] in ["1", "2"]:
+            ipssm_data["TP53multi"] = 1
+            ipssm_data["TP53loh"] = "1"
+            
         # Add gene mutations
         for gene_category in ["gene_mutations", "residual_genes"]:
             for gene, value in parsed_data[gene_category].items():
@@ -368,6 +495,16 @@ Here is the free-text hematological report to parse:
         # Debug print
         print("Parsed IPCC Report JSON:")
         print(json.dumps(parsed_data, indent=2))
+        
+        # Debug TP53 data specifically
+        print("\nTP53 Data Debug:")
+        print(f"TP53 details from LLM: {json.dumps(parsed_data['tp53_details'], indent=2)}")
+        print(f"TP53multi from gene mutations: {parsed_data['gene_mutations']['TP53multi']}")
+        print(f"Final TP53 data in IPSSM format:")
+        print(f"  TP53mut: {ipssm_data['TP53mut']}")
+        print(f"  TP53maxvaf: {ipssm_data['TP53maxvaf']}")
+        print(f"  TP53loh: {ipssm_data['TP53loh']}")
+        print(f"  TP53multi: {ipssm_data['TP53multi']}")
         
         return ipssm_data
 

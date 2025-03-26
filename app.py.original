@@ -1316,9 +1316,13 @@ def ipcc_risk_calculator_page():
                     if patient_data.get("CYTO_IPSSR") is None:
                         patient_data["CYTO_IPSSR"] = "Good"
                     
-                    # TP53 data is now preserved from parser output
+                    # Handle TP53 overrides - updated to match manual form
+                    patient_data["TP53mut"] = "NA"
+                    patient_data["TP53loh"] = "NA"
+                    patient_data["TP53maxvaf"] = "NA"
                     
-                    # TP53multi is calculated based on TP53mut value from parser
+                    # Calculate TP53multi based on mutations and LOH
+                    patient_data["TP53multi"] = "NA"
                     
                     # Store for calculations but keep the prompts intact
                     if 'original_ipcc_data' in st.session_state and '__prompts' in st.session_state['original_ipcc_data']:

@@ -10,6 +10,9 @@ import urllib.parse
 import bcrypt
 import datetime
 import jwt
+import math
+import pandas as pd
+import matplotlib.pyplot as plt
 from streamlit_option_menu import option_menu
 import base64
 import streamlit.components.v1 as components
@@ -29,13 +32,11 @@ from parsers.aml_parser import parse_genetics_report_aml
 from parsers.aml_response_parser import parse_aml_response_report
 from parsers.mds_parser import parse_genetics_report_mds
 from parsers.mds_ipcc_parser import parse_ipcc_report
-from parsers.eln_parser import parse_eln_report
 from classifiers.aml_mds_combined import classify_combined_WHO2022, classify_combined_ICC2022
 from classifiers.aml_classifier import classify_AML_WHO2022, classify_AML_ICC2022
 from classifiers.aml_response_classifier import classify_AML_Response_ELN2022
 from classifiers.mds_classifier import classify_MDS_WHO2022, classify_MDS_ICC2022
 from classifiers.aml_risk_classifier import classify_ELN2022, eln2024_non_intensive_risk
-from classifiers.eln_risk_classifier import classify_ELN_risk
 from classifiers.mds_ipssm_risk_classifier import RESIDUAL_GENES
 from reviewers.aml_reviewer import (
     get_gpt4_review_aml_classification,
@@ -647,7 +648,7 @@ def data_entry_page():
                             list(diff_map.keys()),
                             key="manual_differentiation_input"
                         )
-
+                
                 # Moved the analyse button inside the expander and made it primary
                 submit_button = st.button("Analyse With Manual Inputs", key="submit_manual", type="primary")
                 if submit_button:
@@ -933,9 +934,15 @@ def results_page():
             risk_eln2022, median_os_eln2022, derivation_eln2022 = classify_ELN2022(res["parsed_data"])
             st.markdown(f"**Risk Category:** {risk_eln2022}")
             st.markdown(f"**Median OS:** {median_os_eln2022}")
-            with st.expander("ELN 2022 Derivation", expanded=True):
-                for line in derivation_eln2022:
-                    st.markdown(f"- {line}")
+            with st.expander("ELN 2022 Derivation", expanded=False):
+                # Check if the derivation is a list of strings (new format) or a single string (old format)
+                derivation = st.session_state['eln_derivation']
+                if isinstance(derivation, list):
+                    for step in derivation:
+                        st.markdown(f"- {step}")
+                else:
+                    # For backwards compatibility with old format
+                    st.markdown(derivation)
         
         # Right Column: Revised ELN24 Non-Intensive Risk Classification
         with col2:
@@ -944,7 +951,7 @@ def results_page():
             risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
             st.markdown(f"**Risk Category:** {risk_eln24}")
             st.markdown(f"**Median OS:** {median_os_eln24} months")
-            with st.expander("Revised ELN24 Derivation", expanded=True):
+            with st.expander("Revised ELN24 Derivation", expanded=False):
                 for step in eln24_derivation:
                     st.markdown(f"- {step}")
         
@@ -978,7 +985,7 @@ def results_page():
                             st.markdown(f"**Risk Category:** {mean_result.get('risk_cat', 'Unable to calculate')}")
                             st.markdown(f"**Risk Score:** {mean_result.get('risk_score', 'N/A')}")
                             
-                            with st.expander("IPSS-M Details", expanded=True):
+                            with st.expander("IPSS-M Details", expanded=False):
                                 st.markdown("##### Risk Scenarios")
                                 st.markdown(f"- **Best Case:** {ipssm_result.get('best', {}).get('risk_cat', 'N/A')}")
                                 st.markdown(f"- **Mean Case:** {mean_result.get('risk_cat', 'N/A')}")
@@ -1004,7 +1011,7 @@ def results_page():
                                 st.markdown(f"**Age-Adjusted Category:** {ipssr_result.get('IPSSRA_CAT', 'N/A')}")
                                 st.markdown(f"**Age-Adjusted Score:** {ipssr_result.get('IPSSRA_SCORE', 'N/A')}")
                             
-                            with st.expander("IPSS-R Details", expanded=True):
+                            with st.expander("IPSS-R Details", expanded=False):
                                 if "components" in ipssr_result:
                                     st.markdown("##### Score Components")
                                     for component, value in ipssr_result["components"].items():
@@ -1175,8 +1182,6 @@ def ipcc_risk_calculator_page():
     
     # Import the calculator functions
     from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr
-    import pandas as pd
-    import matplotlib.pyplot as plt
     
     # Initialize session state for persisting results between tabs
     if 'ipssm_result' not in st.session_state:
@@ -1311,13 +1316,9 @@ def ipcc_risk_calculator_page():
                     if patient_data.get("CYTO_IPSSR") is None:
                         patient_data["CYTO_IPSSR"] = "Good"
                     
-                    # Handle TP53 overrides - updated to match manual form
-                    patient_data["TP53mut"] = "NA"
-                    patient_data["TP53loh"] = "NA"
-                    patient_data["TP53maxvaf"] = "NA"
+                    # TP53 data is now preserved from parser output
                     
                     # Calculate TP53multi based on mutations and LOH
-                    patient_data["TP53multi"] = "NA"
                     
                     # Store for calculations but keep the prompts intact
                     if 'original_ipcc_data' in st.session_state and '__prompts' in st.session_state['original_ipcc_data']:
@@ -1338,8 +1339,8 @@ def ipcc_risk_calculator_page():
                     st.session_state['ipss_patient_data'] = calculation_data
                     
                     try:
-                        # Calculate IPSS-M with contributions
-                        ipssm_result = calculate_ipssm(patient_data, include_contributions=True)
+                        # Calculate IPSS-M with contributions and detailed calculations
+                        ipssm_result = calculate_ipssm(patient_data, include_contributions=True, include_detailed_calculations=True)
                         
                         # Calculate IPSS-R with return_components=True
                         ipssr_result = calculate_ipssr(patient_data, return_components=True)
@@ -1350,18 +1351,22 @@ def ipcc_risk_calculator_page():
                             'means': {
                                 'riskScore': ipssm_result['means']['risk_score'],
                                 'riskCat': ipssm_result['means']['risk_cat'],
-                                'contributions': ipssm_result['means'].get('contributions', {})
+                                'contributions': ipssm_result['means'].get('contributions', {}),
+                                'detailed_calculations': ipssm_result['means'].get('detailed_calculations', {})
                             },
                             'worst': {
                                 'riskScore': ipssm_result['worst']['risk_score'],
                                 'riskCat': ipssm_result['worst']['risk_cat'],
-                                'contributions': ipssm_result['worst'].get('contributions', {})
+                                'contributions': ipssm_result['worst'].get('contributions', {}),
+                                'detailed_calculations': ipssm_result['worst'].get('detailed_calculations', {})
                             },
                             'best': {
                                 'riskScore': ipssm_result['best']['risk_score'],
                                 'riskCat': ipssm_result['best']['risk_cat'],
-                                'contributions': ipssm_result['best'].get('contributions', {})
+                                'contributions': ipssm_result['best'].get('contributions', {}),
+                                'detailed_calculations': ipssm_result['best'].get('detailed_calculations', {})
                             },
+                            'metadata': ipssm_result.get('metadata', {}),
                             'derivation': []  # Add derivation if needed
                         }
                         
@@ -1672,6 +1677,128 @@ def ipcc_risk_calculator_page():
                 </div>
                 """, unsafe_allow_html=True)
             
+            # Add calculation details table if available
+            if 'detailed_calculations' in formatted_ipssm['means'] and formatted_ipssm['means']['detailed_calculations']:
+                st.markdown("### Detailed Calculation Table")
+                st.markdown("This table shows how each factor contributes to the IPSS-M risk score:")
+                
+                # Get the detailed calculations
+                detailed_calcs = formatted_ipssm['means']['detailed_calculations']
+                
+                # Create a DataFrame for the table
+                calc_data = []
+                for var_name, details in detailed_calcs.items():
+                    # Calculate contribution
+                    contribution = ((details.get('raw_value', 0) - details.get('reference_value', 0)) * 
+                                  details.get('coefficient', 0)) / math.log(2)
+                    
+                    # Determine impact category
+                    if contribution > 0.5:
+                        impact = "Strong risk-increasing"
+                    elif contribution > 0.2:
+                        impact = "Moderate risk-increasing"
+                    elif contribution > 0:
+                        impact = "Mild risk-increasing"
+                    elif contribution < -0.5:
+                        impact = "Strong protective"
+                    elif contribution < -0.2:
+                        impact = "Moderate protective"
+                    elif contribution < 0:
+                        impact = "Mild protective"
+                    else:
+                        impact = "Neutral"
+                    
+                    # Add to data
+                    calc_data.append({
+                        "Factor": var_name,
+                        "Description": details.get('explanation', '').split('.')[0],  # Get first sentence
+                        "Value": details.get('raw_value', 0),
+                        "Reference": details.get('reference_value', 0),
+                        "Coefficient": details.get('coefficient', 0),
+                        "Contribution": contribution,
+                        "Impact": impact
+                    })
+                
+                # Convert to DataFrame
+                df_calcs = pd.DataFrame(calc_data)
+                
+                # Sort by absolute contribution
+                df_calcs = df_calcs.sort_values(by="Contribution", key=abs, ascending=False)
+                
+                # Split into two DataFrames for display
+                genetic_factors = df_calcs[df_calcs['Factor'].str.contains('ASXL1|RUNX1|SF3B1|SRSF2|U2AF1|EZH2|DNMT3A|MLL_PTD|CBL|NRAS|KRAS|IDH2|ETV6|NPM1|TP53|FLT3|Nres2', regex=True)]
+                clinical_factors = df_calcs[~df_calcs['Factor'].str.contains('ASXL1|RUNX1|SF3B1|SRSF2|U2AF1|EZH2|DNMT3A|MLL_PTD|CBL|NRAS|KRAS|IDH2|ETV6|NPM1|TP53|FLT3|Nres2', regex=True)]
+                
+                # Create tabs for different factor types
+                calc_tabs = st.tabs(["All Factors", "Genetic Factors", "Clinical Factors"])
+                
+                with calc_tabs[0]:
+                    # Display formatted table with all factors
+                    st.dataframe(
+                        df_calcs,
+                        column_config={
+                            "Factor": "Factor",
+                            "Description": "Description",
+                            "Value": st.column_config.NumberColumn("Value", format="%.3f"),
+                            "Reference": st.column_config.NumberColumn("Reference", format="%.3f"),
+                            "Coefficient": st.column_config.NumberColumn("Coefficient", format="%.3f"),
+                            "Contribution": st.column_config.NumberColumn(
+                                "Contribution",
+                                format="%.4f",
+                                help="Contribution to overall risk score"
+                            ),
+                            "Impact": "Impact on Risk"
+                        },
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                
+                with calc_tabs[1]:
+                    if not genetic_factors.empty:
+                        st.dataframe(
+                            genetic_factors,
+                            column_config={
+                                "Factor": "Gene/Mutation",
+                                "Description": "Description",
+                                "Value": st.column_config.NumberColumn("Value", format="%.3f"),
+                                "Reference": st.column_config.NumberColumn("Reference", format="%.3f"),
+                                "Coefficient": st.column_config.NumberColumn("Coefficient", format="%.3f"),
+                                "Contribution": st.column_config.NumberColumn(
+                                    "Contribution",
+                                    format="%.4f",
+                                    help="Contribution to overall risk score"
+                                ),
+                                "Impact": "Impact on Risk"
+                            },
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    else:
+                        st.info("No genetic factors found.")
+                
+                with calc_tabs[2]:
+                    if not clinical_factors.empty:
+                        st.dataframe(
+                            clinical_factors,
+                            column_config={
+                                "Factor": "Clinical Parameter",
+                                "Description": "Description",
+                                "Value": st.column_config.NumberColumn("Value", format="%.3f"),
+                                "Reference": st.column_config.NumberColumn("Reference", format="%.3f"),
+                                "Coefficient": st.column_config.NumberColumn("Coefficient", format="%.3f"),
+                                "Contribution": st.column_config.NumberColumn(
+                                    "Contribution", 
+                                    format="%.4f",
+                                    help="Contribution to overall risk score"
+                                ),
+                                "Impact": "Impact on Risk"
+                            },
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    else:
+                        st.info("No clinical factors found.")
+            
             # Add IPSS-M Contributors section below
             st.markdown("---")
             st.markdown("### IPSS-M Risk Score Contributors")
@@ -1765,6 +1892,52 @@ def ipcc_risk_calculator_page():
                 - Total risk-decreasing contributions: {total_negative:.3f}
                 - Net risk score contribution: {(total_positive + total_negative):.3f}
                 """)
+                
+                # Display detailed calculation steps if available
+                if 'detailed_calculations' in formatted_ipssm['means'] and formatted_ipssm['means']['detailed_calculations']:
+                    st.markdown("---")
+                    st.markdown("### Detailed Calculation Steps")
+                    
+                    # Metadata about the calculation process
+                    if 'metadata' in formatted_ipssm:
+                        metadata = formatted_ipssm['metadata']
+                        st.markdown("#### About IPSS-M Calculations")
+                        st.markdown(metadata.get('calculation_formula', ""))
+                        st.markdown(f"Log(2) value used: {metadata.get('log2_value', '')}")
+                        st.markdown(metadata.get('risk_interpretation', ""))
+                    
+                    # Create expanders for each variable's calculation details
+                    st.markdown("#### Individual Variable Calculations")
+                    st.markdown("Expand each section to see detailed calculation steps:")
+                    
+                    # Sort variables by absolute contribution value
+                    detailed_calcs = formatted_ipssm['means']['detailed_calculations']
+                    sorted_vars = sorted(
+                        detailed_calcs.items(),
+                        key=lambda x: abs(x[1]['raw_value'] if 'raw_value' in x[1] else 0),
+                        reverse=True
+                    )
+                    
+                    # Display each variable's calculation
+                    for var_name, details in sorted_vars:
+                        with st.expander(f"{var_name}: {details.get('interpretation', '')}"):
+                            st.markdown(f"**Description:** {details.get('explanation', '')}")
+                            st.markdown(f"**Raw Value:** {details.get('raw_value', '')}")
+                            st.markdown(f"**Reference Value:** {details.get('reference_value', '')}")
+                            st.markdown(f"**Coefficient:** {details.get('coefficient', '')}")
+                            st.markdown(f"**Calculation:** {details.get('calculation', '')}")
+                            
+                            # Format contribution with color based on whether it increases or decreases risk
+                            if 'raw_value' in details and 'reference_value' in details:
+                                contribution = ((details['raw_value'] - details['reference_value']) * 
+                                              details['coefficient']) / math.log(2)
+                                
+                                if contribution > 0:
+                                    st.markdown(f"**Contribution to Risk Score:** <span style='color:red'>+{contribution:.4f}</span>", unsafe_allow_html=True)
+                                elif contribution < 0:
+                                    st.markdown(f"**Contribution to Risk Score:** <span style='color:green'>{contribution:.4f}</span>", unsafe_allow_html=True)
+                                else:
+                                    st.markdown(f"**Contribution to Risk Score:** 0.0000")
         
         elif selected_tab == "IPSS-R":
             # IPSS-R Results section
@@ -1842,9 +2015,9 @@ def ipcc_risk_calculator_page():
 def eln_risk_calculator_page():
     """
     This page handles:
-      - Display of form for ELN risk data entry
-      - Calculation of ELN risk category
-      - Visualization of results
+      - Display of form for ELN 2022 risk assessment
+      - Classification based on ELN 2022 and ELN 2024 (non-intensive) risk stratification
+      - Visualization of results with detailed derivation
     """
     # Title / Header
     st.markdown(
@@ -1863,84 +2036,70 @@ def eln_risk_calculator_page():
         unsafe_allow_html=True
     )
     
-    # ELN Risk Calculator Page Top Controls
+    # Top Controls
     logout_placeholder = st.empty()
 
-    with st.expander("📋 Instructions", expanded=True):
-        # Show different instructions based on which mode is active
-        if st.session_state.get("eln_free_text_expanded", True):
-            st.markdown("""
-            ## ELN Risk Calculator - Free Text Mode Instructions
-            
-            This tool calculates risk classification for AML patients according to the European LeukemiaNet (ELN) risk stratification system.
-            
-            ### How to use the Free Text Mode:
-            
-            1. **Enter Report Data**:
-               - Paste your complete AML report text into the text area.
-               - Include cytogenetics information, molecular findings (especially NPM1, FLT3-ITD, and CEBPA status).
-               - The more complete the data, the more accurate the risk classification.
-            
-            2. **Calculate Risk Category**:
-               - Click the "Calculate ELN Risk" button to process the data.
-               - The system will extract relevant parameters and determine the ELN risk category.
-               
-            3. **Review Results**:
-               - The results will show risk stratification according to ELN criteria.
-               - You'll see a detailed breakdown of how different factors contributed to the risk assessment.
-            """)
-        else:  # Manual mode
-            st.markdown("""
-            ## ELN Risk Calculator - Manual Mode Instructions
-            
-            This tool calculates risk classification for AML patients according to the European LeukemiaNet (ELN) risk stratification system.
-            
-            ### How to use the Manual Mode:
-            
-            1. **Cytogenetics**:
-               - Select the cytogenetic abnormalities present in the patient.
-               - Pay special attention to complex karyotype, monosomal karyotype, and specific translocations.
-            
-            2. **Molecular Markers**:
-               - Indicate the status of key molecular markers like NPM1, FLT3-ITD, and CEBPA.
-               - For FLT3-ITD, specify the allelic ratio if mutated (ratio ≥0.5 is considered high).
-               - Select any additional adverse mutations present (RUNX1, ASXL1, TP53).
-            
-            3. **Calculate Risk Category**:
-               - Click the "Calculate ELN Risk" button to process the data.
-               - The system will determine the ELN risk category based on your inputs.
-               
-            4. **Review Results**:
-               - The results will show risk stratification according to ELN criteria.
-               - You'll see a detailed breakdown of how different factors contributed to the risk assessment.
-            """)
-    
-    # Import the classifier function
-    from classifiers.eln_risk_classifier import classify_ELN_risk, build_manual_eln_risk_data
+    with st.expander("📋 Instructions", expanded=False):
+        st.markdown("""
+        ## ELN Risk Calculator - Instructions
+        
+        This tool assesses AML risk according to the European LeukemiaNet (ELN) 2022 risk classification guidelines and 
+        the revised ELN 2024 criteria for non-intensive therapy.
+        
+        ### How to use this tool:
+        
+        1. **Select Input Method**:
+           - **Free-text Mode**: Paste your clinical report text to automatically extract relevant markers.
+           - **Manual Mode**: Manually check all cytogenetic and molecular markers present in your case.
+        
+        2. **Enter Data**:
+           - In free-text mode, paste the clinical/genetic report text.
+           - In manual mode, check all abnormalities present in the sample.
+        
+        3. **Calculate Risk**:
+           - Click the "Calculate ELN Risk" button to generate the risk assessment.
+           
+        4. **Review Results**:
+           - The results will show risk stratification according to:
+              - ELN 2022 standard risk classification
+              - ELN 2024 non-intensive therapy risk classification
+           - Step-by-step derivation of the risk assessment will be displayed.
+           - Median overall survival estimates will be provided based on the risk category.
+        """)
+
+    # Import necessary functions
+    from classifiers.aml_risk_classifier import classify_full_eln2022, eln2024_non_intensive_risk
+    from parsers.eln_parser import parse_eln_report
+    from utils.forms import build_manual_eln_data
     
     # Initialize session state for persisting results
     if 'eln_result' not in st.session_state:
         st.session_state['eln_result'] = None
-    if 'eln_patient_data' not in st.session_state:
-        st.session_state['eln_patient_data'] = None
+    if 'eln24_result' not in st.session_state:
+        st.session_state['eln24_result'] = None
+    if 'eln_derivation' not in st.session_state:
+        st.session_state['eln_derivation'] = None
+    if 'eln24_derivation' not in st.session_state:
+        st.session_state['eln24_derivation'] = None
     
     # Toggle for free-text vs. manual mode
     eln_mode_toggle = st.toggle("Free-text Mode", key="eln_mode_toggle", value=True)
     
-    patient_data = None
+    eln_data = {}
     
     # FREE TEXT MODE
     if eln_mode_toggle:
         with st.expander("Free Text Input", expanded=True):
-            st.markdown("### Input AML Report")
+            st.markdown("### Input AML/Genetic Report")
             
             st.markdown("""
-            Enter your AML report data below. The system will extract relevant parameters for ELN risk classification.
+            Enter your AML report data below. The system will extract relevant genetic and cytogenetic markers 
+            for ELN risk classification.
             """)
             
-            free_report_text = st.text_area(
-                "Enter AML report data:",
-                placeholder="Paste your AML report here including: cytogenetics, NPM1 status, FLT3-ITD status, CEBPA status...",
+            eln_report_text = st.text_area(
+                "Enter report text:",
+                placeholder="Paste your genetic/cytogenetic report here including karyotype, FISH results, and molecular mutations...",
                 key="eln_free_text_input",
                 height=250
             )
@@ -1948,113 +2107,283 @@ def eln_risk_calculator_page():
             # Calculate button
             calculate_button = st.button("Calculate ELN Risk", key="calculate_eln_risk", type="primary")
             if calculate_button:
-                # Process text input
-                if free_report_text.strip():
+                if eln_report_text.strip():
                     with st.spinner("Processing report text..."):
-                        from parsers.eln_parser import parse_eln_report
-                        parsed_data = parse_eln_report(free_report_text)
+                        # Parse the report to extract ELN 2022 markers
+                        parsed_eln_data = parse_eln_report(eln_report_text)
                         
-                        if parsed_data:
+                        if parsed_eln_data:
                             st.info("Report processed successfully.")
-                            # Store parsed data for debugging
-                            st.session_state['original_eln_data'] = parsed_data.copy()
+                            # Store the parsed data
+                            st.session_state['original_eln_data'] = parsed_eln_data.copy()
                             
-                            # Calculate ELN risk
-                            with st.spinner("Calculating ELN risk..."):
-                                eln_result = classify_ELN_risk(parsed_data)
-                                
-                                # Store results in session state
-                                st.session_state['eln_result'] = eln_result
-                                st.session_state['eln_patient_data'] = parsed_data
+                            # Prepare data for ELN 2024 non-intensive classification
+                            eln24_genes = {
+                                "TP53": parsed_eln_data.get("tp53_mutation", False),
+                                "KRAS": parsed_eln_data.get("kras", False),
+                                "PTPN11": parsed_eln_data.get("ptpn11", False),
+                                "NRAS": parsed_eln_data.get("nras", False),
+                                "FLT3_ITD": parsed_eln_data.get("flt3_itd", False),
+                                "NPM1": parsed_eln_data.get("npm1_mutation", False),
+                                "IDH1": parsed_eln_data.get("idh1", False),
+                                "IDH2": parsed_eln_data.get("idh2", False),
+                                "DDX41": parsed_eln_data.get("ddx41", False)
+                            }
+                            
+                            # Calculate ELN 2022 risk
+                            risk_category, eln22_median_os, derivation = classify_full_eln2022(parsed_eln_data)
+                            
+                            # Calculate ELN 2024 non-intensive risk
+                            try:
+                                risk_eln24, median_os_eln24, eln24_deriv = eln2024_non_intensive_risk(eln24_genes)
+                            except Exception as e:
+                                st.error(f"Error calculating ELN 2024 risk: {str(e)}")
+                                risk_eln24 = "Error in calculation"
+                                median_os_eln24 = "N/A"
+                                eln24_deriv = ["Error in ELN 2024 risk calculation. Please check input data."]
+                            
+                            # Store results
+                            st.session_state['eln_result'] = risk_category
+                            st.session_state['eln_derivation'] = derivation
+                            st.session_state['eln22_median_os'] = eln22_median_os
+                            st.session_state['eln24_result'] = risk_eln24
+                            st.session_state['eln24_derivation'] = eln24_deriv
+                            st.session_state['median_os_eln24'] = median_os_eln24
+                            
+                            eln_data = parsed_eln_data
                         else:
-                            st.warning("Insufficient data extracted from the report. Please try manual mode or provide more complete information.")
+                            st.error("Could not extract sufficient data from the report. Please check your input or use manual mode.")
                 else:
-                    st.error("No report data provided. Please enter AML report text.")
+                    st.error("Please enter report text or switch to manual mode.")
 
     # MANUAL MODE
     else:
-        with st.expander("Enter Manual Inputs", expanded=True):
-            # Get patient data using the form function
-            patient_data = build_manual_eln_risk_data(st)
-            
-            # Calculate button
-            if st.button("Calculate ELN Risk", type="primary"):
-                with st.spinner("Calculating ELN risk..."):
-                    # Store original manual data in session state
-                    st.session_state['original_eln_data'] = patient_data.copy()
-                    st.session_state['eln_patient_data'] = patient_data
+        # Get patient data using the form
+        eln_data = build_manual_eln_data()
+        
+        if st.button("Calculate ELN Risk", key="calculate_eln_manual", type="primary"):
+            with st.spinner("Calculating risk..."):
+                try:
+                    # Store the entered data
+                    st.session_state['original_eln_data'] = eln_data.copy()
                     
-                    # Calculate ELN risk
-                    eln_result = classify_ELN_risk(patient_data)
+                    # Prepare data for ELN 2024 non-intensive classification
+                    eln24_genes = {
+                        "TP53": eln_data.get("tp53_mutation", False),
+                        "KRAS": eln_data.get("kras", False),
+                        "PTPN11": eln_data.get("ptpn11", False),
+                        "NRAS": eln_data.get("nras", False),
+                        "FLT3_ITD": eln_data.get("flt3_itd", False),
+                        "NPM1": eln_data.get("npm1_mutation", False),
+                        "IDH1": eln_data.get("idh1", False),
+                        "IDH2": eln_data.get("idh2", False),
+                        "DDX41": eln_data.get("ddx41", False)
+                    }
                     
-                    # Store result in session state
-                    st.session_state['eln_result'] = eln_result
+                    # Calculate ELN 2022 risk
+                    risk_category, eln22_median_os, derivation = classify_full_eln2022(eln_data)
+                    
+                    # Calculate ELN 2024 non-intensive risk
+                    try:
+                        risk_eln24, median_os_eln24, eln24_deriv = eln2024_non_intensive_risk(eln24_genes)
+                    except Exception as e:
+                        st.error(f"Error calculating ELN 2024 risk: {str(e)}")
+                        risk_eln24 = "Error in calculation"
+                        median_os_eln24 = "N/A"
+                        eln24_deriv = ["Error in ELN 2024 risk calculation. Please check input data."]
+                    
+                    # Store results
+                    st.session_state['eln_result'] = risk_category
+                    st.session_state['eln_derivation'] = derivation
+                    st.session_state['eln22_median_os'] = eln22_median_os
+                    st.session_state['eln24_result'] = risk_eln24
+                    st.session_state['eln24_derivation'] = eln24_deriv
+                    st.session_state['median_os_eln24'] = median_os_eln24
+                    
+                except Exception as e:
+                    st.error(f"Error calculating risk: {str(e)}")
     
-    # Display results if they exist
-    if st.session_state['eln_result'] is not None:
-        st.markdown("---")
-        st.markdown("## ELN Risk Classification Results")
+    # Add JSON data display expander for transparency
+    if 'original_eln_data' in st.session_state:
+        with st.expander("Data Inspector - View Extracted Features", expanded=False):
+            st.subheader("Features Used for Classification")
+            display_data = st.session_state['original_eln_data'].copy()
+            if '__prompts' in display_data:
+                del display_data['__prompts']
+            st.json(display_data)
+    
+    # Display results if available
+    if (st.session_state['eln_result'] is not None and 
+        st.session_state['eln24_result'] is not None):
         
-        eln_result = st.session_state['eln_result']
-        
-        # Define color mapping for risk categories
-        risk_colors = {
-            "Favorable": "#c8e6c9",  # Light green
-            "Intermediate": "#fff9c4",  # Light yellow
-            "Adverse": "#ffcdd2",  # Light red
-            "Data Error": "#e0e0e0",  # Light gray
-            "Unknown": "#e0e0e0"  # Light gray
-        }
-        
-        # Display the risk category with appropriate color
-        risk_category = eln_result["ELN_RISK"]
-        risk_color = risk_colors.get(risk_category, "#e0e0e0")
-        
-        # Create a centered risk display
-        col1, col2, col3 = st.columns([1, 2, 1])
-        
-        with col2:
-            st.markdown(f"""
-            <div style="
-                background-color: {risk_color}; 
-                padding: 20px; 
-                border-radius: 10px; 
-                text-align: center;
+        # Style for the results
+        st.markdown("""
+        <style>
+            .risk-box {
+                padding: 20px;
+                border-radius: 10px;
                 margin-bottom: 20px;
-                ">
-                <h3 style="margin: 0; color: #333;">ELN Risk Category</h3>
-                <h1 style="margin: 10px 0; color: #333;">{risk_category}</h1>
-                <p style="margin: 0; color: #555; font-style: italic;">Estimated Median OS: {eln_result["MEDIAN_OS"]}</p>
+                text-align: center;
+            }
+            .favorable {
+                background-color: #c8e6c9;
+                border: 1px solid #2e7d32;
+            }
+            .intermediate {
+                background-color: #fff9c4;
+                border: 1px solid #f9a825;
+            }
+            .adverse {
+                background-color: #ffcdd2;
+                border: 1px solid #c62828;
+            }
+            .risk-title {
+                font-size: 1.4rem;
+                font-weight: 600;
+                margin-bottom: 10px;
+            }
+            .risk-subtitle {
+                font-size: 1.1rem;
+                margin-bottom: 5px;
+                font-weight: 500;
+            }
+            .risk-value {
+                font-size: 1.8rem;
+                font-weight: 700;
+                margin-bottom: 10px;
+            }
+            .risk-os {
+                font-style: italic;
+                margin-bottom: 5px;
+            }
+            .derivation-title {
+                font-weight: 600;
+                margin-top: 20px;
+                margin-bottom: 10px;
+                font-size: 1.2rem;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Get the risk classes
+        eln_risk = st.session_state['eln_result']
+        eln24_risk = st.session_state['eln24_result']
+        
+        # Determine CSS class based on risk category
+        def get_risk_class(risk):
+            risk = risk.lower()
+            if 'favorable' in risk:
+                return 'favorable'
+            elif 'intermediate' in risk:
+                return 'intermediate'
+            elif 'adverse' in risk:
+                return 'adverse'
+            else:
+                return 'intermediate'
+        
+        eln_class = get_risk_class(eln_risk)
+        eln24_class = get_risk_class(eln24_risk)
+        
+        # Get median OS based on ELN 2022 risk category
+        if 'adverse' in eln_risk.lower():
+            median_os = "Approximately 8–10 months"
+        elif 'favorable' in eln_risk.lower():
+            median_os = "Not reached or >60 months"
+        else:
+            median_os = "Approximately 16–24 months"
+        
+        # Create a results header
+        st.markdown("## Risk Assessment Results")
+        
+        # Create two columns for the risk displays
+        col1, col2 = st.columns(2)
+        
+        # ELN 2022 Risk
+        with col1:
+            # Add a default for eln22_median_os in case it's missing from session state
+            eln22_median_os = st.session_state.get('eln22_median_os', "Not available")
+            
+            st.markdown(f"""
+            <div class='risk-box {eln_class}'>
+                <div class='risk-title'>ELN 2022 Risk</div>
+                <div class='risk-value'>{eln_risk}</div>
+                <div class='risk-os'>Median OS: {eln22_median_os}</div>
             </div>
             """, unsafe_allow_html=True)
+            
+            with st.expander("ELN 2022 Derivation", expanded=False):
+                # Check if the derivation is a list of strings (new format) or a single string (old format)
+                derivation = st.session_state['eln_derivation']
+                if isinstance(derivation, list):
+                    for step in derivation:
+                        st.markdown(f"- {step}")
+                else:
+                    # For backwards compatibility with old format
+                    st.markdown(derivation)
         
-        # Display derivation steps
-        st.markdown("### Risk Calculation Steps")
-        for step in eln_result["DERIVATION"]:
-            st.markdown(f"- {step}")
+        # ELN 2024 Non-Intensive Risk
+        with col2:
+            # Add a default for median_os_eln24 in case it's missing from session state
+            median_os_eln24 = st.session_state.get('median_os_eln24', "N/A")
+            
+            # Format the display differently if median_os_eln24 is a string (e.g., "N/A")
+            os_display = f"{median_os_eln24} months" if isinstance(median_os_eln24, (int, float)) else median_os_eln24
+            
+            st.markdown(f"""
+            <div class='risk-box {eln24_class}'>
+                <div class='risk-title'>ELN 2024 Risk (Non-Intensive Therapy)</div>
+                <div class='risk-value'>{eln24_risk}</div>
+                <div class='risk-os'>Median OS: {os_display}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            with st.expander("ELN 2024 Derivation", expanded=False):
+                for step in st.session_state['eln24_derivation']:
+                    st.markdown(f"- {step}")
         
-        # Display JSON data inspector
-        with st.expander("Data Inspector - View Patient Data", expanded=False):
-            st.subheader("Data Used for Calculations")
-            patient_data = st.session_state['eln_patient_data']
-            if patient_data is not None:
-                # Remove the '__prompts' field if it exists
-                display_data = patient_data.copy()
-                if '__prompts' in display_data:
-                    del display_data['__prompts']
-                st.json(display_data)
-            else:
-                st.info("No calculation data available.")
+        # Clinical Implications
+        st.markdown("### Clinical Implications")
         
-        # Add citation/explanation
-        st.markdown("""
-        ---
-        **Note:** This risk stratification is based on the European LeukemiaNet (ELN) guidelines for AML.
-        The risk category helps predict prognosis and guide treatment decisions.
-        - **Favorable risk:** Generally associated with better outcomes and may be candidates for standard chemotherapy.
-        - **Intermediate risk:** Moderate outcomes; treatment decisions may consider other factors.
-        - **Adverse risk:** More aggressive disease with poorer outcomes; may be candidates for intensive or investigational approaches.
-        """)
+        implications = ""
+        if 'adverse' in eln_risk.lower():
+            implications = """
+            - **Adverse Risk**: Consider enrollment in clinical trials when available.
+            - High-risk disease may benefit from intensive induction regimens followed by allogeneic stem cell transplantation (if eligible).
+            - Consider novel agent combinations or targeted therapies based on specific mutations.
+            - Close monitoring for early relapse is recommended.
+            """
+        elif 'favorable' in eln_risk.lower():
+            implications = """
+            - **Favorable Risk**: Standard induction chemotherapy followed by consolidation is typically recommended.
+            - Allogeneic transplantation in first remission is generally not recommended.
+            - Monitoring for measurable residual disease (MRD) can guide further treatment decisions.
+            - Consider targeted therapies for specific mutations (e.g., FLT3 inhibitors if FLT3-ITD present).
+            """
+        else:
+            implications = """
+            - **Intermediate Risk**: Consider standard induction chemotherapy.
+            - Allogeneic transplantation may be considered based on additional factors (age, comorbidities, donor availability).
+            - Monitor for measurable residual disease (MRD) to guide post-remission therapy.
+            - Consider clinical trials for novel treatment approaches when available.
+            """
+        
+        st.markdown(implications)
+        
+        # Notes section with additional clinical considerations
+        with st.expander("Additional Notes", expanded=False):
+            st.markdown("""
+            #### Important Considerations
+
+            - **ELN 2022** is the standard risk stratification for AML patients treated with intensive chemotherapy.
+            - **ELN 2024 Non-Intensive** stratification is designed for patients who will receive non-intensive therapy (e.g., venetoclax combinations, HMA therapy).
+            - Risk stratification should be considered alongside other clinical factors:
+              - Patient age and performance status
+              - Comorbidities
+              - Prior hematologic disorders (MDS, MPN)
+              - History of chemotherapy or radiation (therapy-related AML)
+              - Treatment goals (curative vs palliative)
+            - Some genetic markers may have treatment implications beyond risk stratification (e.g., IDH1/2 mutations → IDH inhibitors, FLT3 mutations → FLT3 inhibitors).
+            """)
 
 ##################################
 # APP MAIN
@@ -2076,7 +2405,7 @@ def app_main():
         selected = option_menu(
             menu_title="Navigation",
             options=["AML/MDS Classifier", "IPSS-M/R Risk Tool", "ELN Risk Calculator"],
-            icons=["clipboard-data", "calculator", "graph-up-arrow"],
+            icons=["clipboard-data", "calculator", "graph-up"],
             menu_icon=None,
             default_index=0,
         )
@@ -2090,7 +2419,7 @@ def app_main():
             cookies["jwt_token"] = ""
             cookies.save()
             st.rerun()
-
+        
     if "page" not in st.session_state:
         st.session_state["page"] = "data_entry"
     
@@ -2110,3 +2439,6 @@ def app_main():
         ipcc_risk_calculator_page()
     elif st.session_state["page"] == "eln_risk_calculator":
         eln_risk_calculator_page()
+
+if __name__ == "__main__":
+    app_main()
