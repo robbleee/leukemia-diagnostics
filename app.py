@@ -3,7 +3,7 @@ import streamlit as st
 st.set_page_config(
     page_title="Haematologic Classification",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 import urllib.parse
@@ -399,7 +399,13 @@ def data_entry_page():
     # FREE TEXT MODE
     # -----------------------------------------------------------
     else:
-        with st.expander("Input Area", expanded=st.session_state.get("aml_free_text_expanded", True)):
+        with st.expander("Free Text Input", expanded=st.session_state.get("aml_free_text_expanded", True)):
+            st.markdown("""
+            ### Input AML/MDS Report
+            
+            Enter your report data below. The system will extract relevant parameters for AML/MDS classification.
+            """)
+            
             with st.container():
                 col0, col1, col2, col3 = st.columns(4)
                 with col0:
@@ -409,7 +415,8 @@ def data_entry_page():
                         max_value=100.0, 
                         step=0.1, 
                         value=0.0,
-                        key="bone_marrow_blasts_initial"
+                        key="bone_marrow_blasts_initial",
+                        help="Leave at 0 to use value from report. Only set if you want to override."
                     )
                 with col1:
                     prior_therapy = st.selectbox(
@@ -422,7 +429,7 @@ def data_entry_page():
                     germline_status = st.selectbox(
                         "Germline predisposition?",
                         options=["Yes", "None", "Undetermined"],
-                        index=2,
+                        index=1,
                         key="germline_status"
                     )
                 with col3:
@@ -460,77 +467,86 @@ def data_entry_page():
                     ],
                     key="selected_germline"
                 )
+                
+                # Ensure at least one germline mutation is selected when germline is set to "Yes"
+                if not selected_germline:
+                    st.error("Please select at least one germline mutation when 'Germline predisposition' is set to 'Yes'.")
             
             full_report_text = st.text_area(
                 "Enter all relevant AML/MDS data here:",
-                placeholder="Paste all reports and clinical info here",
+                placeholder="Paste your AML/MDS report here including: clinical info, CBC, bone marrow findings, cytogenetics, mutations...",
                 key="full_text_input",
-                height=200
+                height=250
             )
-
-        if not (st.session_state.get("initial_parsed_data") and st.session_state.get("manual_inputs_visible") is False):
-            if st.button("Analyse Report", key="analyse_report"):
-                for k in [
-                    "aml_ai_result",
-                    "aml_class_review",
-                    "aml_mrd_review",
-                    "aml_gene_review",
-                    "aml_additional_comments",
-                    "initial_parsed_data",
-                    "blast_percentage_known"
-                ]:
-                    st.session_state.pop(k, None)
-
-                if full_report_text.strip():
-                    opt_text = ""
-                    opt_text += f"Bone Marrow Blasts Override: {bone_marrow_blasts}%. "
-                    if germline_status == "Yes":
-                        if st.session_state.get("selected_germline"):
-                            chosen = ", ".join(st.session_state["selected_germline"])
-                            opt_text += f"Germline predisposition: {chosen}. "
-                        else:
-                            opt_text += "Germline predisposition: Yes. "
-                    else:
-                        opt_text += "Germline predisposition: None. "
-
-                    if prior_therapy != "None":
-                        opt_text += f"Previous cytotoxic chemotherapy: {prior_therapy}. "
-                    else:
-                        opt_text += "Previous cytotoxic chemotherapy: None. "
-                    
-                    if previous_mds != "None":
-                        opt_text += f"Previous MDS/MDS-MPN: {previous_mds}. "
-
-                    full_text_combined = opt_text + "\n" + full_report_text
-
-                    with st.spinner("Parsing report..."):
-                        parsed_data = parse_genetics_report_aml(full_text_combined)
-                        if (parsed_data.get("blasts_percentage") == "Unknown" or 
-                            parsed_data.get("AML_differentiation") is None or 
-                            (parsed_data.get("AML_differentiation") or "").lower() == "ambiguous"):
-                            st.session_state["initial_parsed_data"] = parsed_data
-                            st.session_state["manual_inputs_visible"] = True
-                            st.rerun()
-                        else:
-                            st.session_state["blast_percentage_known"] = True
-                            who_class, who_deriv = classify_combined_WHO2022(parsed_data, not_erythroid=False)
-                            icc_class, icc_deriv = classify_combined_ICC2022(parsed_data)
-                            # Do not call classify_ELN2022 here
-                            st.session_state["aml_ai_result"] = {
-                                "parsed_data": parsed_data,
-                                "who_class": who_class,
-                                "who_derivation": who_deriv,
-                                "icc_class": icc_class,
-                                "icc_derivation": icc_deriv,
-                                "free_text_input": full_text_combined
-                            }
-                            st.session_state["expanded_aml_section"] = "classification"
-                            st.session_state["manual_inputs_visible"] = False
-
-                    st.session_state["page"] = "results"
-                    st.rerun()
+            
+            # Moved the Analyse button inside the expander
+            analyse_button = st.button("Analyse Report", key="analyse_report", type="primary")
+            if analyse_button:
+                # Check if germline status is "Yes" but no mutations are selected
+                if germline_status == "Yes" and not st.session_state.get("selected_germline"):
+                    st.error("Please select at least one germline mutation when 'Germline predisposition' is set to 'Yes'.")
                 else:
-                    st.error("No AML data provided.")
+                    for k in [
+                        "aml_ai_result",
+                        "aml_class_review",
+                        "aml_mrd_review",
+                        "aml_gene_review",
+                        "aml_additional_comments",
+                        "initial_parsed_data",
+                        "blast_percentage_known"
+                    ]:
+                        st.session_state.pop(k, None)
+
+                    if full_report_text.strip():
+                        opt_text = ""
+                        opt_text += f"Bone Marrow Blasts Override: {bone_marrow_blasts}%. "
+                        if germline_status == "Yes":
+                            if st.session_state.get("selected_germline"):
+                                chosen = ", ".join(st.session_state["selected_germline"])
+                                opt_text += f"Germline predisposition: {chosen}. "
+                            else:
+                                opt_text += "Germline predisposition: Yes. "
+                        else:
+                            opt_text += "Germline predisposition: None. "
+
+                        if prior_therapy != "None":
+                            opt_text += f"Previous cytotoxic chemotherapy: {prior_therapy}. "
+                        else:
+                            opt_text += "Previous cytotoxic chemotherapy: None. "
+                        
+                        if previous_mds != "None":
+                            opt_text += f"Previous MDS/MDS-MPN: {previous_mds}. "
+
+                        full_text_combined = opt_text + "\n" + full_report_text
+
+                        with st.spinner("Parsing report..."):
+                            parsed_data = parse_genetics_report_aml(full_text_combined)
+                            if (parsed_data.get("blasts_percentage") == "Unknown" or 
+                                parsed_data.get("AML_differentiation") is None or 
+                                (parsed_data.get("AML_differentiation") or "").lower() == "ambiguous"):
+                                st.session_state["initial_parsed_data"] = parsed_data
+                                st.session_state["manual_inputs_visible"] = True
+                                st.rerun()
+                            else:
+                                st.session_state["blast_percentage_known"] = True
+                                who_class, who_deriv = classify_combined_WHO2022(parsed_data, not_erythroid=False)
+                                icc_class, icc_deriv = classify_combined_ICC2022(parsed_data)
+                                # Do not call classify_ELN2022 here
+                                st.session_state["aml_ai_result"] = {
+                                    "parsed_data": parsed_data,
+                                    "who_class": who_class,
+                                    "who_derivation": who_deriv,
+                                    "icc_class": icc_class,
+                                    "icc_derivation": icc_deriv,
+                                    "free_text_input": full_text_combined
+                                }
+                                st.session_state["expanded_aml_section"] = "classification"
+                                st.session_state["manual_inputs_visible"] = False
+
+                        st.session_state["page"] = "results"
+                        st.rerun()
+                    else:
+                        st.error("No AML data provided.")
 
         if st.session_state.get("initial_parsed_data"):
             st.warning("Either the blast percentage could not be automatically determined or the differentiation is ambiguous/missing. Please provide the missing information to proceed with classification.")
@@ -567,32 +583,38 @@ def data_entry_page():
                             list(diff_map.keys()),
                             key="manual_differentiation_input"
                         )
+                
+                # Moved the analyse button inside the expander and made it primary
+                submit_button = st.button("Analyse With Manual Inputs", key="submit_manual", type="primary")
+                if submit_button:
+                    # Check if germline status is "Yes" but no mutations are selected
+                    if st.session_state.get("germline_status") == "Yes" and not st.session_state.get("selected_germline"):
+                        st.error("Please select at least one germline mutation when 'Germline predisposition' is set to 'Yes'.")
+                    else:
+                        updated_parsed_data = st.session_state.get("initial_parsed_data") or {}
+                        updated_parsed_data["blasts_percentage"] = manual_blast_percentage
+                        updated_parsed_data["bone_marrow_blasts_override"] = st.session_state["bone_marrow_blasts_initial"]
 
-            if st.button("Analyse With Manual Inputs", key="submit_manual"):
-                updated_parsed_data = st.session_state.get("initial_parsed_data") or {}
-                updated_parsed_data["blasts_percentage"] = manual_blast_percentage
-                updated_parsed_data["bone_marrow_blasts_override"] = st.session_state["bone_marrow_blasts_initial"]
+                        if updated_parsed_data.get("AML_differentiation") is None or (updated_parsed_data.get("AML_differentiation") or "").lower() == "ambiguous":
+                            diff_str = diff_map[manual_differentiation]
+                            updated_parsed_data["AML_differentiation"] = diff_str
 
-                if updated_parsed_data.get("AML_differentiation") is None or (updated_parsed_data.get("AML_differentiation") or "").lower() == "ambiguous":
-                    diff_str = diff_map[manual_differentiation]
-                    updated_parsed_data["AML_differentiation"] = diff_str
+                        with st.spinner("Re-classifying with manual inputs..."):
+                            who_class, who_deriv = classify_combined_WHO2022(updated_parsed_data, not_erythroid=False)
+                            icc_class, icc_deriv = classify_combined_ICC2022(updated_parsed_data)
+                            # Again, do not call classify_ELN2022 here; let it be computed in results.
+                            st.session_state["aml_ai_result"] = {
+                                "parsed_data": updated_parsed_data,
+                                "who_class": who_class,
+                                "who_derivation": who_deriv,
+                                "icc_class": icc_class,
+                                "icc_derivation": icc_deriv,
+                                "free_text_input": st.session_state.get("full_text_input", "")
+                            }
+                            st.session_state["expanded_aml_section"] = "classification"
 
-                with st.spinner("Re-classifying with manual inputs..."):
-                    who_class, who_deriv = classify_combined_WHO2022(updated_parsed_data, not_erythroid=False)
-                    icc_class, icc_deriv = classify_combined_ICC2022(updated_parsed_data)
-                    # Again, do not call classify_ELN2022 here; let it be computed in results.
-                    st.session_state["aml_ai_result"] = {
-                        "parsed_data": updated_parsed_data,
-                        "who_class": who_class,
-                        "who_derivation": who_deriv,
-                        "icc_class": icc_class,
-                        "icc_derivation": icc_deriv,
-                        "free_text_input": st.session_state.get("full_text_input", "")
-                    }
-                    st.session_state["expanded_aml_section"] = "classification"
-
-                st.session_state["page"] = "results"
-                st.rerun()
+                        st.session_state["page"] = "results"
+                        st.rerun()
 
 
 ##################################
