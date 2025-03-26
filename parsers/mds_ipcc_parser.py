@@ -204,7 +204,7 @@ Here is the free-text hematological report to parse:
     tp53_prompt = f"""
 The user has pasted a free-text hematological report.
 Please extract the TP53 mutation information from the text and format it into a valid JSON object.
-If a field is not found or unclear, use the default value.
+
 
 Extract these fields:
 "tp53_details": {{
