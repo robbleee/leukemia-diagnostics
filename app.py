@@ -1632,10 +1632,12 @@ def ipcc_risk_calculator_page():
         # Display the selected tab content
         if selected_tab == "IPSS-M":
             # IPSS-M Results section
-            st.markdown("### IPSS-M Risk Classification")
+
             
             # Display all risk scenarios in a single row with matching panel styles
             st.markdown("#### Risk Calculations")
+            st.markdown("The IPSS-M risk score combines clinical and genetic factors to predict outcomes in myelodysplastic syndromes. The three scenarios below account for possible variations in incomplete data.")
+            
             mean_best_worst_cols = st.columns(3)
             
             # Mean risk in a styled panel matching best/worst case
@@ -1677,9 +1679,12 @@ def ipcc_risk_calculator_page():
                 </div>
                 """, unsafe_allow_html=True)
             
+            st.markdown("")  # Add blank line for spacing
+            
             # Add Expected Outcomes section based on risk category
             st.markdown("### Expected Outcomes")
-            st.markdown("The following outcomes are associated with this IPSS-M risk category based on clinical data:")
+            st.markdown("""The following outcomes are associated with this IPSS-M risk category based on clinical data:
+            **Note:** Survival times shown represent median values with 25th-75th percentile ranges in parentheses.""")
             
             # Get survival data for the mean risk category
             mean_risk_cat = formatted_ipssm['means']['riskCat']
@@ -1687,43 +1692,46 @@ def ipcc_risk_calculator_page():
             
             # Display in a 3-column layout
             outcome_cols = st.columns(3)
-            
+
             with outcome_cols[0]:
-                st.markdown("""
+                st.markdown(f"""
                 <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
                     <h4 style="color: #009688; margin-top: 0;">Leukemia-Free Survival</h4>
                     <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">
-                """, unsafe_allow_html=True)
-                st.markdown(f"**{survival_data['leukemia_free_survival']}**")
-                st.markdown("""
-                    <div style="font-size: 0.8em; color: #666;">Median with 25th-75th percentile range</div>
+                        {survival_data['leukemia_free_survival']}
+                    </div>
+                    <div style="font-size: 0.9em; color: #444; margin-top: 5px; font-style: italic;">
+                        Median with 25th-75th percentile range
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
-            
+
             with outcome_cols[1]:
-                st.markdown("""
+                st.markdown(f"""
                 <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
                     <h4 style="color: #009688; margin-top: 0;">Overall Survival</h4>
                     <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">
-                """, unsafe_allow_html=True)
-                st.markdown(f"**{survival_data['overall_survival']}**")
-                st.markdown("""
-                    <div style="font-size: 0.8em; color: #666;">Median with 25th-75th percentile range</div>
+                        {survival_data['overall_survival']}
+                    </div>
+                    <div style="font-size: 0.9em; color: #444; margin-top: 5px; font-style: italic;">
+                        Median with 25th-75th percentile range
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
-            
+
             with outcome_cols[2]:
-                st.markdown("""
+                st.markdown(f"""
                 <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
                     <h4 style="color: #009688; margin-top: 0;">AML Transformation</h4>
                     <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">
-                """, unsafe_allow_html=True)
-                st.markdown(f"**{survival_data['aml_transformation_1yr']}**")
-                st.markdown("""
-                    <div style="font-size: 0.8em; color: #666;">Risk of transformation by 1 year</div>
+                        {survival_data['aml_transformation_1yr']}
+                    </div>
+                    <div style="font-size: 0.9em; color: #444; margin-top: 5px; font-style: italic;">
+                        Risk of transformation by 1 year
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
-            
+
             # Add a reference note
             st.markdown("""
             <div style="font-size: 0.8em; color: #666; margin-top: 10px; font-style: italic;">
@@ -1731,9 +1739,17 @@ def ipcc_risk_calculator_page():
             </div>
             """, unsafe_allow_html=True)
             
+            st.markdown("")  # Add blank line for spacing
+            
             # Add a reference table with all risk categories
             with st.expander("View Complete IPSS-M Outcome Reference Table", expanded=False):
                 # Create reference data for all categories
+                st.markdown("""
+                <div style="margin-bottom: 15px;">
+                This table shows outcomes for each IPSS-M risk category. All survival times represent <b>median values with 25th-75th percentile ranges</b> in parentheses.
+                </div>
+                """, unsafe_allow_html=True)
+                
                 ref_data = []
                 for category in ["Very Low", "Low", "Moderate Low", "Moderate High", "High", "Very High"]:
                     cat_data = get_ipssm_survival_data(category)
@@ -1758,6 +1774,8 @@ def ipcc_risk_calculator_page():
             
             # Add calculation details table if available
             if 'detailed_calculations' in formatted_ipssm['means'] and formatted_ipssm['means']['detailed_calculations']:
+                st.markdown("")  # Add blank line for spacing
+                
                 st.markdown("### Detailed Calculation Table")
                 st.markdown("This table shows how each factor contributes to the IPSS-M risk score:")
                 
@@ -1966,36 +1984,47 @@ def ipcc_risk_calculator_page():
         elif selected_tab == "IPSS-R":
             # IPSS-R Results section
             st.markdown("### IPSS-R Risk Classification")
+            st.markdown("The IPSS-R score evaluates myelodysplastic syndromes based on cytogenetics, bone marrow blasts, and blood counts. The age-adjusted version (IPSS-RA) accounts for the impact of age on risk.")
             
-            # Display IPSS-R score and category
-            st.markdown("#### IPSS-R Base Score")
+            st.markdown("")  # Add spacing
+            
+            # Display IPSS-R scores in a single row with matching panel styles
+            st.markdown("#### Risk Calculations")
+            
             ipssr_cols = st.columns(2)
+            
+            # IPSS-R Score panel
             with ipssr_cols[0]:
-                st.metric(label="IPSS-R Score", value=f"{formatted_ipssr['IPSSR_SCORE']:.2f}")
-            with ipssr_cols[1]:
                 ipssr_color = get_risk_class_color(formatted_ipssr['IPSSR_CAT'])
                 st.markdown(f"""
-                <div style="background-color: {ipssr_color}; padding: 10px; border-radius: 5px; text-align: center;">
-                    <span style="font-weight: bold; font-size: 1.2em;">{formatted_ipssr['IPSSR_CAT']}</span>
+                <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
+                    <div style="font-weight: 500; margin-bottom: 5px;">Standard IPSS-R</div>
+                    <div style="font-size: 1.2em; font-weight: bold;">{formatted_ipssr['IPSSR_SCORE']:.2f}</div>
+                    <div style="background-color: {ipssr_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
+                        {formatted_ipssr['IPSSR_CAT']}
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
             
-            # Age-adjusted score
-            st.markdown("#### Age-adjusted Score (IPSS-RA)")
-            ipssra_cols = st.columns(2)
-            with ipssra_cols[0]:
-                st.metric(label="IPSS-RA Score", value=f"{formatted_ipssr['IPSSRA_SCORE']:.2f}")
-            with ipssra_cols[1]:
+            # IPSS-RA Score panel
+            with ipssr_cols[1]:
                 ipssra_color = get_risk_class_color(formatted_ipssr['IPSSRA_CAT'])
                 st.markdown(f"""
-                <div style="background-color: {ipssra_color}; padding: 10px; border-radius: 5px; text-align: center;">
-                    <span style="font-weight: bold; font-size: 1.2em;">{formatted_ipssr['IPSSRA_CAT']}</span>
+                <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
+                    <div style="font-weight: 500; margin-bottom: 5px;">Age-Adjusted IPSS-RA</div>
+                    <div style="font-size: 1.2em; font-weight: bold;">{formatted_ipssr['IPSSRA_SCORE']:.2f}</div>
+                    <div style="background-color: {ipssra_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
+                        {formatted_ipssr['IPSSRA_CAT']}
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
+            
+            st.markdown("")  # Add spacing
                 
             # IPSS-R Components
-            st.markdown("---")
-            st.markdown("### IPSS-R Score Components")
+            st.markdown("### Score Components")
+            st.markdown("This chart shows how each factor contributes to the overall IPSS-R score:")
+            
             if 'components' in formatted_ipssr:
                 components = formatted_ipssr['components']
                 
@@ -2016,9 +2045,11 @@ def ipcc_risk_calculator_page():
                 # Show the plot
                 st.pyplot(fig)
                 
+                st.markdown("")  # Add spacing
+                
                 # Display parameter categorization table
                 st.markdown("### Parameter Categorization")
-                st.markdown("This table shows how each parameter is categorized in the IPSS-R scoring system:")
+                st.markdown("This table shows how each clinical parameter is categorized in the IPSS-R scoring system:")
                 
                 # Create DataFrame for parameter categorization
                 param_data = {
@@ -2035,6 +2066,13 @@ def ipcc_risk_calculator_page():
                 
                 df_params = pd.DataFrame(param_data)
                 st.table(df_params)
+                
+                # Add reference note
+                st.markdown("""
+                <div style="font-size: 0.8em; color: #666; margin-top: 10px; font-style: italic;">
+                Reference: Greenberg PL, et al. Revised International Prognostic Scoring System for Myelodysplastic Syndromes. Blood 2012.
+                </div>
+                """, unsafe_allow_html=True)
 
 def eln_risk_calculator_page():
     """
