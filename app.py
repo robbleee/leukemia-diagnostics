@@ -963,7 +963,11 @@ def ipcc_risk_calculator_page():
                         st.session_state['original_ipcc_data'] = patient_data.copy()
                     
                     # Always update the calculation data
-                    st.session_state['ipss_patient_data'] = patient_data.copy()
+                    # Remove prompts from the calculation data
+                    calculation_data = patient_data.copy()
+                    if '__prompts' in calculation_data:
+                        del calculation_data['__prompts']
+                    st.session_state['ipss_patient_data'] = calculation_data
                     
                     try:
                         # Calculate IPSS-M with contributions
@@ -1026,7 +1030,12 @@ def ipcc_risk_calculator_page():
                 try:
                     # Store original manual data in session state
                     st.session_state['original_ipcc_data'] = patient_data.copy()
-                    st.session_state['ipss_patient_data'] = patient_data.copy()
+                    
+                    # Remove prompts if they exist before storing calculation data
+                    calculation_data = patient_data.copy()
+                    if '__prompts' in calculation_data:
+                        del calculation_data['__prompts']
+                    st.session_state['ipss_patient_data'] = calculation_data
                     
                     # Calculate IPSS-M with contributions
                     ipssm_result = calculate_ipssm(patient_data, include_contributions=True)
@@ -1084,45 +1093,26 @@ def ipcc_risk_calculator_page():
     # Add JSON data display expander before the help information
     if 'ipss_patient_data' in st.session_state:
         with st.expander("Data Inspector - View JSON Data", expanded=False):
-            # Create tabs for different data views
-            inspector_tabs = st.tabs(["Final Calculation Data", "Parsed Free Text Data", "AI Prompts"])
+            # Only show the calculation data - simplified to a single tab
+            st.subheader("Data Used for Calculations")
             
-            with inspector_tabs[0]:
-                st.subheader("Final Data Used for Calculations")
-                st.json(st.session_state['ipss_patient_data'])
-            
-            with inspector_tabs[1]:
-                if 'original_ipcc_data' in st.session_state:
-                    st.subheader("Parsed Data from Free Text")
-                    st.json(st.session_state['original_ipcc_data'])
-                else:
-                    st.info("No free text data has been parsed yet.")
-            
-            with inspector_tabs[2]:
-                st.subheader("AI Prompts Used for Parsing")
-                if 'original_ipcc_data' in st.session_state and '__prompts' in st.session_state['original_ipcc_data']:
-                    prompts = st.session_state['original_ipcc_data']['__prompts']
-                    
-                    prompt_sections = [
-                        ("Clinical Values Prompt", prompts.get("clinical_prompt", "Not available")),
-                        ("Cytogenetics Prompt", prompts.get("cytogenetics_prompt", "Not available")),
-                        ("TP53 Details Prompt", prompts.get("tp53_prompt", "Not available")),
-                        ("Gene Mutations Prompt", prompts.get("genes_prompt", "Not available"))
-                    ]
-                    
-                    for title, prompt in prompt_sections:
-                        show_prompt = st.checkbox(f"Show {title}", key=f"show_{title.replace(' ', '_').lower()}")
-                        if show_prompt:
-                            st.markdown(f"**{title}**")
-                            st.code(prompt, language="text")
-                            st.markdown("---")
-                else:
-                    st.info("No AI prompts data available. Please parse free text first.")
+            # Check if ipss_patient_data is None before trying to copy it
+            patient_data = st.session_state['ipss_patient_data']
+            if patient_data is not None:
+                # Remove the '__prompts' field if it exists in the JSON to display
+                display_data = patient_data.copy()
+                if '__prompts' in display_data:
+                    del display_data['__prompts']
+                st.json(display_data)
+            else:
+                st.info("No calculation data available yet. Run a calculation first.")
     
     # Remove help information section - moved to sidebar
     
     # Display results only if they exist in session state
-    if st.session_state['ipssm_result'] and st.session_state['ipssr_result']:
+    if (st.session_state['ipssm_result'] is not None and 
+        st.session_state['ipssr_result'] is not None and
+        st.session_state['ipss_patient_data'] is not None):
         # Add CSS for styling the results display
         st.markdown("""
         <style>
