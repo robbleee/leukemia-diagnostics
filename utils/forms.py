@@ -670,3 +670,124 @@ def build_manual_ipss_data() -> dict:
     }
 
     return manual_data
+
+def build_manual_eln_data():
+    """
+    Creates a form for ELN 2022 risk classification data.
+    
+    Returns:
+        Dict[str, Any]: User-selected cytogenetic and molecular markers
+    """
+    eln_data = {}
+    
+    # Title for the form
+    st.markdown("### Manual ELN 2022 Risk Assessment")
+    st.markdown("""
+        Please check all cytogenetic abnormalities and molecular mutations present in the patient's sample.
+        The system will automatically classify the risk according to ELN 2022 and ELN 2024 (non-intensive) criteria.
+    """)
+    
+    # Cytogenetic Abnormalities Section
+    with st.expander("Cytogenetic Abnormalities", expanded=True):
+        st.markdown("#### Core-Binding Factor (CBF) Leukemias")
+        col1, col2 = st.columns(2)
+        with col1:
+            eln_data["t_8_21"] = st.checkbox("t(8;21)(q22;q22.1) / RUNX1-RUNX1T1", key="t_8_21")
+        with col2:
+            eln_data["inv_16"] = st.checkbox("inv(16)(p13.1q22) / CBFB-MYH11", key="inv_16")
+            eln_data["t_16_16"] = st.checkbox("t(16;16)(p13.1;q22) / CBFB-MYH11", key="t_16_16")
+        
+        st.markdown("#### Other Recurrent Translocations")
+        col1, col2 = st.columns(2)
+        with col1:
+            eln_data["t_9_11"] = st.checkbox("t(9;11)(p21.3;q23.3) / MLLT3-KMT2A", key="t_9_11")
+            eln_data["t_6_9"] = st.checkbox("t(6;9)(p23;q34.1) / DEK-NUP214", key="t_6_9")
+        with col2:
+            eln_data["t_v_11q23"] = st.checkbox("Other KMT2A (11q23.3) rearrangements", key="t_v_11q23")
+            eln_data["bcr_abl1"] = st.checkbox("t(9;22)(q34.1;q11.2) / BCR-ABL1", key="bcr_abl1")
+        
+        st.markdown("#### Chromosomal Abnormalities")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            eln_data["normal_karyotype"] = st.checkbox("Normal karyotype", key="normal_karyotype")
+            eln_data["inv_3"] = st.checkbox("inv(3)(q21.3q26.2) / GATA2,MECOM", key="inv_3")
+            eln_data["t_3_3"] = st.checkbox("t(3;3)(q21.3;q26.2) / GATA2,MECOM", key="t_3_3")
+        with col2:
+            eln_data["minus_5"] = st.checkbox("Monosomy 5 (-5)", key="minus_5")
+            eln_data["del_5q"] = st.checkbox("del(5q)", key="del_5q")
+            eln_data["minus_7"] = st.checkbox("Monosomy 7 (-7)", key="minus_7")
+            eln_data["del_7q"] = st.checkbox("del(7q)", key="del_7q")
+        with col3:
+            eln_data["del_17p"] = st.checkbox("del(17p) / TP53 loss", key="del_17p")
+            eln_data["complex_karyotype"] = st.checkbox("Complex karyotype (≥3 abnormalities)", key="complex_karyotype")
+            eln_data["monosomal_karyotype"] = st.checkbox("Monosomal karyotype", key="monosomal_karyotype")
+    
+    # Molecular Mutations Section
+    with st.expander("Molecular Mutations", expanded=True):
+        st.markdown("#### Favorable Mutations")
+        col1, col2 = st.columns(2)
+        with col1:
+            eln_data["npm1_mutation"] = st.checkbox("NPM1 mutation", key="npm1_mutation")
+        with col2:
+            eln_data["biallelic_cebpa"] = st.checkbox("Biallelic CEBPA mutations", key="biallelic_cebpa")
+        
+        st.markdown("#### FLT3 Mutations")
+        col1, col2 = st.columns(2)
+        with col1:
+            flt3_itd = st.checkbox("FLT3-ITD", key="flt3_itd")
+            eln_data["flt3_itd"] = flt3_itd
+            if flt3_itd:
+                eln_data["flt3_itd_high"] = st.checkbox("High allelic ratio (>0.5)", key="flt3_itd_high", disabled=not flt3_itd)
+        with col2:
+            eln_data["flt3_tkd"] = st.checkbox("FLT3-TKD (D835, I836)", key="flt3_tkd")
+        
+        st.markdown("#### Adverse Mutations")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            eln_data["tp53_mutation"] = st.checkbox("TP53 mutation", key="tp53_mutation")
+            eln_data["runx1_mutation"] = st.checkbox("RUNX1 mutation", key="runx1_mutation")
+        with col2:
+            eln_data["asxl1_mutation"] = st.checkbox("ASXL1 mutation", key="asxl1_mutation")
+        
+        st.markdown("#### Additional Mutations (for ELN 2024 Non-Intensive)")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            eln_data["kras"] = st.checkbox("KRAS mutation", key="kras_mutation")
+            eln_data["nras"] = st.checkbox("NRAS mutation", key="nras_mutation")
+        with col2:
+            eln_data["ptpn11"] = st.checkbox("PTPN11 mutation", key="ptpn11_mutation")
+            eln_data["idh1"] = st.checkbox("IDH1 mutation", key="idh1_mutation")
+        with col3:
+            eln_data["idh2"] = st.checkbox("IDH2 mutation", key="idh2_mutation")
+            eln_data["ddx41"] = st.checkbox("DDX41 mutation", key="ddx41_mutation")
+    
+    # Additional Information
+    with st.expander("Notes on ELN 2022 Risk Categories", expanded=False):
+        st.markdown("""
+        ### ELN 2022 Risk Stratification
+        
+        #### Favorable Risk
+        - t(8;21)(q22;q22.1); RUNX1-RUNX1T1
+        - inv(16)(p13.1q22) or t(16;16)(p13.1;q22); CBFB-MYH11
+        - Mutated NPM1 without FLT3-ITD or with FLT3-ITD<sup>low</sup>
+        - Biallelic mutated CEBPA
+        
+        #### Intermediate Risk
+        - Mutated NPM1 with FLT3-ITD<sup>high</sup>
+        - Wild-type NPM1 without FLT3-ITD or with FLT3-ITD<sup>low</sup> (without adverse genetic lesions)
+        - t(9;11)(p21.3;q23.3); MLLT3-KMT2A
+        
+        #### Adverse Risk
+        - t(6;9)(p23;q34.1); DEK-NUP214
+        - t(v;11q23.3); KMT2A rearranged (except t(9;11))
+        - t(9;22)(q34.1;q11.2); BCR-ABL1
+        - inv(3)(q21.3q26.2) or t(3;3)(q21.3;q26.2); GATA2,MECOM(EVI1)
+        - −5 or del(5q); −7; −17/abn(17p)
+        - Complex karyotype, monosomal karyotype
+        - Wild-type NPM1 with FLT3-ITD<sup>high</sup>
+        - Mutated RUNX1 (unless with favorable genetic lesions)
+        - Mutated ASXL1 (unless with favorable genetic lesions)
+        - Mutated TP53
+        """)
+    
+    return eln_data
