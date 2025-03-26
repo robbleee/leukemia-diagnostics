@@ -962,7 +962,7 @@ def results_page():
         if show_ipcc_risk and mode == "ai" and free_text_input_value:
             # Parse the free text input for IPCC risk if we have AI-processed input
             from parsers.mds_ipcc_parser import parse_ipcc_report
-            from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
+            from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr
             
             with st.spinner("Calculating IPSS-M/R Risk scores..."):
                 # Parse the free text for IPCC risk parameters
@@ -1181,7 +1181,7 @@ def ipcc_risk_calculator_page():
             """)
     
     # Import the calculator functions
-    from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
+    from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr
     
     # Initialize session state for persisting results between tabs
     if 'ipssm_result' not in st.session_state:
@@ -1914,8 +1914,63 @@ def ipcc_risk_calculator_page():
                 # Show the plot
                 st.pyplot(fig)
                 
-
-
+                # Add a detailed table of gene contributions
+                st.markdown("#### Detailed Gene Contribution Values")
+                st.markdown("This table shows the exact contribution of each gene and factor to the IPSS-M risk score:")
+                
+                # Create a styled DataFrame with positive/negative highlighting
+                df_styled = df.copy()
+                df_styled['Impact'] = ['Risk-increasing' if c > 0 else 'Risk-decreasing' for c in df['Contribution']]
+                
+                # Separate genetic and clinical factors
+                genetic_factors = df_styled[df_styled['Factor'].str.contains('_mut|residual', case=False, regex=True)]
+                clinical_factors = df_styled[~df_styled['Factor'].str.contains('_mut|residual', case=False, regex=True)]
+                
+                # Show tables with styling
+                if not genetic_factors.empty:
+                    st.markdown("#### Genetic Factors")
+                    st.dataframe(
+                        genetic_factors,
+                        column_config={
+                            "Factor": "Gene/Mutation",
+                            "Contribution": st.column_config.NumberColumn(
+                                "Contribution Value",
+                                format="%.3f",
+                                help="Contribution to overall risk score"
+                            ),
+                            "Impact": "Impact on Risk"
+                        },
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                
+                if not clinical_factors.empty:
+                    st.markdown("#### Clinical Factors")
+                    st.dataframe(
+                        clinical_factors,
+                        column_config={
+                            "Factor": "Clinical Parameter",
+                            "Contribution": st.column_config.NumberColumn(
+                                "Contribution Value",
+                                format="%.3f",
+                                help="Contribution to overall risk score"
+                            ),
+                            "Impact": "Impact on Risk"
+                        },
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                
+                # Summary statistics
+                total_positive = df[df['Contribution'] > 0]['Contribution'].sum()
+                total_negative = df[df['Contribution'] < 0]['Contribution'].sum()
+                
+                st.markdown(f"""
+                **Summary:**
+                - Total risk-increasing contributions: +{total_positive:.3f}
+                - Total risk-decreasing contributions: {total_negative:.3f}
+                - Net risk score contribution: {(total_positive + total_negative):.3f}
+                """)
                 
                 # Display detailed calculation steps if available
                 if 'detailed_calculations' in formatted_ipssm['means'] and formatted_ipssm['means']['detailed_calculations']:

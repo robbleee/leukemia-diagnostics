@@ -37,7 +37,7 @@ from classifiers.aml_classifier import classify_AML_WHO2022, classify_AML_ICC202
 from classifiers.aml_response_classifier import classify_AML_Response_ELN2022
 from classifiers.mds_classifier import classify_MDS_WHO2022, classify_MDS_ICC2022
 from classifiers.aml_risk_classifier import classify_ELN2022, eln2024_non_intensive_risk
-from classifiers.mds_ipssm_risk_classifier import RESIDUAL_GENES, get_ipssm_survival_data
+from classifiers.mds_ipssm_risk_classifier import RESIDUAL_GENES
 from reviewers.aml_reviewer import (
     get_gpt4_review_aml_classification,
     get_gpt4_review_aml_genes,
@@ -962,7 +962,7 @@ def results_page():
         if show_ipcc_risk and mode == "ai" and free_text_input_value:
             # Parse the free text input for IPCC risk if we have AI-processed input
             from parsers.mds_ipcc_parser import parse_ipcc_report
-            from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
+            from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr
             
             with st.spinner("Calculating IPSS-M/R Risk scores..."):
                 # Parse the free text for IPCC risk parameters
@@ -1181,7 +1181,7 @@ def ipcc_risk_calculator_page():
             """)
     
     # Import the calculator functions
-    from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
+    from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr
     
     # Initialize session state for persisting results between tabs
     if 'ipssm_result' not in st.session_state:
@@ -1677,85 +1677,6 @@ def ipcc_risk_calculator_page():
                 </div>
                 """, unsafe_allow_html=True)
             
-            # Add Expected Outcomes section based on risk category
-            st.markdown("### Expected Outcomes")
-            st.markdown("The following outcomes are associated with this IPSS-M risk category based on clinical data:")
-            
-            # Get survival data for the mean risk category
-            mean_risk_cat = formatted_ipssm['means']['riskCat']
-            survival_data = get_ipssm_survival_data(mean_risk_cat)
-            
-            # Display in a 3-column layout
-            outcome_cols = st.columns(3)
-            
-            with outcome_cols[0]:
-                st.markdown("""
-                <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
-                    <h4 style="color: #009688; margin-top: 0;">Leukemia-Free Survival</h4>
-                    <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">
-                """, unsafe_allow_html=True)
-                st.markdown(f"**{survival_data['leukemia_free_survival']}**")
-                st.markdown("""
-                    <div style="font-size: 0.8em; color: #666;">Median with 25th-75th percentile range</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with outcome_cols[1]:
-                st.markdown("""
-                <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
-                    <h4 style="color: #009688; margin-top: 0;">Overall Survival</h4>
-                    <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">
-                """, unsafe_allow_html=True)
-                st.markdown(f"**{survival_data['overall_survival']}**")
-                st.markdown("""
-                    <div style="font-size: 0.8em; color: #666;">Median with 25th-75th percentile range</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with outcome_cols[2]:
-                st.markdown("""
-                <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
-                    <h4 style="color: #009688; margin-top: 0;">AML Transformation</h4>
-                    <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">
-                """, unsafe_allow_html=True)
-                st.markdown(f"**{survival_data['aml_transformation_1yr']}**")
-                st.markdown("""
-                    <div style="font-size: 0.8em; color: #666;">Risk of transformation by 1 year</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Add a reference note
-            st.markdown("""
-            <div style="font-size: 0.8em; color: #666; margin-top: 10px; font-style: italic;">
-            Data based on IPSS-M validation cohort studies. Individual patient outcomes may vary based on additional factors.
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Add a reference table with all risk categories
-            with st.expander("View Complete IPSS-M Outcome Reference Table", expanded=False):
-                # Create reference data for all categories
-                ref_data = []
-                for category in ["Very Low", "Low", "Moderate Low", "Moderate High", "High", "Very High"]:
-                    cat_data = get_ipssm_survival_data(category)
-                    ref_data.append({
-                        "Risk Category": category,
-                        "Typical Score": cat_data["typical_score"],
-                        "Leukemia-Free Survival": cat_data["leukemia_free_survival"],
-                        "Overall Survival": cat_data["overall_survival"],
-                        "AML Transformation (1yr)": cat_data["aml_transformation_1yr"]
-                    })
-                
-                # Convert to DataFrame and display
-                df_ref = pd.DataFrame(ref_data)
-                st.table(df_ref.set_index("Risk Category"))
-                
-                # Add citation
-                st.markdown("""
-                <div style="font-size: 0.8em; color: #666; margin-top: 10px; font-style: italic;">
-                Reference: Bernard E, et al. Molecular International Prognostic Scoring System for Myelodysplastic Syndromes. NEJM Evid. 2022.
-                </div>
-                """, unsafe_allow_html=True)
-            
             # Add calculation details table if available
             if 'detailed_calculations' in formatted_ipssm['means'] and formatted_ipssm['means']['detailed_calculations']:
                 st.markdown("### Detailed Calculation Table")
@@ -1914,8 +1835,63 @@ def ipcc_risk_calculator_page():
                 # Show the plot
                 st.pyplot(fig)
                 
-
-
+                # Add a detailed table of gene contributions
+                st.markdown("#### Detailed Gene Contribution Values")
+                st.markdown("This table shows the exact contribution of each gene and factor to the IPSS-M risk score:")
+                
+                # Create a styled DataFrame with positive/negative highlighting
+                df_styled = df.copy()
+                df_styled['Impact'] = ['Risk-increasing' if c > 0 else 'Risk-decreasing' for c in df['Contribution']]
+                
+                # Separate genetic and clinical factors
+                genetic_factors = df_styled[df_styled['Factor'].str.contains('_mut|residual', case=False, regex=True)]
+                clinical_factors = df_styled[~df_styled['Factor'].str.contains('_mut|residual', case=False, regex=True)]
+                
+                # Show tables with styling
+                if not genetic_factors.empty:
+                    st.markdown("#### Genetic Factors")
+                    st.dataframe(
+                        genetic_factors,
+                        column_config={
+                            "Factor": "Gene/Mutation",
+                            "Contribution": st.column_config.NumberColumn(
+                                "Contribution Value",
+                                format="%.3f",
+                                help="Contribution to overall risk score"
+                            ),
+                            "Impact": "Impact on Risk"
+                        },
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                
+                if not clinical_factors.empty:
+                    st.markdown("#### Clinical Factors")
+                    st.dataframe(
+                        clinical_factors,
+                        column_config={
+                            "Factor": "Clinical Parameter",
+                            "Contribution": st.column_config.NumberColumn(
+                                "Contribution Value",
+                                format="%.3f",
+                                help="Contribution to overall risk score"
+                            ),
+                            "Impact": "Impact on Risk"
+                        },
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                
+                # Summary statistics
+                total_positive = df[df['Contribution'] > 0]['Contribution'].sum()
+                total_negative = df[df['Contribution'] < 0]['Contribution'].sum()
+                
+                st.markdown(f"""
+                **Summary:**
+                - Total risk-increasing contributions: +{total_positive:.3f}
+                - Total risk-decreasing contributions: {total_negative:.3f}
+                - Net risk score contribution: {(total_positive + total_negative):.3f}
+                """)
                 
                 # Display detailed calculation steps if available
                 if 'detailed_calculations' in formatted_ipssm['means'] and formatted_ipssm['means']['detailed_calculations']:

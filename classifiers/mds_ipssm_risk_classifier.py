@@ -510,6 +510,68 @@ def get_contribution_interpretation(var_name: str, contribution: float) -> str:
         return "Neutral factor (0.0000)"
 
 
+def get_ipssm_survival_data(risk_category: str) -> Dict[str, Any]:
+    """
+    Get survival data for a specific IPSS-M risk category.
+    
+    Args:
+        risk_category: The IPSS-M risk category (e.g., "Very Low", "Low", etc.)
+        
+    Returns:
+        Dictionary with survival data including typical score, leukemia-free survival,
+        overall survival, and AML transformation rate.
+    """
+    survival_data = {
+        "Very Low": {
+            "typical_score": -2.11,
+            "leukemia_free_survival": "9.7 years (2.5–17.4)",
+            "overall_survival": "10.6 years (5.1–17.4)",
+            "aml_transformation_1yr": "0%"
+        },
+        "Low": {
+            "typical_score": -0.63,
+            "leukemia_free_survival": "5.9 years (2.6–12)",
+            "overall_survival": "6.0 years (3–12.8)",
+            "aml_transformation_1yr": "1.7%"
+        },
+        "Moderate Low": {
+            "typical_score": -0.47,
+            "leukemia_free_survival": "4.5 years (2–7.4)",
+            "overall_survival": "4.6 years (2–7.4)",
+            "aml_transformation_1yr": "4.9%"
+        },
+        "Moderate High": {
+            "typical_score": 0.17,
+            "leukemia_free_survival": "2.3 years (0.9–4.5)",
+            "overall_survival": "2.8 years (1.2–5.5)",
+            "aml_transformation_1yr": "9.5%"
+        },
+        "High": {
+            "typical_score": 1.00,
+            "leukemia_free_survival": "1.5 years (0.8–2.8)",
+            "overall_survival": "1.7 years (1–3)",
+            "aml_transformation_1yr": "14.3%"
+        },
+        "Very High": {
+            "typical_score": 1.82,
+            "leukemia_free_survival": "0.76 years (0.33–1.5)",
+            "overall_survival": "1.0 years (0.5–1.8)",
+            "aml_transformation_1yr": "28.2%"
+        }
+    }
+    
+    # Default to returning the whole dictionary if category not found
+    if risk_category not in survival_data:
+        return {
+            "typical_score": "N/A",
+            "leukemia_free_survival": "N/A",
+            "overall_survival": "N/A",
+            "aml_transformation_1yr": "N/A"
+        }
+    
+    return survival_data[risk_category]
+
+
 def calculate_ipssr(
     patient_data: Dict[str, Any],
     rounding: bool = True,
