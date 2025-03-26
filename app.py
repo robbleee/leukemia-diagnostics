@@ -1787,51 +1787,10 @@ def app_main():
             menu_title="Navigation",
             options=["AML/MDS Classifier", "IPSS-M/R Risk Tool"],
             icons=["clipboard-data", "calculator"],
-            menu_icon="cast",
+            menu_icon=None,
             default_index=0,
         )
         
-        # Add help information to sidebar
-        with st.expander("Help & Information", expanded=False):
-            st.markdown("""
-            ### About IPSS-M and IPSS-R
-            
-            The **International Prognostic Scoring System (IPSS)** is used to assess risk in Myelodysplastic Syndromes (MDS).
-            
-            **IPSS-R (Revised)** uses:
-            - Cytogenetics
-            - Bone marrow blast %
-            - Hemoglobin
-            - Platelets
-            - Absolute neutrophil count
-            
-            **IPSS-M (Molecular)** adds:
-            - TP53 and other gene mutations
-            - Additional refinement of cytogenetic findings
-            
-            This tool calculates both scores to provide a comprehensive risk assessment.
-            """)
-            
-            # Tutorial for free text mode (conditionally shown)
-            if "ipcc_mode_toggle" in st.session_state and st.session_state.get("ipcc_mode_toggle", False):
-                st.markdown("""
-                #### Free Text Mode Tutorial
-                
-                To get the best results, include details such as:
-                
-                ```
-                Patient is a 73-year-old male.
-                Labs show: Hemoglobin 8.4 g/dL, Platelets 38 K/uL, ANC 0.8 K/uL.
-                Bone marrow with 6% blasts.
-                
-                Cytogenetics: Complex karyotype with del(5q), trisomy 8, and del(7q).
-                
-                NGS panel shows mutations in:
-                - TP53 (VAF 42%)
-                - ASXL1 (VAF 28%)
-                - RUNX1 (VAF 26%)
-                ```
-                """)
 
     with st.sidebar.expander("User Options", expanded=True):
         st.write("Logged in as:", st.session_state["username"])
