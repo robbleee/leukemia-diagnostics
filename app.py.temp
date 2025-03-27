@@ -934,15 +934,15 @@ def results_page():
             risk_eln2022, median_os_eln2022, derivation_eln2022 = classify_ELN2022(res["parsed_data"])
             st.markdown(f"**Risk Category:** {risk_eln2022}")
             st.markdown(f"**Median OS:** {median_os_eln2022}")
+
             with st.expander("ELN 2022 Derivation", expanded=False):
-                # Check if the derivation is a list of strings (new format) or a single string (old format)
                 # Use derivation_eln2022 as fallback if eln_derivation is not in session state
-                if "eln_derivation" in st.session_state:
-                    derivation = st.session_state["eln_derivation"]
+                if 'eln_derivation' in st.session_state:
+                    derivation = st.session_state['eln_derivation']
                 else:
                     # Use the derivation we just calculated
                     derivation = derivation_eln2022
-
+                    
                 if isinstance(derivation, list):
                     for step in derivation:
                         st.markdown(f"- {step}")
@@ -956,7 +956,7 @@ def results_page():
             eln24_genes = res["parsed_data"].get("ELN2024_risk_genes", {})
             risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
             st.markdown(f"**Risk Category:** {risk_eln24}")
-            st.markdown(f"**Median OS:** {median_os_eln24} months")
+            st.markdown(f"**Median OS:** {median_os_eln24 if not isinstance(median_os_eln24, (int, float)) else str(median_os_eln24) + " months"}")
             with st.expander("Revised ELN24 Derivation", expanded=False):
                 for step in eln24_derivation:
                     st.markdown(f"- {step}")
@@ -2380,8 +2380,11 @@ def eln_risk_calculator_page():
             """, unsafe_allow_html=True)
             
             with st.expander("ELN 2022 Derivation", expanded=False):
-                # Check if the derivation is a list of strings (new format) or a single string (old format)
-                derivation = st.session_state['eln_derivation']
+                    derivation = st.session_state['eln_derivation']
+                else:
+                    # Use the derivation we just calculated
+                    derivation = derivation_eln2022
+                    
                 if isinstance(derivation, list):
                     for step in derivation:
                         st.markdown(f"- {step}")
@@ -2405,13 +2408,16 @@ def eln_risk_calculator_page():
             </div>
             """, unsafe_allow_html=True)
             
-            with st.expander("ELN 2024 Derivation", expanded=False):
-                for step in st.session_state['eln24_derivation']:
+                
+                for step in steps:
                     st.markdown(f"- {step}")
         
         # Clinical Implications
         st.markdown("### Clinical Implications")
         
+        implications = ""
+        
+        # Clinical Implications
         implications = ""
         if 'adverse' in eln_risk.lower():
             implications = """
@@ -2421,8 +2427,6 @@ def eln_risk_calculator_page():
             - Close monitoring for early relapse is recommended.
             """
         elif 'favorable' in eln_risk.lower():
-            implications = """
-            - **Favorable Risk**: Standard induction chemotherapy followed by consolidation is typically recommended.
             - Allogeneic transplantation in first remission is generally not recommended.
             - Monitoring for measurable residual disease (MRD) can guide further treatment decisions.
             - Consider targeted therapies for specific mutations (e.g., FLT3 inhibitors if FLT3-ITD present).

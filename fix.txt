@@ -1,0 +1,13 @@
+                # Use derivation_eln2022 as fallback if eln_derivation is not in session state
+                if "eln_derivation" in st.session_state:
+                    derivation = st.session_state["eln_derivation"]
+                else:
+                    # Use the derivation we just calculated
+                    derivation = derivation_eln2022
+
+                if isinstance(derivation, list):
+                    for step in derivation:
+                        st.markdown(f"- {step}")
+                else:
+                    # For backwards compatibility with old format
+                    st.markdown(derivation)
