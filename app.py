@@ -1166,6 +1166,8 @@ def show_eln_risk_assessment(res, free_text_input_value):
     st.markdown("## ELN Risk Assessment")
     st.markdown("European LeukemiaNet risk stratification for AML.")
     
+    st.markdown("")  # Add empty line for spacing
+    
     # Process free text through ELN parser (if available)
     if free_text_input_value:
         with st.spinner("Processing ELN risk assessment..."):
@@ -1211,6 +1213,8 @@ def show_eln_risk_assessment(res, free_text_input_value):
     eln_class = get_risk_class(risk_eln2022)
     eln24_class = get_risk_class(risk_eln24)
     
+    st.markdown("")  # Add empty line for spacing
+    
     # Create two columns for risk displays
     eln_col1, eln_col2 = st.columns(2)
     
@@ -1250,6 +1254,8 @@ def show_eln_risk_assessment(res, free_text_input_value):
             for step in eln24_derivation:
                 st.markdown(f"- {step}")
     
+    st.markdown("")  # Add empty line for spacing
+    
     # Display the original data for transparency
     if 'original_eln_data' in st.session_state:
         with st.expander("Data Inspector - ELN Features", expanded=False):
@@ -1258,45 +1264,6 @@ def show_eln_risk_assessment(res, free_text_input_value):
             if '__prompts' in display_data:
                 del display_data['__prompts']
             st.json(display_data)
-    
-    # Clinical Implications
-    with st.expander("Clinical Implications", expanded=False):
-        implications = ""
-        if 'adverse' in risk_eln2022.lower():
-            implications = """
-            - **Adverse Risk**: Consider enrollment in clinical trials when available.
-            - High-risk disease may benefit from intensive induction regimens followed by allogeneic stem cell transplantation (if eligible).
-            - Consider novel agent combinations or targeted therapies based on specific mutations.
-            - Close monitoring for early relapse is recommended.
-            """
-        elif 'favorable' in risk_eln2022.lower():
-            implications = """
-            - **Favorable Risk**: Standard induction chemotherapy followed by consolidation is typically recommended.
-            - Allogeneic transplantation in first remission is generally not recommended.
-            - Monitoring for measurable residual disease (MRD) can guide further treatment decisions.
-            - Consider targeted therapies for specific mutations (e.g., FLT3 inhibitors if FLT3-ITD present).
-            """
-        else:
-            implications = """
-            - **Intermediate Risk**: Consider standard induction chemotherapy.
-            - Allogeneic transplantation may be considered based on additional factors (age, comorbidities, donor availability).
-            - Monitor for measurable residual disease (MRD) to guide post-remission therapy.
-            - Consider clinical trials for novel treatment approaches when available.
-            """
-        
-        st.markdown(implications)
-        
-        st.markdown("""
-        #### Important Considerations
-
-        - **ELN 2022** is the standard risk stratification for AML patients treated with intensive chemotherapy.
-        - **ELN 2024 Non-Intensive** stratification is designed for patients who will receive non-intensive therapy (e.g., venetoclax combinations, HMA therapy).
-        - Risk stratification should be considered alongside other clinical factors:
-          - Patient age and performance status
-          - Comorbidities
-          - Prior hematologic disorders (MDS, MPN)
-          - History of chemotherapy or radiation (therapy-related AML)
-        """)
 
 # Function to display IPSS risk assessment for MDS
 def show_ipss_risk_assessment(res, free_text_input_value):
@@ -1305,6 +1272,8 @@ def show_ipss_risk_assessment(res, free_text_input_value):
     
     st.markdown("## IPSS Risk Assessment")
     st.markdown("International Prognostic Scoring System for myelodysplastic syndromes.")
+    
+    st.markdown("")  # Add empty line for spacing
     
     # Add custom styling to match the dedicated calculator
     st.markdown("""
@@ -1426,6 +1395,8 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                 key="ipss_cyto_override"
             )
     
+    st.markdown("")  # Add empty line for spacing
+    
     # Button to calculate with overrides
     calculate_button = st.button("Calculate IPSS Risk", key="calculate_ipss_with_overrides", type="primary")
     
@@ -1460,6 +1431,8 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                 ipcc_data["CYTO_IPSSR"] = cyto_override
                 st.info(f"Using override for Cytogenetic Risk: {cyto_override}")
             
+            st.markdown("")  # Add empty line for spacing
+            
             # Create tabs for IPSS-M and IPSS-R, matching the dedicated calculator
             ipcc_tabs = st.tabs(["IPSS-M", "IPSS-R"])
             
@@ -1469,8 +1442,11 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                 ipssm_result = calculate_ipssm(patient_data=ipcc_data)
                 
                 if ipssm_result:
+                    st.markdown("")  # Add empty line for spacing
                     st.markdown("#### Risk Calculations")
                     st.markdown("The IPSS-M risk score combines clinical and genetic factors to predict outcomes in myelodysplastic syndromes. The three scenarios below account for possible variations in incomplete data.")
+                    
+                   
                     
                     # Display mean, best, and worst case scenarios in three columns
                     mean_best_worst_cols = st.columns(3)
@@ -1517,11 +1493,14 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                         </div>
                         """, unsafe_allow_html=True)
                     
+
+                    st.markdown("")  # Add empty line for spacing
                     # Add Expected Outcomes section based on risk category
                     st.markdown("### Expected Outcomes")
                     st.markdown("""The following outcomes are associated with this IPSS-M risk category based on clinical data:
                     **Note:** Survival times shown represent median values with 25th-75th percentile ranges in parentheses.""")
                     
+
                     # Get survival data for the mean risk category
                     mean_risk_cat = mean_result.get('risk_cat', 'Intermediate')
                     survival_data = get_ipssm_survival_data(mean_risk_cat)
@@ -1568,12 +1547,16 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                         </div>
                         """, unsafe_allow_html=True)
 
+                    st.markdown("")  # Add empty line for spacing
+                    
                     # Add a reference note
                     st.markdown("""
                     <div style="font-size: 0.8em; color: #666; margin-top: 10px; font-style: italic;">
                     Data based on IPSS-M validation cohort studies. Individual patient outcomes may vary based on additional factors.
                     </div>
                     """, unsafe_allow_html=True)
+                    
+                    st.markdown("")  # Add empty line for spacing
                     
                     # Patient data display
                     with st.expander("View Patient Data", expanded=False):
@@ -1593,10 +1576,12 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                     st.markdown("### IPSS-R Risk Classification")
                     st.markdown("The IPSS-R score evaluates myelodysplastic syndromes based on cytogenetics, bone marrow blasts, and blood counts. The age-adjusted version (IPSS-RA) accounts for the impact of age on risk.")
                     
-                    st.markdown("")  # Add spacing
+                    st.markdown("")  # Add empty line for spacing
                     
                     # Display IPSS-R scores in a single row with matching panel styles
                     st.markdown("#### Risk Calculations")
+                    
+                    st.markdown("")  # Add empty line for spacing
                     
                     ipssr_cols = st.columns(2)
                     
@@ -1629,6 +1614,8 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
+                    
+                    st.markdown("")  # Add empty line for spacing
                     
                     # Score components details
                     with st.expander("IPSS-R Score Components", expanded=False):
