@@ -29,15 +29,11 @@ if not cookies.ready():
     st.stop()
 
 from parsers.aml_parser import parse_genetics_report_aml
-from parsers.aml_response_parser import parse_aml_response_report
 from parsers.mds_parser import parse_genetics_report_mds
 from parsers.mds_ipcc_parser import parse_ipcc_report
 from classifiers.aml_mds_combined import classify_combined_WHO2022, classify_combined_ICC2022
-from classifiers.aml_classifier import classify_AML_WHO2022, classify_AML_ICC2022
-from classifiers.aml_response_classifier import classify_AML_Response_ELN2022
-from classifiers.mds_classifier import classify_MDS_WHO2022, classify_MDS_ICC2022
 from classifiers.aml_risk_classifier import classify_ELN2022, eln2024_non_intensive_risk
-from classifiers.mds_ipssm_risk_classifier import RESIDUAL_GENES, get_ipssm_survival_data
+from classifiers.mds_risk_classifier import RESIDUAL_GENES, get_ipssm_survival_data
 from reviewers.aml_reviewer import (
     get_gpt4_review_aml_classification,
     get_gpt4_review_aml_genes,
@@ -720,134 +716,6 @@ def results_page():
         }
     }
     
-    # Add instruction manual expander
-    with st.expander("📋 Results Interpretation Guide", expanded=False):
-        # Determine which tab is selected
-        sub_tab = st.session_state.get("results_sub_tab", "Classification")
-        
-        if sub_tab == "Classification":
-            st.markdown("""
-            ## Classification Results - Interpretation Guide
-            
-            This section displays the classification of the hematologic malignancy according to both WHO 2022 and ICC 2022 criteria.
-            
-            ### Understanding the Classifications:
-            
-            1. **WHO 2022 Classification**:
-               - The World Health Organization (WHO) classification is widely used for diagnosing hematologic neoplasms.
-               - The classification is based on a combination of morphology, cytochemistry, immunophenotype, genetics, and clinical features.
-               - The derivation section shows the step-by-step logic used to arrive at the classification.
-            
-            2. **ICC 2022 Classification**:
-               - The International Consensus Classification (ICC) provides an alternative classification system.
-               - It often includes additional genetic and molecular insights not fully captured in the WHO system.
-               - The derivation section explains the rationale behind the classification.
-            
-            3. **Classification Review**:
-               - This section provides an expert analysis of the classification results.
-               - It highlights key findings and potential implications for diagnosis and management.
-               - It may reconcile any differences between WHO and ICC classifications.
-            """)
-        elif sub_tab == "Risk":
-            st.markdown("""
-            ## Risk Assessment - Interpretation Guide
-            
-            This section provides risk stratification based on established prognostic models.
-            
-            ### Understanding the Risk Assessment:
-            
-            1. **ELN 2022 Risk Classification**:
-               - The European LeukemiaNet (ELN) 2022 classification stratifies AML patients into risk categories.
-               - Risk categories include Favorable, Intermediate, and Adverse (with qualifiers).
-               - The derivation section shows how genetic and clinical factors contributed to the risk assessment.
-               - Median overall survival estimates are provided based on the risk category.
-            
-            2. **Revised ELN24 (Non-Intensive) Risk**:
-               - This newer model focuses on patients receiving non-intensive therapies.
-               - It incorporates genetic mutations and their impact on outcomes with less intensive treatment approaches.
-               - The derivation section explains how specific genetic findings influence the risk category.
-               - Median overall survival is reported in months for the assigned risk group.
-            """)
-        elif sub_tab == "MRD Review":
-            st.markdown("""
-            ## Minimal Residual Disease (MRD) Review - Interpretation Guide
-            
-            This section provides guidance on MRD monitoring based on the disease characteristics.
-            
-            ### Understanding the MRD Review:
-            
-            1. **MRD Targets**:
-               - Identifies specific genetic or immunophenotypic markers that can be used to track disease burden.
-               - Highlights the most sensitive and specific markers for monitoring.
-            
-            2. **Monitoring Recommendations**:
-               - Suggests appropriate monitoring techniques (e.g., flow cytometry, PCR, NGS).
-               - Provides guidance on monitoring frequency and threshold interpretation.
-            
-            3. **Clinical Implications**:
-               - Explains how MRD results may influence treatment decisions.
-               - Discusses the prognostic significance of MRD status in the specific disease context.
-            """)
-        elif sub_tab == "Gene Review":
-            st.markdown("""
-            ## Gene Review - Interpretation Guide
-            
-            This section analyses the genetic findings and their clinical significance.
-            
-            ### Understanding the Gene Review:
-            
-            1. **Driver Mutations**:
-               - Identifies key driver mutations that define the disease biology.
-               - Explains the functional impact of these mutations.
-            
-            2. **Prognostic Impact**:
-               - Discusses how specific mutations influence disease outcome.
-               - Stratifies mutations by their favorable, neutral, or adverse prognostic impact.
-            
-            3. **Therapeutic Implications**:
-               - Highlights mutations that may be targeted by specific therapies.
-               - Suggests potential clinical trials or treatment approaches based on the genetic profile.
-            """)
-        elif sub_tab == "AI Comments":
-            st.markdown("""
-            ## Additional Comments - Interpretation Guide
-            
-            This section provides supplementary insights not covered in other sections.
-            
-            ### Understanding the Additional Comments:
-            
-            1. **Unusual Features**:
-               - Highlights any atypical aspects of the case that merit special attention.
-               - Discusses rare or complex findings that may influence interpretation.
-            
-            2. **Diagnostic Challenges**:
-               - Addresses potential diagnostic dilemmas or borderline classifications.
-               - Suggests additional testing that might clarify ambiguous findings.
-            
-            3. **Clinical Considerations**:
-               - Offers broader context for clinical management.
-               - May include references to relevant literature or guidelines.
-            """)
-        elif sub_tab == "Differentiation":
-            st.markdown("""
-            ## Differentiation Analysis - Interpretation Guide
-            
-            This section focuses on the cellular differentiation patterns and their diagnostic significance.
-            
-            ### Understanding the Differentiation Analysis:
-            
-            1. **Lineage Assessment**:
-               - Identifies the predominant cell lineage(s) involved.
-               - Explains morphological, immunophenotypic, and genetic evidence of differentiation.
-            
-            2. **FAB Classification Context**:
-               - Relates findings to the traditional French-American-British (FAB) classification.
-               - Maps differentiation patterns to M0-M7 subtypes where applicable.
-            
-            3. **Clinical Implications**:
-               - Discusses how differentiation patterns may influence treatment response.
-               - Highlights any prognostic relevance of specific differentiation features.
-            """)
 
     sub_tab = option_menu(
         menu_title=None,
@@ -968,7 +836,7 @@ def results_page():
         if show_ipcc_risk and mode == "ai" and free_text_input_value:
             # Parse the free text input for IPCC risk if we have AI-processed input
             from parsers.mds_ipcc_parser import parse_ipcc_report
-            from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
+            from classifiers.mds_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
             
             with st.spinner("Calculating IPSS-M/R Risk scores..."):
                 # Parse the free text for IPCC risk parameters
@@ -1279,7 +1147,7 @@ def ipcc_risk_calculator_page():
             """)
     
     # Import the calculator functions
-    from classifiers.mds_ipssm_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
+    from classifiers.mds_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
     
     # Initialize session state for persisting results between tabs
     if 'ipssm_result' not in st.session_state:
@@ -2229,7 +2097,7 @@ def eln_risk_calculator_page():
 
     # Import necessary functions
     from classifiers.aml_risk_classifier import classify_full_eln2022, eln2024_non_intensive_risk
-    from parsers.eln_parser import parse_eln_report
+    from parsers.aml_eln_parser import parse_eln_report
     from utils.forms import build_manual_eln_data
     
     # Initialize session state for persisting results
