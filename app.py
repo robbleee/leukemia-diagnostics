@@ -791,9 +791,7 @@ def results_page():
         from classifiers.aml_risk_classifier import classify_full_eln2022, eln2024_non_intensive_risk
         from parsers.aml_eln_parser import parse_eln_report
         
-        # Opening introduction for the Risk section
-        st.markdown("### ELN Risk Assessment")
-        st.markdown("European LeukemiaNet risk stratification for AML.")
+
         
         # Style for risk boxes - needed for risk assessments
         st.markdown("""
@@ -841,10 +839,7 @@ def results_page():
         from classifiers.mds_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
         from parsers.mds_ipcc_parser import parse_ipcc_report
         
-        # Opening introduction for the Risk section
-        st.markdown("### IPSS Risk Assessment")
-        st.markdown("International Prognostic Scoring System for myelodysplastic syndromes.")
-        
+
         # Style for risk boxes - needed for risk assessments
         st.markdown("""
         <style>
@@ -893,10 +888,7 @@ def results_page():
         from classifiers.mds_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
         from parsers.mds_ipcc_parser import parse_ipcc_report
         
-        # Opening introduction for the Risk section
-        st.markdown("### Risk Assessment")
-        st.markdown("This section provides risk stratification based on established prognostic models.")
-        
+
         # Style for risk boxes - needed for both types of risk assessments
         st.markdown("""
         <style>
