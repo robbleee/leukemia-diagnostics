@@ -15,7 +15,8 @@ def classify_combined_ICC2022(parsed_data: dict) -> tuple:
         parsed_data (dict): A dictionary containing extracted hematological report data.
     
     Returns:
-        tuple: (classification (str), derivation (list of str))
+        tuple: (classification (str), derivation (list of str), disease_type (str))
+              where disease_type is either "AML" or "MDS"
     """
     # Call the AML ICC classifier first.
     aml_icc_classification, aml_icc_derivation = classify_AML_ICC2022(parsed_data)
@@ -29,10 +30,10 @@ def classify_combined_ICC2022(parsed_data: dict) -> tuple:
             ["AML ICC classifier indicated that the case is not AML. Switching to MDS ICC classification..."] +
             mds_icc_derivation
         )
-        return mds_icc_classification, combined_derivation
+        return mds_icc_classification, combined_derivation, "MDS"
     else:
         # Otherwise, return the AML ICC result.
-        return aml_icc_classification, aml_icc_derivation
+        return aml_icc_classification, aml_icc_derivation, "AML"
 
 
 ##############################
@@ -51,7 +52,8 @@ def classify_combined_WHO2022(parsed_data: dict, not_erythroid: bool) -> tuple:
                                         the AML classifier is called without this parameter.
 
     Returns:
-        tuple: A tuple containing (classification (str), derivation (list of str))
+        tuple: A tuple containing (classification (str), derivation (list of str), disease_type (str))
+               where disease_type is either "AML" or "MDS"
     """
 
     aml_classification, aml_derivation = classify_AML_WHO2022(parsed_data, not_erythroid=not_erythroid)
@@ -64,6 +66,6 @@ def classify_combined_WHO2022(parsed_data: dict, not_erythroid: bool) -> tuple:
             ["AML classifier indicated that the case is not AML. Switching to MDS classification..."] +
             mds_derivation
         )
-        return mds_classification, combined_derivation
+        return mds_classification, combined_derivation, "MDS"
     else:
-        return aml_classification, aml_derivation
+        return aml_classification, aml_derivation, "AML"

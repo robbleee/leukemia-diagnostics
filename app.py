@@ -440,15 +440,17 @@ def data_entry_page():
                 ]:
                     st.session_state.pop(k, None)
 
-                classification_who, who_derivation = classify_combined_WHO2022(manual_data, not_erythroid=False)
-                classification_icc, icc_derivation = classify_combined_ICC2022(manual_data)
+                classification_who, who_derivation, who_disease_type = classify_combined_WHO2022(manual_data, not_erythroid=False)
+                classification_icc, icc_derivation, icc_disease_type = classify_combined_ICC2022(manual_data)
                 # Do not call classify_ELN2022 here.
                 st.session_state["aml_manual_result"] = {
                     "parsed_data": manual_data,
                     "who_class": classification_who,
                     "who_derivation": who_derivation,
+                    "who_disease_type": who_disease_type,
                     "icc_class": classification_icc,
                     "icc_derivation": icc_derivation,
+                    "icc_disease_type": icc_disease_type,
                     "free_text_input": ""  # For manual mode, you can leave free_text_input empty
                 }
                 st.session_state["expanded_aml_section"] = "classification"
@@ -590,15 +592,17 @@ def data_entry_page():
                                 st.rerun()
                             else:
                                 st.session_state["blast_percentage_known"] = True
-                                who_class, who_deriv = classify_combined_WHO2022(parsed_data, not_erythroid=False)
-                                icc_class, icc_deriv = classify_combined_ICC2022(parsed_data)
+                                who_class, who_deriv, who_disease_type = classify_combined_WHO2022(parsed_data, not_erythroid=False)
+                                icc_class, icc_deriv, icc_disease_type = classify_combined_ICC2022(parsed_data)
                                 # Do not call classify_ELN2022 here
                                 st.session_state["aml_ai_result"] = {
                                     "parsed_data": parsed_data,
                                     "who_class": who_class,
                                     "who_derivation": who_deriv,
+                                    "who_disease_type": who_disease_type,
                                     "icc_class": icc_class,
                                     "icc_derivation": icc_deriv,
+                                    "icc_disease_type": icc_disease_type,
                                     "free_text_input": full_text_combined
                                 }
                                 st.session_state["expanded_aml_section"] = "classification"
@@ -661,15 +665,17 @@ def data_entry_page():
                             updated_parsed_data["AML_differentiation"] = diff_str
 
                         with st.spinner("Re-classifying with manual inputs..."):
-                            who_class, who_deriv = classify_combined_WHO2022(updated_parsed_data, not_erythroid=False)
-                            icc_class, icc_deriv = classify_combined_ICC2022(updated_parsed_data)
+                            who_class, who_deriv, who_disease_type = classify_combined_WHO2022(updated_parsed_data, not_erythroid=False)
+                            icc_class, icc_deriv, icc_disease_type = classify_combined_ICC2022(updated_parsed_data)
                             # Again, do not call classify_ELN2022 here; let it be computed in results.
                             st.session_state["aml_ai_result"] = {
                                 "parsed_data": updated_parsed_data,
                                 "who_class": who_class,
                                 "who_derivation": who_deriv,
+                                "who_disease_type": who_disease_type,
                                 "icc_class": icc_class,
                                 "icc_derivation": icc_deriv,
+                                "icc_disease_type": icc_disease_type,
                                 "free_text_input": st.session_state.get("full_text_input", "")
                             }
                             st.session_state["expanded_aml_section"] = "classification"
@@ -796,12 +802,26 @@ def results_page():
         # Import necessary functions for ELN risk assessment
         from classifiers.aml_risk_classifier import classify_full_eln2022, eln2024_non_intensive_risk
         from parsers.aml_eln_parser import parse_eln_report
+        from classifiers.mds_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
+        from parsers.mds_ipcc_parser import parse_ipcc_report
         
         # Opening introduction for the Risk section
         st.markdown("### Risk Assessment")
         st.markdown("This section provides risk stratification based on established prognostic models.")
         
-        # Style for the ELN risk boxes - matching the standalone calculator
+        # Get disease types from the classification results
+        who_disease_type = res.get("who_disease_type", "Unknown")
+        icc_disease_type = res.get("icc_disease_type", "Unknown")
+        
+        # Determine which risk assessments to show
+        show_eln = who_disease_type == "AML" or icc_disease_type == "AML"
+        show_ipss = who_disease_type == "MDS" or icc_disease_type == "MDS"
+        
+        # If disease types disagree, show a notification
+        if who_disease_type != icc_disease_type and who_disease_type != "Unknown" and icc_disease_type != "Unknown":
+            st.info(f"Note: WHO 2022 classified this as {who_disease_type} while ICC 2022 classified it as {icc_disease_type}. Both risk assessment systems are shown below.")
+        
+        # Style for the risk boxes
         st.markdown("""
         <style>
             .risk-box {
@@ -852,521 +872,524 @@ def results_page():
                 return 'intermediate'
         
         # ------------------- ELN RISK SECTION -------------------
-        st.markdown("## ELN Risk Assessment")
-        st.markdown("European LeukemiaNet risk stratification for AML.")
-        
-        # Process free text through ELN parser (if available)
-        if free_text_input_value:
-            with st.spinner("Processing ELN risk assessment..."):
-                # Parse the report to extract ELN markers
-                parsed_eln_data = parse_eln_report(free_text_input_value)
-                
-                if parsed_eln_data:
-                    # Prepare data for ELN 2024 non-intensive classification
-                    eln24_genes = {
-                        "TP53": parsed_eln_data.get("tp53_mutation", False),
-                        "KRAS": parsed_eln_data.get("kras", False),
-                        "PTPN11": parsed_eln_data.get("ptpn11", False),
-                        "NRAS": parsed_eln_data.get("nras", False),
-                        "FLT3_ITD": parsed_eln_data.get("flt3_itd", False),
-                        "NPM1": parsed_eln_data.get("npm1_mutation", False),
-                        "IDH1": parsed_eln_data.get("idh1", False),
-                        "IDH2": parsed_eln_data.get("idh2", False),
-                        "DDX41": parsed_eln_data.get("ddx41", False)
-                    }
-                    
-                    # Calculate ELN 2022 risk
-                    risk_eln2022, eln22_median_os, derivation_eln2022 = classify_full_eln2022(parsed_eln_data)
-                    
-                    # Calculate ELN 2024 non-intensive risk
-                    risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
-                    
-                    # Store for potential reuse
-                    st.session_state['eln_derivation'] = derivation_eln2022
-                    st.session_state['eln24_derivation'] = eln24_derivation
-                    st.session_state['original_eln_data'] = parsed_eln_data.copy()
-                else:
-                    # Fall back to using the parsed data from the AML parser
-                    risk_eln2022, eln22_median_os, derivation_eln2022 = classify_ELN2022(res["parsed_data"])
-                    eln24_genes = res["parsed_data"].get("ELN2024_risk_genes", {})
-                    risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
-        else:
-            # Fall back to using the parsed data from the AML parser
-            risk_eln2022, eln22_median_os, derivation_eln2022 = classify_ELN2022(res["parsed_data"])
-            eln24_genes = res["parsed_data"].get("ELN2024_risk_genes", {})
-            risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
-        
-        # Get the risk classes
-        eln_class = get_risk_class(risk_eln2022)
-        eln24_class = get_risk_class(risk_eln24)
-        
-        # Create two columns for risk displays
-        eln_col1, eln_col2 = st.columns(2)
-        
-        # ELN 2022 Risk Classification
-        with eln_col1:
-            st.markdown(f"""
-            <div class='risk-box {eln_class}'>
-                <div class='risk-title'>ELN 2022 Risk</div>
-                <div class='risk-value'>{risk_eln2022}</div>
-                <div class='risk-os'>Median OS: {eln22_median_os}</div>
-            </div>
-            """, unsafe_allow_html=True)
+        if show_eln:
+            st.markdown("## ELN Risk Assessment")
+            st.markdown("European LeukemiaNet risk stratification for AML.")
             
-            with st.expander("ELN 2022 Derivation", expanded=False):
-                # Check if the derivation is a list of strings (new format) or a single string (old format)
-                if isinstance(derivation_eln2022, list):
-                    for step in derivation_eln2022:
-                        st.markdown(f"- {step}")
-                else:
-                    # For backwards compatibility with old format
-                    st.markdown(derivation_eln2022)
-        
-        # ELN 2024 Non-Intensive Risk Classification
-        with eln_col2:
-            # Format the display differently if median_os_eln24 is a string (e.g., "N/A")
-            os_display = f"{median_os_eln24} months" if isinstance(median_os_eln24, (int, float)) else median_os_eln24
-            
-            st.markdown(f"""
-            <div class='risk-box {eln24_class}'>
-                <div class='risk-title'>ELN 2024 Risk (Non-Intensive)</div>
-                <div class='risk-value'>{risk_eln24}</div>
-                <div class='risk-os'>Median OS: {os_display}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            with st.expander("ELN 2024 Derivation", expanded=False):
-                for step in eln24_derivation:
-                    st.markdown(f"- {step}")
-        
-        # Display the original data for transparency
-        if 'original_eln_data' in st.session_state:
-            with st.expander("Data Inspector - ELN Features", expanded=False):
-                st.subheader("Features Used for ELN Classification")
-                display_data = st.session_state['original_eln_data'].copy()
-                if '__prompts' in display_data:
-                    del display_data['__prompts']
-                st.json(display_data)
-        
-        # Clinical Implications
-        with st.expander("Clinical Implications", expanded=False):
-            implications = ""
-            if 'adverse' in risk_eln2022.lower():
-                implications = """
-                - **Adverse Risk**: Consider enrollment in clinical trials when available.
-                - High-risk disease may benefit from intensive induction regimens followed by allogeneic stem cell transplantation (if eligible).
-                - Consider novel agent combinations or targeted therapies based on specific mutations.
-                - Close monitoring for early relapse is recommended.
-                """
-            elif 'favorable' in risk_eln2022.lower():
-                implications = """
-                - **Favorable Risk**: Standard induction chemotherapy followed by consolidation is typically recommended.
-                - Allogeneic transplantation in first remission is generally not recommended.
-                - Monitoring for measurable residual disease (MRD) can guide further treatment decisions.
-                - Consider targeted therapies for specific mutations (e.g., FLT3 inhibitors if FLT3-ITD present).
-                """
+            # Process free text through ELN parser (if available)
+            if free_text_input_value:
+                with st.spinner("Processing ELN risk assessment..."):
+                    # Parse the report to extract ELN markers
+                    parsed_eln_data = parse_eln_report(free_text_input_value)
+                    
+                    if parsed_eln_data:
+                        # Prepare data for ELN 2024 non-intensive classification
+                        eln24_genes = {
+                            "TP53": parsed_eln_data.get("tp53_mutation", False),
+                            "KRAS": parsed_eln_data.get("kras", False),
+                            "PTPN11": parsed_eln_data.get("ptpn11", False),
+                            "NRAS": parsed_eln_data.get("nras", False),
+                            "FLT3_ITD": parsed_eln_data.get("flt3_itd", False),
+                            "NPM1": parsed_eln_data.get("npm1_mutation", False),
+                            "IDH1": parsed_eln_data.get("idh1", False),
+                            "IDH2": parsed_eln_data.get("idh2", False),
+                            "DDX41": parsed_eln_data.get("ddx41", False)
+                        }
+                        
+                        # Calculate ELN 2022 risk
+                        risk_eln2022, eln22_median_os, derivation_eln2022 = classify_full_eln2022(parsed_eln_data)
+                        
+                        # Calculate ELN 2024 non-intensive risk
+                        risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
+                        
+                        # Store for potential reuse
+                        st.session_state['eln_derivation'] = derivation_eln2022
+                        st.session_state['eln24_derivation'] = eln24_derivation
+                        st.session_state['original_eln_data'] = parsed_eln_data.copy()
+                    else:
+                        # Fall back to using the parsed data from the AML parser
+                        risk_eln2022, eln22_median_os, derivation_eln2022 = classify_ELN2022(res["parsed_data"])
+                        eln24_genes = res["parsed_data"].get("ELN2024_risk_genes", {})
+                        risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
             else:
-                implications = """
-                - **Intermediate Risk**: Consider standard induction chemotherapy.
-                - Allogeneic transplantation may be considered based on additional factors (age, comorbidities, donor availability).
-                - Monitor for measurable residual disease (MRD) to guide post-remission therapy.
-                - Consider clinical trials for novel treatment approaches when available.
-                """
+                # Fall back to using the parsed data from the AML parser
+                risk_eln2022, eln22_median_os, derivation_eln2022 = classify_ELN2022(res["parsed_data"])
+                eln24_genes = res["parsed_data"].get("ELN2024_risk_genes", {})
+                risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
             
-            st.markdown(implications)
+            # Get the risk classes
+            eln_class = get_risk_class(risk_eln2022)
+            eln24_class = get_risk_class(risk_eln24)
             
-            st.markdown("""
-            #### Important Considerations
+            # Create two columns for risk displays
+            eln_col1, eln_col2 = st.columns(2)
+            
+            # ELN 2022 Risk Classification
+            with eln_col1:
+                st.markdown(f"""
+                <div class='risk-box {eln_class}'>
+                    <div class='risk-title'>ELN 2022 Risk</div>
+                    <div class='risk-value'>{risk_eln2022}</div>
+                    <div class='risk-os'>Median OS: {eln22_median_os}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                with st.expander("ELN 2022 Derivation", expanded=False):
+                    # Check if the derivation is a list of strings (new format) or a single string (old format)
+                    if isinstance(derivation_eln2022, list):
+                        for step in derivation_eln2022:
+                            st.markdown(f"- {step}")
+                    else:
+                        # For backwards compatibility with old format
+                        st.markdown(derivation_eln2022)
+            
+            # ELN 2024 Non-Intensive Risk Classification
+            with eln_col2:
+                # Format the display differently if median_os_eln24 is a string (e.g., "N/A")
+                os_display = f"{median_os_eln24} months" if isinstance(median_os_eln24, (int, float)) else median_os_eln24
+                
+                st.markdown(f"""
+                <div class='risk-box {eln24_class}'>
+                    <div class='risk-title'>ELN 2024 Risk (Non-Intensive)</div>
+                    <div class='risk-value'>{risk_eln24}</div>
+                    <div class='risk-os'>Median OS: {os_display}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                with st.expander("ELN 2024 Derivation", expanded=False):
+                    for step in eln24_derivation:
+                        st.markdown(f"- {step}")
+            
+            # Display the original data for transparency
+            if 'original_eln_data' in st.session_state:
+                with st.expander("Data Inspector - ELN Features", expanded=False):
+                    st.subheader("Features Used for ELN Classification")
+                    display_data = st.session_state['original_eln_data'].copy()
+                    if '__prompts' in display_data:
+                        del display_data['__prompts']
+                    st.json(display_data)
+            
+            # Clinical Implications
+            with st.expander("Clinical Implications", expanded=False):
+                implications = ""
+                if 'adverse' in risk_eln2022.lower():
+                    implications = """
+                    - **Adverse Risk**: Consider enrollment in clinical trials when available.
+                    - High-risk disease may benefit from intensive induction regimens followed by allogeneic stem cell transplantation (if eligible).
+                    - Consider novel agent combinations or targeted therapies based on specific mutations.
+                    - Close monitoring for early relapse is recommended.
+                    """
+                elif 'favorable' in risk_eln2022.lower():
+                    implications = """
+                    - **Favorable Risk**: Standard induction chemotherapy followed by consolidation is typically recommended.
+                    - Allogeneic transplantation in first remission is generally not recommended.
+                    - Monitoring for measurable residual disease (MRD) can guide further treatment decisions.
+                    - Consider targeted therapies for specific mutations (e.g., FLT3 inhibitors if FLT3-ITD present).
+                    """
+                else:
+                    implications = """
+                    - **Intermediate Risk**: Consider standard induction chemotherapy.
+                    - Allogeneic transplantation may be considered based on additional factors (age, comorbidities, donor availability).
+                    - Monitor for measurable residual disease (MRD) to guide post-remission therapy.
+                    - Consider clinical trials for novel treatment approaches when available.
+                    """
+                
+                st.markdown(implications)
+                
+                st.markdown("""
+                #### Important Considerations
 
-            - **ELN 2022** is the standard risk stratification for AML patients treated with intensive chemotherapy.
-            - **ELN 2024 Non-Intensive** stratification is designed for patients who will receive non-intensive therapy (e.g., venetoclax combinations, HMA therapy).
-            - Risk stratification should be considered alongside other clinical factors:
-              - Patient age and performance status
-              - Comorbidities
-              - Prior hematologic disorders (MDS, MPN)
-              - History of chemotherapy or radiation (therapy-related AML)
-            """)
-        
-        # Divider between risk sections
-        st.markdown("---")
+                - **ELN 2022** is the standard risk stratification for AML patients treated with intensive chemotherapy.
+                - **ELN 2024 Non-Intensive** stratification is designed for patients who will receive non-intensive therapy (e.g., venetoclax combinations, HMA therapy).
+                - Risk stratification should be considered alongside other clinical factors:
+                  - Patient age and performance status
+                  - Comorbidities
+                  - Prior hematologic disorders (MDS, MPN)
+                  - History of chemotherapy or radiation (therapy-related AML)
+                """)
+            
+            # Divider between risk sections if both are shown
+            if show_ipss:
+                st.markdown("---")
         
         # ------------------- IPSS RISK SECTION -------------------
-        st.markdown("## IPSS Risk Assessment")
-        st.markdown("International Prognostic Scoring System for myelodysplastic syndromes.")
-        
-        # Add custom styling to match the dedicated calculator
-        st.markdown("""
-        <style>
-            .score-box {
-                background-color: white;
-                padding: 15px;
-                border: 1px solid #eee;
-                border-radius: 6px;
-                text-align: center;
-            }
-            .score-label {
-                font-size: 0.9rem;
-                margin-bottom: 5px;
-                font-weight: 500;
-            }
-            .score-value {
-                font-size: 1.5rem;
-                font-weight: 700;
-            }
-            .category-value {
-                font-size: 1.2rem;
-                padding: 5px 10px;
-                border-radius: 4px;
-                display: inline-block;
-                font-weight: 600;
-                margin-top: 5px;
-            }
-            .risk-very-low {
-                background-color: #c8e6c9;
-                color: #2e7d32;
-            }
-            .risk-low {
-                background-color: #dcedc8;
-                color: #558b2f;
-            }
-            .risk-moderate {
-                background-color: #fff9c4;
-                color: #f9a825;
-            }
-            .risk-high {
-                background-color: #ffccbc;
-                color: #d84315;
-            }
-            .risk-very-high {
-                background-color: #ffcdd2;
-                color: #c62828;
-            }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        # Create colored category display helper function
-        def get_risk_class_color(category):
-            if 'very low' in category.lower():
-                return "#c8e6c9"  # Light green
-            elif 'low' in category.lower():
-                return "#dcedc8"  # Lighter green
-            elif 'moderate' in category.lower() or 'intermediate' in category.lower() or 'mod' in category.lower():
-                return "#fff9c4"  # Light yellow
-            elif 'high' in category.lower() and 'very' not in category.lower():
-                return "#ffccbc"  # Light orange/red
-            elif 'very high' in category.lower():
-                return "#ffcdd2"  # Light red
-            else:
-                return "#f5f7fa"  # Light gray
-        
-        # Override section for IPSS calculations
-        with st.expander("Override Options", expanded=True):
-            st.markdown("### Optional Overrides")
-            st.markdown("You can override specific values detected in the report. Leave at default values to use data from the report.")
+        if show_ipss:
+            st.markdown("## IPSS Risk Assessment")
+            st.markdown("International Prognostic Scoring System for myelodysplastic syndromes.")
             
-            # Create 3 columns for the clinical value inputs
-            col1, col2, col3 = st.columns(3)
+            # Add custom styling to match the dedicated calculator
+            st.markdown("""
+            <style>
+                .score-box {
+                    background-color: white;
+                    padding: 15px;
+                    border: 1px solid #eee;
+                    border-radius: 6px;
+                    text-align: center;
+                }
+                .score-label {
+                    font-size: 0.9rem;
+                    margin-bottom: 5px;
+                    font-weight: 500;
+                }
+                .score-value {
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                }
+                .category-value {
+                    font-size: 1.2rem;
+                    padding: 5px 10px;
+                    border-radius: 4px;
+                    display: inline-block;
+                    font-weight: 600;
+                    margin-top: 5px;
+                }
+                .risk-very-low {
+                    background-color: #c8e6c9;
+                    color: #2e7d32;
+                }
+                .risk-low {
+                    background-color: #dcedc8;
+                    color: #558b2f;
+                }
+                .risk-moderate {
+                    background-color: #fff9c4;
+                    color: #f9a825;
+                }
+                .risk-high {
+                    background-color: #ffccbc;
+                    color: #d84315;
+                }
+                .risk-very-high {
+                    background-color: #ffcdd2;
+                    color: #c62828;
+                }
+            </style>
+            """, unsafe_allow_html=True)
             
-            with col1:
-                hb_override = st.number_input(
-                    "Hemoglobin (g/dL)", 
-                    min_value=0.0, 
-                    max_value=20.0,
-                    value=0.0,
-                    step=0.1,
-                    help="Leave at 0 to use value from report. Only set if you want to override.",
-                    key="ipss_hb_override"
-                )
+            # Create colored category display helper function
+            def get_risk_class_color(category):
+                if 'very low' in category.lower():
+                    return "#c8e6c9"  # Light green
+                elif 'low' in category.lower():
+                    return "#dcedc8"  # Lighter green
+                elif 'moderate' in category.lower() or 'intermediate' in category.lower() or 'mod' in category.lower():
+                    return "#fff9c4"  # Light yellow
+                elif 'high' in category.lower() and 'very' not in category.lower():
+                    return "#ffccbc"  # Light orange/red
+                elif 'very high' in category.lower():
+                    return "#ffcdd2"  # Light red
+                else:
+                    return "#f5f7fa"  # Light gray
+            
+            # Override section for IPSS calculations
+            with st.expander("Override Options", expanded=True):
+                st.markdown("### Optional Overrides")
+                st.markdown("You can override specific values detected in the report. Leave at default values to use data from the report.")
                 
-                plt_override = st.number_input(
-                    "Platelets (10^9/L)",
-                    min_value=0, 
-                    max_value=1000,
-                    value=0,
-                    step=1,
-                    help="Leave at 0 to use value from report. Only set if you want to override.",
-                    key="ipss_plt_override"
-                )
-            
-            with col2:
-                anc_override = st.number_input(
-                    "ANC (10^9/L)",
-                    min_value=0.0, 
-                    max_value=20.0,
-                    value=0.0,
-                    step=0.1,
-                    help="Leave at 0 to use value from report. Only set if you want to override.",
-                    key="ipss_anc_override"
-                )
+                # Create 3 columns for the clinical value inputs
+                col1, col2, col3 = st.columns(3)
                 
-                blast_override = st.number_input(
-                    "Bone Marrow Blasts (%)",
-                    min_value=0.0, 
-                    max_value=30.0,
-                    value=0.0,
-                    step=0.1,
-                    help="Leave at 0 to use value from report. Only set if you want to override.",
-                    key="ipss_blast_override"
-                )
-            
-            with col3:
-                age_override = st.number_input(
-                    "Age (years)",
-                    min_value=18, 
-                    max_value=120,
-                    value=18,  # Min allowable value to indicate "not set"
-                    step=1,
-                    help="Leave at 18 to use value from report. Only values > 18 will override.",
-                    key="ipss_age_override"
-                )
+                with col1:
+                    hb_override = st.number_input(
+                        "Hemoglobin (g/dL)", 
+                        min_value=0.0, 
+                        max_value=20.0,
+                        value=0.0,
+                        step=0.1,
+                        help="Leave at 0 to use value from report. Only set if you want to override.",
+                        key="ipss_hb_override"
+                    )
+                    
+                    plt_override = st.number_input(
+                        "Platelets (10^9/L)",
+                        min_value=0, 
+                        max_value=1000,
+                        value=0,
+                        step=1,
+                        help="Leave at 0 to use value from report. Only set if you want to override.",
+                        key="ipss_plt_override"
+                    )
                 
-                cyto_options = ["Very Good", "Good", "Intermediate", "Poor", "Very Poor"]
-                cyto_override = st.selectbox(
-                    "Cytogenetic Risk",
-                    ["Use from report"] + cyto_options,
-                    index=0,
-                    help="Select only if you want to override the cytogenetic risk from the report.",
-                    key="ipss_cyto_override"
-                )
-        
-        # Button to calculate with overrides
-        calculate_button = st.button("Calculate IPSS Risk", key="calculate_ipss_with_overrides", type="primary")
-        
-        # IPSS-M/R Risk data section - Only run when calculate button is pressed
-        if calculate_button and free_text_input_value:
-            # Import necessary modules
-            from parsers.mds_ipcc_parser import parse_ipcc_report
-            from classifiers.mds_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
-            
-            with st.spinner("Calculating IPSS-M/R Risk scores with overrides..."):
-                # Parse the free text for IPCC risk parameters
-                ipcc_data = parse_ipcc_report(free_text_input_value)
+                with col2:
+                    anc_override = st.number_input(
+                        "ANC (10^9/L)",
+                        min_value=0.0, 
+                        max_value=20.0,
+                        value=0.0,
+                        step=0.1,
+                        help="Leave at 0 to use value from report. Only set if you want to override.",
+                        key="ipss_anc_override"
+                    )
+                    
+                    blast_override = st.number_input(
+                        "Bone Marrow Blasts (%)",
+                        min_value=0.0, 
+                        max_value=30.0,
+                        value=0.0,
+                        step=0.1,
+                        help="Leave at 0 to use value from report. Only set if you want to override.",
+                        key="ipss_blast_override"
+                    )
                 
-                if ipcc_data:
-                    # Apply overrides if specified by user
-                    if hb_override > 0:
-                        ipcc_data["HB"] = hb_override
-                        st.info(f"Using override for Hemoglobin: {hb_override} g/dL")
+                with col3:
+                    age_override = st.number_input(
+                        "Age (years)",
+                        min_value=18, 
+                        max_value=120,
+                        value=18,  # Min allowable value to indicate "not set"
+                        step=1,
+                        help="Leave at 18 to use value from report. Only values > 18 will override.",
+                        key="ipss_age_override"
+                    )
                     
-                    if plt_override > 0:
-                        ipcc_data["PLT"] = plt_override
-                        st.info(f"Using override for Platelets: {plt_override} × 10^9/L")
+                    cyto_options = ["Very Good", "Good", "Intermediate", "Poor", "Very Poor"]
+                    cyto_override = st.selectbox(
+                        "Cytogenetic Risk",
+                        ["Use from report"] + cyto_options,
+                        index=0,
+                        help="Select only if you want to override the cytogenetic risk from the report.",
+                        key="ipss_cyto_override"
+                    )
+            
+            # Button to calculate with overrides
+            calculate_button = st.button("Calculate IPSS Risk", key="calculate_ipss_with_overrides", type="primary")
+            
+            # IPSS-M/R Risk data section - Only run when calculate button is pressed
+            if calculate_button and free_text_input_value:
+                # Import necessary modules
+                from parsers.mds_ipcc_parser import parse_ipcc_report
+                from classifiers.mds_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
+                
+                with st.spinner("Calculating IPSS-M/R Risk scores with overrides..."):
+                    # Parse the free text for IPCC risk parameters
+                    ipcc_data = parse_ipcc_report(free_text_input_value)
                     
-                    if anc_override > 0:
-                        ipcc_data["ANC"] = anc_override
-                        st.info(f"Using override for ANC: {anc_override} × 10^9/L")
-                    
-                    if blast_override > 0:
-                        ipcc_data["BM_BLAST"] = blast_override
-                        st.info(f"Using override for Bone Marrow Blasts: {blast_override}%")
-                    
-                    if age_override > 18:  # Age 18 is the minimum and signals "not set"
-                        ipcc_data["AGE"] = age_override
-                        st.info(f"Using override for Age: {age_override} years")
-                    
-                    if cyto_override != "Use from report":
-                        ipcc_data["CYTO_IPSSR"] = cyto_override
-                        st.info(f"Using override for Cytogenetic Risk: {cyto_override}")
-                    
-                    # Create tabs for IPSS-M and IPSS-R, matching the dedicated calculator
-                    ipcc_tabs = st.tabs(["IPSS-M", "IPSS-R"])
-                    
-                    # ------------------- IPSS-M TAB -------------------
-                    with ipcc_tabs[0]:
-                        # Calculate IPSS-M scores
-                        ipssm_result = calculate_ipssm(patient_data=ipcc_data)
+                    if ipcc_data:
+                        # Apply overrides if specified by user
+                        if hb_override > 0:
+                            ipcc_data["HB"] = hb_override
+                            st.info(f"Using override for Hemoglobin: {hb_override} g/dL")
                         
-                        if ipssm_result:
-                            st.markdown("#### Risk Calculations")
-                            st.markdown("The IPSS-M risk score combines clinical and genetic factors to predict outcomes in myelodysplastic syndromes. The three scenarios below account for possible variations in incomplete data.")
-                            
-                            # Display mean, best, and worst case scenarios in three columns
-                            mean_best_worst_cols = st.columns(3)
-                            
-                            # Mean case
-                            with mean_best_worst_cols[0]:
-                                mean_result = ipssm_result.get("means", {})
-                                mean_color = get_risk_class_color(mean_result.get('risk_cat', 'Intermediate'))
-                                st.markdown(f"""
-                                <div style="background-color: white; padding: 8px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
-                                    <div style="font-weight: 500; margin-bottom: 5px;">Mean Risk</div>
-                                    <div style="font-size: 1.2em; font-weight: bold;">{mean_result.get('risk_score', 'N/A')}</div>
-                                    <div style="background-color: {mean_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
-                                        {mean_result.get('risk_cat', 'Unable to calculate')}
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                            
-                            # Best case
-                            with mean_best_worst_cols[1]:
-                                best_result = ipssm_result.get("best", {})
-                                best_color = get_risk_class_color(best_result.get('risk_cat', 'Low'))
-                                st.markdown(f"""
-                                <div style="background-color: white; padding: 8px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
-                                    <div style="font-weight: 500; margin-bottom: 5px;">Best Case</div>
-                                    <div style="font-size: 1.2em; font-weight: bold;">{best_result.get('risk_score', 'N/A')}</div>
-                                    <div style="background-color: {best_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
-                                        {best_result.get('risk_cat', 'N/A')}
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                            
-                            # Worst case
-                            with mean_best_worst_cols[2]:
-                                worst_result = ipssm_result.get("worst", {})
-                                worst_color = get_risk_class_color(worst_result.get('risk_cat', 'High'))
-                                st.markdown(f"""
-                                <div style="background-color: white; padding: 8px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
-                                    <div style="font-weight: 500; margin-bottom: 5px;">Worst Case</div>
-                                    <div style="font-size: 1.2em; font-weight: bold;">{worst_result.get('risk_score', 'N/A')}</div>
-                                    <div style="background-color: {worst_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
-                                        {worst_result.get('risk_cat', 'N/A')}
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                            
-                            # Add Expected Outcomes section based on risk category
-                            st.markdown("### Expected Outcomes")
-                            st.markdown("""The following outcomes are associated with this IPSS-M risk category based on clinical data:
-                            **Note:** Survival times shown represent median values with 25th-75th percentile ranges in parentheses.""")
-                            
-                            # Get survival data for the mean risk category
-                            mean_risk_cat = mean_result.get('risk_cat', 'Intermediate')
-                            survival_data = get_ipssm_survival_data(mean_risk_cat)
-                            
-                            # Display in a 3-column layout
-                            outcome_cols = st.columns(3)
-
-                            with outcome_cols[0]:
-                                st.markdown(f"""
-                                <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
-                                    <h4 style="color: #009688; margin-top: 0;">Leukemia-Free Survival</h4>
-                                    <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">
-                                        {survival_data['leukemia_free_survival']}
-                                    </div>
-                                    <div style="font-size: 0.9em; color: #444; margin-top: 5px; font-style: italic;">
-                                        Median with 25th-75th percentile range
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-
-                            with outcome_cols[1]:
-                                st.markdown(f"""
-                                <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
-                                    <h4 style="color: #009688; margin-top: 0;">Overall Survival</h4>
-                                    <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">
-                                        {survival_data['overall_survival']}
-                                    </div>
-                                    <div style="font-size: 0.9em; color: #444; margin-top: 5px; font-style: italic;">
-                                        Median with 25th-75th percentile range
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-
-                            with outcome_cols[2]:
-                                st.markdown(f"""
-                                <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
-                                    <h4 style="color: #009688; margin-top: 0;">AML Transformation</h4>
-                                    <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">
-                                        {survival_data['aml_transformation_1yr']}
-                                    </div>
-                                    <div style="font-size: 0.9em; color: #444; margin-top: 5px; font-style: italic;">
-                                        Risk of transformation by 1 year
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-
-                            # Add a reference note
-                            st.markdown("""
-                            <div style="font-size: 0.8em; color: #666; margin-top: 10px; font-style: italic;">
-                            Data based on IPSS-M validation cohort studies. Individual patient outcomes may vary based on additional factors.
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # Patient data display
-                            with st.expander("View Patient Data", expanded=False):
-                                st.markdown("##### Patient Values")
-                                for key, value in ipcc_data.items():
-                                    if not key.startswith("__") and isinstance(value, (int, float, str)) and key not in ["IPSSM_CAT", "IPSSM_SCORE"]:
-                                        st.markdown(f"- **{key}:** {value}")
-                        else:
-                            st.warning("Insufficient data to calculate IPSS-M risk score.")
-                    
-                    # ------------------- IPSS-R TAB -------------------
-                    with ipcc_tabs[1]:
-                        # Calculate IPSS-R scores
-                        ipssr_result = calculate_ipssr(patient_data=ipcc_data)
+                        if plt_override > 0:
+                            ipcc_data["PLT"] = plt_override
+                            st.info(f"Using override for Platelets: {plt_override} × 10^9/L")
                         
-                        if ipssr_result:
-                            st.markdown("### IPSS-R Risk Classification")
-                            st.markdown("The IPSS-R score evaluates myelodysplastic syndromes based on cytogenetics, bone marrow blasts, and blood counts. The age-adjusted version (IPSS-RA) accounts for the impact of age on risk.")
+                        if anc_override > 0:
+                            ipcc_data["ANC"] = anc_override
+                            st.info(f"Using override for ANC: {anc_override} × 10^9/L")
+                        
+                        if blast_override > 0:
+                            ipcc_data["BM_BLAST"] = blast_override
+                            st.info(f"Using override for Bone Marrow Blasts: {blast_override}%")
+                        
+                        if age_override > 18:  # Age 18 is the minimum and signals "not set"
+                            ipcc_data["AGE"] = age_override
+                            st.info(f"Using override for Age: {age_override} years")
+                        
+                        if cyto_override != "Use from report":
+                            ipcc_data["CYTO_IPSSR"] = cyto_override
+                            st.info(f"Using override for Cytogenetic Risk: {cyto_override}")
+                        
+                        # Create tabs for IPSS-M and IPSS-R, matching the dedicated calculator
+                        ipcc_tabs = st.tabs(["IPSS-M", "IPSS-R"])
+                        
+                        # ------------------- IPSS-M TAB -------------------
+                        with ipcc_tabs[0]:
+                            # Calculate IPSS-M scores
+                            ipssm_result = calculate_ipssm(patient_data=ipcc_data)
                             
-                            st.markdown("")  # Add spacing
-                            
-                            # Display IPSS-R scores in a single row with matching panel styles
-                            st.markdown("#### Risk Calculations")
-                            
-                            ipssr_cols = st.columns(2)
-                            
-                            # IPSS-R Score panel
-                            with ipssr_cols[0]:
-                                ipssr_cat = ipssr_result.get('IPSSR_CAT', 'Intermediate')
-                                ipssr_color = get_risk_class_color(ipssr_cat)
-                                ipssr_score = ipssr_result.get('IPSSR_SCORE', 'N/A')
-                                st.markdown(f"""
-                                <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
-                                    <div style="font-weight: 500; margin-bottom: 5px;">Standard IPSS-R</div>
-                                    <div style="font-size: 1.2em; font-weight: bold;">{ipssr_score}</div>
-                                    <div style="background-color: {ipssr_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
-                                        {ipssr_cat}
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                            
-                            # IPSS-RA Score panel
-                            with ipssr_cols[1]:
-                                ipssra_cat = ipssr_result.get('IPSSRA_CAT', 'Intermediate')
-                                ipssra_color = get_risk_class_color(ipssra_cat)
-                                ipssra_score = ipssr_result.get('IPSSRA_SCORE', 'N/A')
-                                st.markdown(f"""
-                                <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
-                                    <div style="font-weight: 500; margin-bottom: 5px;">Age-Adjusted IPSS-RA</div>
-                                    <div style="font-size: 1.2em; font-weight: bold;">{ipssra_score}</div>
-                                    <div style="background-color: {ipssra_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
-                                        {ipssra_cat}
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                            
-                            # Score components details
-                            with st.expander("IPSS-R Score Components", expanded=False):
-                                if "components" in ipssr_result:
-                                    st.markdown("##### Score Components")
-                                    for component, value in ipssr_result["components"].items():
-                                        st.markdown(f"- **{component}:** {value}")
+                            if ipssm_result:
+                                st.markdown("#### Risk Calculations")
+                                st.markdown("The IPSS-M risk score combines clinical and genetic factors to predict outcomes in myelodysplastic syndromes. The three scenarios below account for possible variations in incomplete data.")
                                 
-                                st.markdown("##### Patient Values")
-                                for key in ["HB", "PLT", "ANC", "BM_BLAST", "AGE", "CYTO_IPSSR"]:
-                                    if key in ipcc_data:
-                                        st.markdown(f"- **{key}:** {ipcc_data[key]}")
+                                # Display mean, best, and worst case scenarios in three columns
+                                mean_best_worst_cols = st.columns(3)
                                 
-                                # Add reference note
+                                # Mean case
+                                with mean_best_worst_cols[0]:
+                                    mean_result = ipssm_result.get("means", {})
+                                    mean_color = get_risk_class_color(mean_result.get('risk_cat', 'Intermediate'))
+                                    st.markdown(f"""
+                                    <div style="background-color: white; padding: 8px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
+                                        <div style="font-weight: 500; margin-bottom: 5px;">Mean Risk</div>
+                                        <div style="font-size: 1.2em; font-weight: bold;">{mean_result.get('risk_score', 'N/A')}</div>
+                                        <div style="background-color: {mean_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
+                                            {mean_result.get('risk_cat', 'Unable to calculate')}
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                
+                                # Best case
+                                with mean_best_worst_cols[1]:
+                                    best_result = ipssm_result.get("best", {})
+                                    best_color = get_risk_class_color(best_result.get('risk_cat', 'Low'))
+                                    st.markdown(f"""
+                                    <div style="background-color: white; padding: 8px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
+                                        <div style="font-weight: 500; margin-bottom: 5px;">Best Case</div>
+                                        <div style="font-size: 1.2em; font-weight: bold;">{best_result.get('risk_score', 'N/A')}</div>
+                                        <div style="background-color: {best_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
+                                            {best_result.get('risk_cat', 'N/A')}
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                
+                                # Worst case
+                                with mean_best_worst_cols[2]:
+                                    worst_result = ipssm_result.get("worst", {})
+                                    worst_color = get_risk_class_color(worst_result.get('risk_cat', 'High'))
+                                    st.markdown(f"""
+                                    <div style="background-color: white; padding: 8px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
+                                        <div style="font-weight: 500; margin-bottom: 5px;">Worst Case</div>
+                                        <div style="font-size: 1.2em; font-weight: bold;">{worst_result.get('risk_score', 'N/A')}</div>
+                                        <div style="background-color: {worst_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
+                                            {worst_result.get('risk_cat', 'N/A')}
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                
+                                # Add Expected Outcomes section based on risk category
+                                st.markdown("### Expected Outcomes")
+                                st.markdown("""The following outcomes are associated with this IPSS-M risk category based on clinical data:
+                                **Note:** Survival times shown represent median values with 25th-75th percentile ranges in parentheses.""")
+                                
+                                # Get survival data for the mean risk category
+                                mean_risk_cat = mean_result.get('risk_cat', 'Intermediate')
+                                survival_data = get_ipssm_survival_data(mean_risk_cat)
+                                
+                                # Display in a 3-column layout
+                                outcome_cols = st.columns(3)
+
+                                with outcome_cols[0]:
+                                    st.markdown(f"""
+                                    <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
+                                        <h4 style="color: #009688; margin-top: 0;">Leukemia-Free Survival</h4>
+                                        <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">
+                                            {survival_data['leukemia_free_survival']}
+                                        </div>
+                                        <div style="font-size: 0.9em; color: #444; margin-top: 5px; font-style: italic;">
+                                            Median with 25th-75th percentile range
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+
+                                with outcome_cols[1]:
+                                    st.markdown(f"""
+                                    <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
+                                        <h4 style="color: #009688; margin-top: 0;">Overall Survival</h4>
+                                        <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">
+                                            {survival_data['overall_survival']}
+                                        </div>
+                                        <div style="font-size: 0.9em; color: #444; margin-top: 5px; font-style: italic;">
+                                            Median with 25th-75th percentile range
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+
+                                with outcome_cols[2]:
+                                    st.markdown(f"""
+                                    <div style="background-color: white; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
+                                        <h4 style="color: #009688; margin-top: 0;">AML Transformation</h4>
+                                        <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">
+                                            {survival_data['aml_transformation_1yr']}
+                                        </div>
+                                        <div style="font-size: 0.9em; color: #444; margin-top: 5px; font-style: italic;">
+                                            Risk of transformation by 1 year
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+
+                                # Add a reference note
                                 st.markdown("""
                                 <div style="font-size: 0.8em; color: #666; margin-top: 10px; font-style: italic;">
-                                Reference: Greenberg PL, et al. Revised International Prognostic Scoring System for Myelodysplastic Syndromes. Blood 2012.
+                                Data based on IPSS-M validation cohort studies. Individual patient outcomes may vary based on additional factors.
                                 </div>
                                 """, unsafe_allow_html=True)
-                        else:
-                            st.warning("Insufficient data to calculate IPSS-R risk score.")
-                else:
-                    st.warning("Insufficient data to calculate IPSS-M/R risk scores. The free text may not contain all necessary information for risk assessment.")
-        else:
-            st.info("IPSS-M/R Risk assessment requires free text input with MDS-related data. This feature is only available when using the AI-assisted mode with free text input.")
-            st.markdown("""
-            Consider using the dedicated IPSS-M/R Risk Tool page for more detailed classification.
-            """)
-        
-        # End of Risk tab content
+                                
+                                # Patient data display
+                                with st.expander("View Patient Data", expanded=False):
+                                    st.markdown("##### Patient Values")
+                                    for key, value in ipcc_data.items():
+                                        if not key.startswith("__") and isinstance(value, (int, float, str)) and key not in ["IPSSM_CAT", "IPSSM_SCORE"]:
+                                            st.markdown(f"- **{key}:** {value}")
+                            else:
+                                st.warning("Insufficient data to calculate IPSS-M risk score.")
+                        
+                        # ------------------- IPSS-R TAB -------------------
+                        with ipcc_tabs[1]:
+                            # Calculate IPSS-R scores
+                            ipssr_result = calculate_ipssr(patient_data=ipcc_data)
+                            
+                            if ipssr_result:
+                                st.markdown("### IPSS-R Risk Classification")
+                                st.markdown("The IPSS-R score evaluates myelodysplastic syndromes based on cytogenetics, bone marrow blasts, and blood counts. The age-adjusted version (IPSS-RA) accounts for the impact of age on risk.")
+                                
+                                st.markdown("")  # Add spacing
+                                
+                                # Display IPSS-R scores in a single row with matching panel styles
+                                st.markdown("#### Risk Calculations")
+                                
+                                ipssr_cols = st.columns(2)
+                                
+                                # IPSS-R Score panel
+                                with ipssr_cols[0]:
+                                    ipssr_cat = ipssr_result.get('IPSSR_CAT', 'Intermediate')
+                                    ipssr_color = get_risk_class_color(ipssr_cat)
+                                    ipssr_score = ipssr_result.get('IPSSR_SCORE', 'N/A')
+                                    st.markdown(f"""
+                                    <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
+                                        <div style="font-weight: 500; margin-bottom: 5px;">Standard IPSS-R</div>
+                                        <div style="font-size: 1.2em; font-weight: bold;">{ipssr_score}</div>
+                                        <div style="background-color: {ipssr_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
+                                            {ipssr_cat}
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                
+                                # IPSS-RA Score panel
+                                with ipssr_cols[1]:
+                                    ipssra_cat = ipssr_result.get('IPSSRA_CAT', 'Intermediate')
+                                    ipssra_color = get_risk_class_color(ipssra_cat)
+                                    ipssra_score = ipssr_result.get('IPSSRA_SCORE', 'N/A')
+                                    st.markdown(f"""
+                                    <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
+                                        <div style="font-weight: 500; margin-bottom: 5px;">Age-Adjusted IPSS-RA</div>
+                                        <div style="font-size: 1.2em; font-weight: bold;">{ipssra_score}</div>
+                                        <div style="background-color: {ipssra_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
+                                            {ipssra_cat}
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                
+                                # Score components details
+                                with st.expander("IPSS-R Score Components", expanded=False):
+                                    if "components" in ipssr_result:
+                                        st.markdown("##### Score Components")
+                                        for component, value in ipssr_result["components"].items():
+                                            st.markdown(f"- **{component}:** {value}")
+                                    
+                                    st.markdown("##### Patient Values")
+                                    for key in ["HB", "PLT", "ANC", "BM_BLAST", "AGE", "CYTO_IPSSR"]:
+                                        if key in ipcc_data:
+                                            st.markdown(f"- **{key}:** {ipcc_data[key]}")
+                                    
+                                    # Add reference note
+                                    st.markdown("""
+                                    <div style="font-size: 0.8em; color: #666; margin-top: 10px; font-style: italic;">
+                                    Reference: Greenberg PL, et al. Revised International Prognostic Scoring System for Myelodysplastic Syndromes. Blood 2012.
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                            else:
+                                st.warning("Insufficient data to calculate IPSS-R risk score.")
+                    else:
+                        st.warning("Insufficient data to calculate IPSS-M/R risk scores. The free text may not contain all necessary information for risk assessment.")
+            else:
+                st.info("IPSS-M/R Risk assessment requires free text input with MDS-related data. This feature is only available when using the AI-assisted mode with free text input.")
+                st.markdown("""
+                Consider using the dedicated IPSS-M/R Risk Tool page for more detailed classification.
+                """)
+            
+            # End of Risk tab content
 
     elif sub_tab == "Differentiation":
         if "differentiation" not in st.session_state:
