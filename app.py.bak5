@@ -549,7 +549,7 @@ def data_entry_page():
                 if germline_status == "Yes" and not st.session_state.get("selected_germline"):
                     st.error("Please select at least one germline mutation when 'Germline predisposition' is set to 'Yes'.")
                 else:
-                for k in [
+                    for k in [
                     "aml_ai_result",
                     "aml_class_review",
                     "aml_mrd_review",
