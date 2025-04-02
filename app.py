@@ -61,7 +61,8 @@ from utils.forms import (
     build_manual_aml_data,
     build_manual_mds_data_compact,
     build_manual_aml_response_data,
-    build_manual_ipss_data
+    build_manual_ipss_data,
+    build_manual_eln_data
 )
 from utils.displayers import (
     display_aml_classification_results,
@@ -1676,6 +1677,632 @@ def app_main():
         ipcc_risk_calculator_page()
     elif st.session_state["page"] == "eln_risk_calculator":
         eln_risk_calculator_page()
+
+def ipss_risk_calculator_page():
+    st.markdown("""
+    <style>
+        .header-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            border-top: 5px solid #00a86b;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .calculator-container {
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .result-container {
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .very-low-risk {
+            background-color: #e8f5e9;
+            border-left: 5px solid #81c784;
+        }
+        .low-risk {
+            background-color: #e3f2fd;
+            border-left: 5px solid #64b5f6;
+        }
+        .int-risk {
+            background-color: #fff8e1;
+            border-left: 5px solid #ffd54f;
+        }
+        .high-risk {
+            background-color: #fff3e0;
+            border-left: 5px solid #ffb74d;
+        }
+        .very-high-risk {
+            background-color: #ffebee;
+            border-left: 5px solid #e57373;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="header-container">
+        <h1 style="color: #00a86b;">IPSS Risk Calculator</h1>
+        <p>Calculate IPSS-R and IPSS-M risk scores for patients with Myelodysplastic Syndromes (MDS).</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    tab1, tab2 = st.tabs(["IPSS-R Calculator", "IPSS-M Calculator"])
+    
+    with tab1:
+        st.markdown("<div class='calculator-container'>", unsafe_allow_html=True)
+        st.subheader("IPSS-R (Revised International Prognostic Scoring System)")
+        
+        # IPSS-R Parameters
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            hemoglobin = st.number_input("Hemoglobin (g/dL)", min_value=0.0, max_value=20.0, value=10.0, step=0.1)
+            platelets = st.number_input("Platelets (×10^9/L)", min_value=0, max_value=1000, value=100, step=10)
+            anc = st.number_input("Absolute Neutrophil Count (×10^9/L)", min_value=0.0, max_value=10.0, value=1.8, step=0.1)
+        
+        with col2:
+            blast_percentage = st.slider("Bone Marrow Blast (%)", min_value=0, max_value=30, value=3, step=1)
+            cytogenetic_risk = st.selectbox("Cytogenetic Risk Category", 
+                                           ["Very Good", "Good", "Intermediate", "Poor", "Very Poor"])
+        
+        # Age for age-adjusted calculation
+        st.subheader("Optional: Age-Adjusted Calculation")
+        age = st.number_input("Patient Age (years)", min_value=18, max_value=100, value=65, step=1)
+        
+        # Calculate IPSS-R Score
+        if st.button("Calculate IPSS-R Score", key="calculate_ipssr"):
+            # Hemoglobin score
+            hgb_score = 0
+            if hemoglobin < 8.0:
+                hgb_score = 1.5
+            elif hemoglobin < 10.0:
+                hgb_score = 1.0
+                
+            # Platelet score
+            plt_score = 0
+            if platelets < 50:
+                plt_score = 1.0
+            elif platelets < 100:
+                plt_score = 0.5
+                
+            # ANC score
+            anc_score = 0
+            if anc < 0.8:
+                anc_score = 0.5
+                
+            # Blast score
+            blast_score = 0
+            if blast_percentage <= 2:
+                blast_score = 0
+            elif blast_percentage <= 5:
+                blast_score = 1.0
+            elif blast_percentage <= 10:
+                blast_score = 2.0
+            else:
+                blast_score = 3.0
+                
+            # Cytogenetic score
+            if cytogenetic_risk == "Very Good":
+                cyto_score = 0
+            elif cytogenetic_risk == "Good":
+                cyto_score = 1.0
+            elif cytogenetic_risk == "Intermediate":
+                cyto_score = 2.0
+            elif cytogenetic_risk == "Poor":
+                cyto_score = 3.0
+            elif cytogenetic_risk == "Very Poor":
+                cyto_score = 4.0
+            
+            # Total score
+            total_score = hgb_score + plt_score + anc_score + blast_score + cyto_score
+            
+            # Risk category
+            risk_category = ""
+            risk_class = ""
+            if total_score <= 1.5:
+                risk_category = "Very Low"
+                risk_class = "very-low-risk"
+                median_survival = "8.8 years"
+            elif total_score <= 3:
+                risk_category = "Low"
+                risk_class = "low-risk"
+                median_survival = "5.3 years"
+            elif total_score <= 4.5:
+                risk_category = "Intermediate"
+                risk_class = "int-risk"
+                median_survival = "3.0 years"
+            elif total_score <= 6:
+                risk_category = "High"
+                risk_class = "high-risk"
+                median_survival = "1.6 years"
+            else:
+                risk_category = "Very High"
+                risk_class = "very-high-risk"
+                median_survival = "0.9 years"
+            
+            # Display results
+            st.markdown(f"""
+            <div class="result-container {risk_class}">
+                <h3>IPSS-R Results</h3>
+                <p><strong>Total Score:</strong> {total_score:.1f}</p>
+                <p><strong>Risk Category:</strong> {risk_category}</p>
+                <p><strong>Median Survival:</strong> {median_survival}</p>
+                <hr>
+                <p><small>Note: This is a simplified calculation for demonstration purposes. Clinical decisions should be based on complete IPSS-R calculations.</small></p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    with tab2:
+        st.markdown("<div class='calculator-container'>", unsafe_allow_html=True)
+        st.subheader("IPSS-M (Molecular International Prognostic Scoring System)")
+        st.write("The IPSS-M incorporates genetic mutations for improved risk assessment.")
+        
+        # IPSS-M Parameters (including all from IPSS-R plus mutations)
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            hemoglobin_m = st.number_input("Hemoglobin (g/dL)", min_value=0.0, max_value=20.0, value=10.0, step=0.1, key="hgb_m")
+            platelets_m = st.number_input("Platelets (×10^9/L)", min_value=0, max_value=1000, value=100, step=10, key="plt_m")
+            blast_percentage_m = st.slider("Bone Marrow Blast (%)", min_value=0, max_value=30, value=3, step=1, key="blast_m")
+        
+        with col2:
+            cytogenetic_risk_m = st.selectbox("Cytogenetic Risk Category", 
+                                           ["Very Good", "Good", "Intermediate", "Poor", "Very Poor"], key="cyto_m")
+            
+        # Mutation status
+        st.subheader("Mutation Status")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            tp53 = st.checkbox("TP53")
+            flt3 = st.checkbox("FLT3")
+            runx1 = st.checkbox("RUNX1")
+        
+        with col2:
+            asxl1 = st.checkbox("ASXL1")
+            npm1 = st.checkbox("NPM1")
+            u2af1 = st.checkbox("U2AF1")
+        
+        with col3:
+            sf3b1 = st.checkbox("SF3B1 (favorable)")
+            nras = st.checkbox("NRAS/KRAS")
+            idh1_idh2 = st.checkbox("IDH1/IDH2")
+        
+        # Calculate IPSS-M Score
+        if st.button("Calculate IPSS-M Score", key="calculate_ipssm"):
+            # This is a simplified calculation - in a real app, you would use the complete algorithm
+            # Baseline from IPSS-R components
+            base_score = 0
+            
+            # Hemoglobin score
+            if hemoglobin_m < 8.0:
+                base_score += 1.5
+            elif hemoglobin_m < 10.0:
+                base_score += 1.0
+                
+            # Platelet score
+            if platelets_m < 50:
+                base_score += 1.0
+            elif platelets_m < 100:
+                base_score += 0.5
+                
+            # Blast score
+            if blast_percentage_m <= 2:
+                base_score += 0
+            elif blast_percentage_m <= 5:
+                base_score += 1.0
+            elif blast_percentage_m <= 10:
+                base_score += 2.0
+            else:
+                base_score += 3.0
+                
+            # Cytogenetic score
+            if cytogenetic_risk_m == "Very Good":
+                base_score += 0
+            elif cytogenetic_risk_m == "Good":
+                base_score += 1.0
+            elif cytogenetic_risk_m == "Intermediate":
+                base_score += 2.0
+            elif cytogenetic_risk_m == "Poor":
+                base_score += 3.0
+            elif cytogenetic_risk_m == "Very Poor":
+                base_score += 4.0
+            
+            # Mutation adjustments (simplified values for demonstration)
+            mutation_score = 0
+            if tp53:
+                mutation_score += 3.0
+            if asxl1:
+                mutation_score += 1.0
+            if runx1:
+                mutation_score += 1.5
+            if flt3:
+                mutation_score += 1.0
+            if npm1:
+                mutation_score -= 0.5  # Favorable
+            if sf3b1:
+                mutation_score -= 1.0  # Favorable
+            if nras or idh1_idh2:
+                mutation_score += 0.5
+            if u2af1:
+                mutation_score += 1.0
+                
+            # Total score
+            total_score = base_score + mutation_score
+            
+            # Risk category
+            risk_category = ""
+            risk_class = ""
+            if total_score <= 2:
+                risk_category = "Very Low"
+                risk_class = "very-low-risk"
+                median_survival = "10+ years"
+            elif total_score <= 4:
+                risk_category = "Low"
+                risk_class = "low-risk"
+                median_survival = "7.9 years"
+            elif total_score <= 6:
+                risk_category = "Intermediate-Low"
+                risk_class = "int-risk"
+                median_survival = "4.3 years"
+            elif total_score <= 8:
+                risk_category = "Intermediate-High" 
+                risk_class = "int-risk"
+                median_survival = "2.4 years"
+            elif total_score <= 10:
+                risk_category = "High"
+                risk_class = "high-risk"
+                median_survival = "1.8 years"
+            else:
+                risk_category = "Very High"
+                risk_class = "very-high-risk"
+                median_survival = "0.9 years"
+            
+            # Display results
+            st.markdown(f"""
+            <div class="result-container {risk_class}">
+                <h3>IPSS-M Results</h3>
+                <p><strong>Total Score:</strong> {total_score:.1f}</p>
+                <p><strong>Risk Category:</strong> {risk_category}</p>
+                <p><strong>Estimated Median Survival:</strong> {median_survival}</p>
+                <p><strong>AML Transformation Risk:</strong> {"High" if total_score > 8 else "Moderate" if total_score > 4 else "Low"}</p>
+                <hr>
+                <p><small>Note: This is a simplified calculation for demonstration purposes. Clinical decisions should be based on complete IPSS-M calculations.</small></p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        st.markdown("</div>", unsafe_allow_html=True)
+
+def eln_risk_calculator_page():
+    """
+    Standalone calculator for ELN 2022 and ELN 2024 risk assessment for AML.
+    """
+    from classifiers.aml_risk_classifier import classify_full_eln2022, eln2024_non_intensive_risk, classify_ELN2022
+    from parsers.aml_eln_parser import parse_eln_report
+    from utils.forms import build_manual_eln_data
+    
+    # Title / Header with styling to match main classifier
+    st.markdown(
+        """
+        <div style="
+            background-color: #FFFFFF;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            ">
+            <h2 style="color: #009688; text-align: left;">
+                ELN Risk Calculator
+            </h2>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # Add custom styling for the risk boxes
+    st.markdown("""
+    <style>
+        .risk-box {
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .favorable {
+            background-color: #c8e6c9;
+            border: 1px solid #2e7d32;
+        }
+        .intermediate {
+            background-color: #fff9c4;
+            border: 1px solid #f9a825;
+        }
+        .adverse {
+            background-color: #ffcdd2;
+            border: 1px solid #c62828;
+        }
+        .risk-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .risk-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .risk-os {
+            font-style: italic;
+            margin-bottom: 5px;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Instructions expander
+    with st.expander("📋 Instructions", expanded=False):
+        st.markdown("""
+        ## ELN Risk Calculator - Instructions
+        
+        This tool calculates European LeukemiaNet (ELN) risk stratification for AML patients using either free text reports or manual entry.
+        
+        ### How to use this calculator:
+
+        #### Free Text Mode:
+        1. Toggle "Free-text Mode" to ON
+        2. Paste your complete molecular report into the text area
+        3. Use the override options if needed (for TP53 or complex karyotype)
+        4. Click "Analyse Report" to calculate ELN risk
+
+        #### Manual Entry Mode:
+        1. Toggle "Free-text Mode" to OFF
+        2. Select all relevant genetic abnormalities in the form
+        3. Click "Calculate ELN Risk" to determine the risk category
+        
+        ### Results:
+        - The calculator will show both ELN 2022 and ELN 2024 (Non-Intensive) risk classifications
+        - Each result includes the risk category, median overall survival, and detailed derivation steps
+        - You can expand the derivation sections to see how the risk was calculated
+        """)
+    
+    # Toggle for free-text vs. manual mode (matching main classifier)
+    eln_mode_toggle = st.toggle("Free-text Mode", key="eln_mode_toggle", value=True)
+    
+    # FREE TEXT MODE
+    if eln_mode_toggle:
+        with st.expander("Free Text Input", expanded=True):
+            st.markdown("### Input AML Report")
+            
+            st.markdown("""
+            Enter your report data below. The system will extract relevant markers for ELN risk classification.
+            """)
+            
+            # Optional override parameters in columns (like main classifier)
+            with st.container():
+                col1, col2 = st.columns(2)
+                with col1:
+                    tp53_override = st.selectbox(
+                        "TP53 mutation override",
+                        options=["Auto-detect", "Present", "Not detected"],
+                        index=0,
+                        help="Override TP53 mutation status if necessary"
+                    )
+                with col2:
+                    complex_karyotype_override = st.selectbox(
+                        "Complex karyotype override",
+                        options=["Auto-detect", "Present", "Not detected"],
+                        index=0,
+                        help="Override complex karyotype status if necessary"
+                    )
+            
+            # Text area for pasting report - matching main classifier's look
+            report_text = st.text_area(
+                "Enter all relevant AML data here:",
+                placeholder="Paste your AML report here including: clinical info, molecular findings, cytogenetics, mutations...",
+                height=250
+            )
+            
+            # Analyse button inside the expander, primary styling
+            calculate_button = st.button("Analyse Report", type="primary", use_container_width=True)
+    
+    # MANUAL MODE
+    else:
+
+        
+        # Use the build_manual_eln_data function from utils.forms to get the manual inputs
+        eln_data_manual = build_manual_eln_data()
+        
+        # Button for manual calculation - with primary styling
+        manual_calculate_button = st.button("Calculate ELN Risk", type="primary", use_container_width=True)
+        
+        if manual_calculate_button:
+            # Process the manually entered data
+            with st.spinner("Calculating ELN risk categories..."):
+                # Calculate ELN 2022 risk
+                risk_eln2022, eln22_median_os, derivation_eln2022 = classify_full_eln2022(eln_data_manual)
+                
+                # Prepare data for ELN 2024 non-intensive classification
+                eln24_genes = {
+                    "TP53": eln_data_manual.get("tp53_mutation", False),
+                    "KRAS": eln_data_manual.get("kras", False),
+                    "PTPN11": eln_data_manual.get("ptpn11", False),
+                    "NRAS": eln_data_manual.get("nras", False),
+                    "FLT3_ITD": eln_data_manual.get("flt3_itd", False),
+                    "NPM1": eln_data_manual.get("npm1_mutation", False),
+                    "IDH1": eln_data_manual.get("idh1", False),
+                    "IDH2": eln_data_manual.get("idh2", False),
+                    "DDX41": eln_data_manual.get("ddx41", False)
+                }
+                
+                # Calculate ELN 2024 non-intensive risk
+                risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
+                
+                # Store the results in session state for display
+                st.session_state['eln_results'] = {
+                    'risk_eln2022': risk_eln2022,
+                    'eln22_median_os': eln22_median_os,
+                    'derivation_eln2022': derivation_eln2022,
+                    'risk_eln24': risk_eln24,
+                    'median_os_eln24': median_os_eln24,
+                    'eln24_derivation': eln24_derivation,
+                    'eln_data': eln_data_manual
+                }
+                
+                # Set flag to indicate manual calculation was performed
+                st.session_state['manual_calculation'] = True
+                
+                # Rerun to display the results
+                st.rerun()
+    
+    # Process the report text when the calculate button is clicked (for free text mode)
+    if eln_mode_toggle and calculate_button and report_text:
+        # Apply overrides if specified
+        overrides = {}
+        if tp53_override != "Auto-detect":
+            overrides["tp53_override"] = tp53_override == "Present"
+        if complex_karyotype_override != "Auto-detect":
+            overrides["complex_karyotype_override"] = complex_karyotype_override == "Present"
+        
+        # Process the report text
+        with st.spinner("Extracting data and calculating risk..."):
+            # Parse the report to extract ELN markers
+            parsed_eln_data = parse_eln_report(report_text)
+            
+            # Apply any overrides
+            if parsed_eln_data and overrides:
+                for key, value in overrides.items():
+                    if key == "tp53_override":
+                        parsed_eln_data["tp53_mutation"] = value
+                    elif key == "complex_karyotype_override":
+                        parsed_eln_data["complex_karyotype"] = value
+            
+            if parsed_eln_data:
+                # Prepare data for ELN 2024 non-intensive classification
+                eln24_genes = {
+                    "TP53": parsed_eln_data.get("tp53_mutation", False),
+                    "KRAS": parsed_eln_data.get("kras", False),
+                    "PTPN11": parsed_eln_data.get("ptpn11", False),
+                    "NRAS": parsed_eln_data.get("nras", False),
+                    "FLT3_ITD": parsed_eln_data.get("flt3_itd", False),
+                    "NPM1": parsed_eln_data.get("npm1_mutation", False),
+                    "IDH1": parsed_eln_data.get("idh1", False),
+                    "IDH2": parsed_eln_data.get("idh2", False),
+                    "DDX41": parsed_eln_data.get("ddx41", False)
+                }
+                
+                # Calculate ELN 2022 risk
+                risk_eln2022, eln22_median_os, derivation_eln2022 = classify_full_eln2022(parsed_eln_data)
+                
+                # Calculate ELN 2024 non-intensive risk
+                risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
+                
+                # Store the results in session state for display
+                st.session_state['eln_results'] = {
+                    'risk_eln2022': risk_eln2022,
+                    'eln22_median_os': eln22_median_os,
+                    'derivation_eln2022': derivation_eln2022,
+                    'risk_eln24': risk_eln24,
+                    'median_os_eln24': median_os_eln24,
+                    'eln24_derivation': eln24_derivation,
+                    'eln_data': parsed_eln_data
+                }
+                
+                # Set flag to indicate report processing was performed
+                st.session_state['manual_calculation'] = False
+                
+                # Rerun to display the results
+                st.rerun()
+            else:
+                st.error("Could not extract sufficient ELN risk factors from the report. Please try using the manual entry option.")
+    
+    # Display results if available in session state
+    if 'eln_results' in st.session_state:
+        results = st.session_state['eln_results']
+        
+        
+        # Get the risk data
+        risk_eln2022 = results['risk_eln2022']
+        eln22_median_os = results['eln22_median_os']
+        derivation_eln2022 = results['derivation_eln2022']
+        risk_eln24 = results['risk_eln24']
+        median_os_eln24 = results['median_os_eln24']
+        eln24_derivation = results['eln24_derivation']
+        
+        # Get the risk classes for styling
+        eln_class = get_risk_class(risk_eln2022)
+        eln24_class = get_risk_class(risk_eln24)
+        
+        # Create two columns for risk displays
+        eln_col1, eln_col2 = st.columns(2)
+        
+        # ELN 2022 Risk Classification
+        with eln_col1:
+            st.markdown(f"""
+            <div class='risk-box {eln_class}'>
+                <div class='risk-title'>ELN 2022 Risk</div>
+                <div class='risk-value'>{risk_eln2022}</div>
+                <div class='risk-os'>Median OS: {eln22_median_os}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            with st.expander("ELN 2022 Derivation", expanded=False):
+                # Check if the derivation is a list of strings (new format) or a single string (old format)
+                if isinstance(derivation_eln2022, list):
+                    for step in derivation_eln2022:
+                        st.markdown(f"- {step}")
+                else:
+                    # For backwards compatibility with old format
+                    st.markdown(derivation_eln2022)
+        
+        # ELN 2024 Non-Intensive Risk Classification
+        with eln_col2:
+            # Format the display differently if median_os_eln24 is a string (e.g., "N/A")
+            os_display = f"{median_os_eln24} months" if isinstance(median_os_eln24, (int, float)) else median_os_eln24
+            
+            st.markdown(f"""
+            <div class='risk-box {eln24_class}'>
+                <div class='risk-title'>ELN 2024 Risk (Non-Intensive)</div>
+                <div class='risk-value'>{risk_eln24}</div>
+                <div class='risk-os'>Median OS: {os_display}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            with st.expander("ELN 2024 Derivation", expanded=False):
+                for step in eln24_derivation:
+                    st.markdown(f"- {step}")
+        
+        # Display the data used for calculation for transparency
+        with st.expander("Data Used for Classification", expanded=False):
+            st.subheader("Features Used for ELN Classification")
+            display_data = results['eln_data'].copy()
+            if '__prompts' in display_data:
+                del display_data['__prompts']
+            st.json(display_data)
+        
+        # Clear results button
+        if st.button("Clear Results and Start Over"):
+            # Remove the results from session state
+            if 'eln_results' in st.session_state:
+                del st.session_state['eln_results']
+            if 'manual_calculation' in st.session_state:
+                del st.session_state['manual_calculation']
+            # Rerun to refresh the page
+            st.rerun()
+
+# Helper function for risk class styling
+def get_risk_class(risk):
+    """Returns the CSS class for a risk category."""
+    risk = risk.lower() if isinstance(risk, str) else "intermediate"
+    if "favorable" in risk:
+        return "favorable"
+    elif "adverse" in risk:
+        return "adverse"
+    else:
+        return "intermediate"
 
 if __name__ == "__main__":
     app_main()
