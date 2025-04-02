@@ -114,20 +114,12 @@ def authenticate_user(username: str, password: str) -> bool:
 # LOGIN PAGE
 ##################################
 def show_login_page():
-    # Remove the default Streamlit padding/margin
+    # Remove the default Streamlit padding/margin and apply base styling
     st.markdown("""
     <style>
-        /* Remove all containers and backgrounds */
+        /* Base styling */
         .stApp {
-            background-color: #f5f8fa !important;
-        }
-        
-        .block-container {
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-            margin: 0 !important;
+            background: linear-gradient(135deg, #f5f8fa 0%, #e8f4f8 100%) !important;
         }
         
         /* Hide Streamlit elements */
@@ -135,171 +127,156 @@ def show_login_page():
             visibility: hidden;
         }
         
-        /* Logo and title styling */
-        .logo-text {
-            color: #009688;
-            text-align: center;
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 15px;
-            margin-top: 80px;
-        }
-        
-        .logo-subtext {
-            color: #555;
-            text-align: center;
-            font-size: 1.1rem;
-            margin-bottom: 30px;
-        }
-        
-        /* Medical icon */
-        .medical-icon {
-            text-align: center;
-            font-size: 60px;
-            color: #009688;
-            margin-bottom: 15px;
-        }
-        
         /* Style the input fields */
-        .stTextInput > div {
-            background-color: transparent !important;
-            max-width: 400px;
-            margin: 0 auto;
+        div[data-testid="stVerticalBlock"] > div:has(section.main) {
+            max-width: 500px !important;
+            margin: 0 auto !important;
+            padding-top: 3rem !important;
         }
         
-        .stTextInput > div > div > input {
-            border-radius: 5px;
-            border: 1px solid #ddd;
-            background-color: white;
-            padding: 10px 15px;
-        }
-        
-        .stTextInput > label {
+        /* Label styling */
+        .stTextInput label {
             font-weight: 500;
-            max-width: 400px;
-            margin: 0 auto;
-            display: block;
+            font-size: 0.9rem;
+            color: #546e7a;
         }
         
-        /* Fix password field eye button spacing */
-        .stTextInput > div > div[data-baseweb="input"] {
-            width: 100% !important;
+        /* Input field styling */
+        .stTextInput input {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #f5f8fa;
+            padding: 12px 15px;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
         }
         
-        .stTextInput > div > div[data-baseweb="input"] > div {
-            display: flex !important;
-            width: 100% !important;
-        }
-        
-        /* Fix password field container */
-        div[data-baseweb="input"] {
-            display: flex !important;
-            align-items: center !important;
-            width: 100% !important;
-        }
-        
-        /* Control width of password eye icon */
-        div[data-baseweb="input"] > div:last-child {
-            margin-right: 0 !important;
-            padding-right: 0 !important;
-        }
-        
-        div[data-baseweb="input"] > div:after {
-            content: none !important;
-            display: none !important;
-            width: 0 !important;
-        }
-        
-        /* Target the password eye icon specifically */
-        button[aria-label="Toggle password visibility"] {
-            margin-right: 0 !important;
-            padding-right: 0 !important;
+        .stTextInput input:focus {
+            border-color: #009688;
+            background-color: white;
+            box-shadow: 0 0 0 2px rgba(0, 150, 136, 0.2);
         }
         
         /* Button styling */
-        .stButton > button {
-            background-color: #009688;
+        .stButton button {
+            background: linear-gradient(90deg, #009688, #00897b);
             color: white;
-            border-radius: 6px;
-            padding: 10px 15px;
-            text-align: center;
-            max-width: 400px;
-            width: 100%;
+            border-radius: 8px;
+            padding: 12px 15px;
+            font-size: 1rem;
             font-weight: 600;
+            width: 100%;
             border: none;
-            box-shadow: 0 2px 5px rgba(0, 150, 136, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 150, 136, 0.25);
             transition: all 0.3s ease;
-            margin: 0 auto;
-            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
-        .stButton > button:hover {
-            background-color: #00796b;
-            border-color: #00796b;
-            color: white;
-            box-shadow: 0 4px 8px rgba(0, 150, 136, 0.3);
-            transform: translateY(-1px);
+        .stButton button:hover {
+            background: linear-gradient(90deg, #00897b, #00796b);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0, 150, 136, 0.3);
         }
         
-        /* Error message styling */
-        .stAlert {
-            background-color: #ffebee;
-            color: #c62828;
-            border-radius: 5px;
-            margin: 15px auto;
-            max-width: 400px;
+        .stButton button:active {
+            transform: translateY(0);
         }
         
-        /* Success message styling */
-        .element-container:has(.stAlert.success) {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            border-radius: 5px;
-            margin: 15px auto;
-            max-width: 400px;
+
+        /* Logo and title styling */
+        .logo-container {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        
+        .app-icon {
+            font-size: 42px;
+            color: #009688;
+            background: rgba(0, 150, 136, 0.1);
+            height: 80px;
+            width: 80px;
+            line-height: 80px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .app-title {
+            color: #00796b;
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin: 10px 0 5px;
+            background: linear-gradient(90deg, #00796b, #009688);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .app-subtitle {
+            color: #546e7a;
+            font-size: 1rem;
+            margin-bottom: 0;
+            font-weight: 400;
         }
         
         /* Version styling */
-        .version {
+        .version-text {
             text-align: center;
             font-size: 0.8rem;
-            color: #888;
-            margin-top: 30px;
+            color: #78909c;
+            margin-top: 20px;
+        }
+        
+        /* Add responsive padding */
+        @media (max-width: 768px) {
+            div[data-testid="stVerticalBlock"] > div:has(section.main) {
+                padding: 1rem !important;
+            }
         }
     </style>
     """, unsafe_allow_html=True)
     
-    # DNA icon and title
-    st.markdown('<div class="medical-icon">🧬</div>', unsafe_allow_html=True)
-    st.markdown('<div class="logo-text">Haematology Diagnosis</div>', unsafe_allow_html=True)
-    st.markdown('<div class="logo-subtext">Blood Cancer Classification Support Tool</div>', unsafe_allow_html=True)
-    
-    # Create simple centered columns for the form
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # Use 3 columns to center the login form 
+    col1, col2, col3 = st.columns([1, 3, 1])
     
     with col2:
+        # Create card container
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        
+        # Logo and branding
+        st.markdown("""
+        <div class="logo-container">
+            <div class="app-icon">🧬</div>
+            <h1 class="app-title">HemaGenix</h1>
+            <p class="app-subtitle">Advanced Hematologic Classification System</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         # Login form
-        username = st.text_input("Username", placeholder="Enter your username")
-        password = st.text_input("Password", type="password", placeholder="Enter your password")
+        username = st.text_input("Username", placeholder="Enter your username", key="username_input")
+        password = st.text_input("Password", type="password", placeholder="Enter your password", key="password_input")
         
         # Login button
         login_button = st.empty()
         if login_button.button("Sign In", key="login_button"):
             if authenticate_user(username, password):
                 with login_button:
-                    st.markdown('<div style="text-align: center;">Signing in...</div>', unsafe_allow_html=True)
+                    st.success("Signing in...")
                 token = create_jwt_token(username)
                 st.session_state["jwt_token"] = token
                 st.session_state["username"] = username
                 cookies["jwt_token"] = token
                 cookies.save()
-                st.success("Logged in successfully!")
                 st.rerun()
             else:
                 st.error("Invalid username or password!")
-    
-    # Version at the bottom
-    st.markdown('<div class="version">Version 1.2.0</div>', unsafe_allow_html=True)
+        
+        st.markdown('<div class="version-text">Version 1.2.0</div>', unsafe_allow_html=True)
+        
+        # Close the card container
+        st.markdown('</div>', unsafe_allow_html=True)
 
 ##################################
 # DATA ENTRY PAGE

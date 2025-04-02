@@ -1,9 +1,0 @@
-parsed_data = parse_ipcc_report(free_report_text)
-if parsed_data:
-    # Check if TP53 VAF default was used
-    if parsed_data.get("__tp53_vaf_default_used", False):
-        st.warning("⚠️ TP53 mutation detected but no VAF value found. Using default VAF of 30.0%")
-    
-    # Store parsed data for gene mutations and other details
-    st.session_state['original_ipcc_data'] = parsed_data.copy()
-    # We'll display JSON in a dedicated section later
