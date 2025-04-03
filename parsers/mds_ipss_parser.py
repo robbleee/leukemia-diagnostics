@@ -45,7 +45,7 @@ def try_convert_tp53_vaf(vaf_value):
         # If conversion fails, return "NA"
         return "NA"
 
-def parse_ipcc_report(report_text: str) -> dict:
+def parse_ipss_report(report_text: str) -> dict:
     """
     Sends the free-text hematological report to OpenAI to extract values 
     needed for IPSS-M and IPSS-R risk classification.
@@ -493,7 +493,7 @@ Here is the free-text hematological report to parse:
         ipssm_data["__prompts"] = parsed_data["__prompts"]
         
         # Debug print
-        print("Parsed IPCC Report JSON:")
+        print("Parsed ipss Report JSON:")
         print(json.dumps(parsed_data, indent=2))
         
         # Debug TP53 data specifically
