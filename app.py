@@ -1051,15 +1051,7 @@ def results_page():
                                     if key not in ["HB", "PLT", "ANC", "BM_BLAST", "AGE", "CYTO_IPSSR"]:
                                         patient_data[key] = value
                             
-                            # Default values for TP53 status if not available from parsed data
-                            if "TP53mut" not in patient_data:
-                                patient_data["TP53mut"] = "NA"
-                            if "TP53loh" not in patient_data:
-                                patient_data["TP53loh"] = "NA"
-                            if "TP53maxvaf" not in patient_data:
-                                patient_data["TP53maxvaf"] = "NA"
-                            if "TP53multi" not in patient_data:
-                                patient_data["TP53multi"] = "NA"
+
                             
                             # Calculate IPSS-M scores
                             ipssm_result = calculate_ipssm(patient_data=patient_data)
@@ -2343,11 +2335,7 @@ def ipss_risk_calculator_page():
                     if patient_data.get("CYTO_IPSSR") is None:
                         patient_data["CYTO_IPSSR"] = "Good"
                     
-                    # Handle TP53 overrides - updated to match manual form
-                    patient_data["TP53mut"] = "NA"
-                    patient_data["TP53loh"] = "NA"
-                    patient_data["TP53maxvaf"] = "NA"
-                    patient_data["TP53multi"] = "NA"
+
                     
                     # Store for calculations but keep the prompts intact
                     if 'original_ipss_data' in st.session_state and '__prompts' in st.session_state['original_ipss_data']:
