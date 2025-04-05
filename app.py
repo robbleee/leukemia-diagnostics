@@ -451,18 +451,18 @@ def data_entry_page():
                 col0, col1, col2, col3 = st.columns(4)
                 with col0:
                     bone_marrow_blasts = st.number_input(
-                        "Bone Marrow Blasts Override (%)", 
+                        "Agreed blast count(%)", 
                         min_value=0.0, 
                         max_value=100.0, 
-                        step=0.1, 
+                        step=1.0, 
                         value=0.0,
                         key="bone_marrow_blasts_initial",
                         help="Leave at 0 to use value from report. Only set if you want to override."
                     )
                 with col1:
                     prior_therapy = st.selectbox(
-                        "Previous cytotoxic chemotherapy",
-                        options=["None", "Ionising radiation", "Cytotoxic chemotherapy", "Immune interventions", "Any combination"],
+                        "Previous cytotoxic therapy",
+                        options=["None", "Ionising radiation", "Cytotoxic chemotherapy", "Immune interventions (ICC)", "Any combination"],
                         index=0,
                         key="prior_therapy"
                     )
@@ -480,9 +480,7 @@ def data_entry_page():
                         key="previous_mds"
                     )
             
-            if germline_status in ["None", "Undetermined"]:
-                st.warning("No germline mutation was indicated, but this should be reviewed at MDT.")
-            
+
             if germline_status == "Yes":
                 selected_germline = st.multiselect(
                     "Select known germline mutation(s):",
@@ -1714,7 +1712,7 @@ def ipss_risk_calculator_page():
     
     # FREE TEXT MODE
     if ipss_mode_toggle:
-        with st.expander("Free Text Input", expanded=False):
+        with st.expander("Free Text Input", expanded=True):
             st.markdown("""
             ### Input MDS/ipss Report
             

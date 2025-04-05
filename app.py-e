@@ -480,9 +480,7 @@ def data_entry_page():
                         key="previous_mds"
                     )
             
-            if germline_status in ["None", "Undetermined"]:
-                st.warning("No germline mutation was indicated, but this should be reviewed at MDT.")
-            
+
             if germline_status == "Yes":
                 selected_germline = st.multiselect(
                     "Select known germline mutation(s):",
