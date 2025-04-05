@@ -116,7 +116,49 @@ def display_aml_classification_results(
             st.markdown(icc_derivation_markdown)
     
     ##########################################
-    # 3. (Optional) Show JSON of parsed fields
+    # 3. Display All Form Inputs
+    ##########################################
+    with st.expander("View All Form Inputs", expanded=False):
+        st.markdown("### Form Input Data")
+        st.markdown("Below is all the data that was used for classification:")
+        
+        # Create a nicely formatted display of all inputs
+        if parsed_fields:
+            # Display clinical parameters first
+            clinical_params = ["blast_percentage", "fibrotic", "hypoplasia", "number_of_dysplastic_lineages"]
+            clinical_values = {k: v for k, v in parsed_fields.items() if k in clinical_params}
+            
+            if clinical_values:
+                st.markdown("#### Clinical Parameters")
+                for key, value in clinical_values.items():
+                    formatted_key = key.replace("_", " ").title()
+                    st.markdown(f"- **{formatted_key}**: {value}")
+            
+            # Display genetic abnormalities
+            genetic_params = [k for k in parsed_fields.keys() if any(term in k.lower() for term in 
+                             ["mutation", "translocation", "inversion", "rearrangement", "deletion", "gene"])]
+            genetic_values = {k: v for k, v in parsed_fields.items() if k in genetic_params}
+            
+            if genetic_values:
+                st.markdown("#### Genetic Parameters")
+                for key, value in genetic_values.items():
+                    formatted_key = key.replace("_", " ").title()
+                    st.markdown(f"- **{formatted_key}**: {value}")
+            
+            # Display all other parameters
+            other_params = {k: v for k, v in parsed_fields.items() 
+                          if k not in clinical_values and k not in genetic_values}
+            
+            if other_params:
+                st.markdown("#### Other Parameters")
+                for key, value in other_params.items():
+                    formatted_key = key.replace("_", " ").title()
+                    st.markdown(f"- **{formatted_key}**: {value}")
+        else:
+            st.info("No input data available for display.")
+    
+    ##########################################
+    # 4. (Optional) Show JSON of parsed fields
     ##########################################
     if show_parsed_fields:
         with st.expander("View Parsed AML Values", expanded=False):
@@ -127,8 +169,6 @@ def display_mds_classification_results(parsed_fields, classification_who, deriva
     """
     Displays MDS classification results WITHOUT automatically calling the AI review.
     """
-    with st.expander("View Parsed MDS Values", expanded=False):
-        st.json(parsed_fields)
     
 
 
@@ -165,6 +205,61 @@ def display_mds_classification_results(parsed_fields, classification_who, deriva
             )
             st.markdown(derivation_text)
             st.markdown("</div>", unsafe_allow_html=True)
+
+    # Display All Form Inputs
+    with st.expander("View All Form Inputs", expanded=False):
+        st.markdown("### Form Input Data")
+        st.markdown("Below is all the data that was used for classification:")
+        
+        # Create a nicely formatted display of all inputs
+        if parsed_fields:
+            # Display clinical parameters first
+            clinical_params = ["blast_percentage", "bm_blast", "hb", "plt", "anc", "age", "dysplastic_lineages"]
+            clinical_values = {k: v for k, v in parsed_fields.items() if k.lower() in [p.lower() for p in clinical_params]}
+            
+            if clinical_values:
+                st.markdown("#### Clinical Parameters")
+                for key, value in clinical_values.items():
+                    formatted_key = key.replace("_", " ").title()
+                    st.markdown(f"- **{formatted_key}**: {value}")
+            
+            # Display cytogenetic parameters
+            cyto_params = [k for k in parsed_fields.keys() if any(term in k.lower() for term in 
+                          ["cytogenetic", "karyotype", "cyto", "deletion", "del", "monosomy", "trisomy"])]
+            cyto_values = {k: v for k, v in parsed_fields.items() if k in cyto_params}
+            
+            if cyto_values:
+                st.markdown("#### Cytogenetic Parameters")
+                for key, value in cyto_values.items():
+                    formatted_key = key.replace("_", " ").title()
+                    st.markdown(f"- **{formatted_key}**: {value}")
+            
+            # Display genetic parameters
+            genetic_params = [k for k in parsed_fields.keys() if any(term in k.lower() for term in 
+                             ["mutation", "gene", "variant", "sf3b1", "tp53", "asxl1", "runx1"])]
+            genetic_values = {k: v for k, v in parsed_fields.items() if k in genetic_params}
+            
+            if genetic_values:
+                st.markdown("#### Genetic Parameters")
+                for key, value in genetic_values.items():
+                    formatted_key = key.replace("_", " ").title()
+                    st.markdown(f"- **{formatted_key}**: {value}")
+            
+            # Display all other parameters
+            other_params = {k: v for k, v in parsed_fields.items() 
+                          if k not in clinical_values and k not in cyto_values and k not in genetic_values}
+            
+            if other_params:
+                st.markdown("#### Other Parameters")
+                for key, value in other_params.items():
+                    formatted_key = key.replace("_", " ").title()
+                    st.markdown(f"- **{formatted_key}**: {value}")
+        else:
+            st.info("No input data available for display.")
+    
+    # View JSON data (moved this after the new expander but keep it for full raw data viewing)
+    with st.expander("View Parsed MDS Values", expanded=False):
+        st.json(parsed_fields)
 
 def display_aml_response_results(parsed_data, response, derivation, mode="manual"):
     with st.expander("### **View Parsed AML Response Values**", expanded=False):
@@ -235,6 +330,83 @@ def display_ipss_classification_results(
         st.markdown(f"- **Risk Score:** {ipssm_result['best']['riskScore']}")
         st.markdown(f"- **Risk Category:** {ipssm_result['best']['riskCat']}")
 
+    ##########################################
+    # 2. Display All Form Inputs
+    ##########################################
+    with st.expander("View All Form Inputs", expanded=False):
+        st.markdown("### IPSS Input Data")
+        st.markdown("Below is all the data that was used for IPSS risk calculation:")
+        
+        # Create a nicely formatted display of all inputs
+        if parsed_fields:
+            # Display clinical parameters first (most important for IPSS calculations)
+            clinical_params = ["HB", "PLT", "ANC", "BM_BLAST", "AGE", "CYTO_IPSSR"]
+            clinical_values = {k: v for k, v in parsed_fields.items() if k in clinical_params}
+            
+            if clinical_values:
+                st.markdown("#### Clinical Parameters")
+                param_descriptions = {
+                    "HB": "Hemoglobin (g/dL)",
+                    "PLT": "Platelets (10^9/L)",
+                    "ANC": "Absolute Neutrophil Count (10^9/L)",
+                    "BM_BLAST": "Bone Marrow Blasts (%)",
+                    "AGE": "Age (years)",
+                    "CYTO_IPSSR": "Cytogenetic Risk Category"
+                }
+                
+                for key, value in clinical_values.items():
+                    display_name = param_descriptions.get(key, key)
+                    st.markdown(f"- **{display_name}**: {value}")
+            
+            # Display cytogenetic detail parameters
+            cyto_params = ["del5q", "del7_7q", "del17_17p", "complex", "monosomy7"]
+            cyto_values = {k: v for k, v in parsed_fields.items() if k in cyto_params}
+            
+            if cyto_values:
+                st.markdown("#### Cytogenetic Details")
+                for key, value in cyto_values.items():
+                    formatted_key = key.replace("_", " ").replace("del", "Deletion ").title()
+                    if value == 1:
+                        display_value = "Present"
+                    elif value == 0:
+                        display_value = "Absent"
+                    else:
+                        display_value = value
+                    st.markdown(f"- **{formatted_key}**: {display_value}")
+            
+            # Display TP53 parameters
+            tp53_params = ["TP53mut", "TP53loh", "TP53maxvaf", "TP53multi"]
+            tp53_values = {k: v for k, v in parsed_fields.items() if k in tp53_params}
+            
+            if tp53_values:
+                st.markdown("#### TP53 Status")
+                param_descriptions = {
+                    "TP53mut": "TP53 Mutation Count",
+                    "TP53loh": "TP53 Loss of Heterozygosity",
+                    "TP53maxvaf": "TP53 Maximum Variant Allele Frequency",
+                    "TP53multi": "TP53 Multiple Hits"
+                }
+                
+                for key, value in tp53_values.items():
+                    display_name = param_descriptions.get(key, key)
+                    st.markdown(f"- **{display_name}**: {value}")
+            
+            # Display gene mutation parameters
+            gene_params = [k for k in parsed_fields.keys() if k not in clinical_params + cyto_params + tp53_params and k not in ["__prompts"]]
+            gene_values = {k: v for k, v in parsed_fields.items() if k in gene_params}
+            
+            if gene_values:
+                st.markdown("#### Gene Mutations")
+                for key, value in sorted(gene_values.items()):
+                    if value == "1":
+                        display_value = "Mutated"
+                    elif value == "0":
+                        display_value = "Not Mutated"
+                    else:
+                        display_value = value
+                    st.markdown(f"- **{key}**: {display_value}")
+        else:
+            st.info("No input data available for display.")
  
     ##########################################
     # 3. Optionally, Show Parsed Input Fields
