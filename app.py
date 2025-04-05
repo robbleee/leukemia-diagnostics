@@ -810,7 +810,7 @@ def results_page():
         # Display ELN risk assessment
         show_eln_risk_assessment(res, free_text_input_value)
     
-    elif sub_tab == "IPSS Risk (MDS)":
+    elif sub_tab == "IPSS Risk (MDS)" or sub_tab == "Risk" and show_ipss:
         # Import necessary functions for risk assessment
         from classifiers.mds_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
         from parsers.mds_ipss_parser import parse_ipss_report
@@ -819,43 +819,548 @@ def results_page():
         # Style for risk boxes - needed for risk assessments
         st.markdown("""
         <style>
-            .risk-box {
+            .risk-card {
+                background-color: white;
+                border-radius: 8px;
                 padding: 20px;
-                border-radius: 10px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
                 margin-bottom: 20px;
+            }
+            .risk-header {
+                font-size: 1.2rem;
+                font-weight: 600;
+                margin-bottom: 15px;
+                color: #333;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 10px;
+            }
+            .score-container {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 15px;
+                margin-bottom: 15px;
+            }
+            .score-box {
+                flex: 1;
+                min-width: 120px;
+                padding: 15px;
+                border-radius: 6px;
                 text-align: center;
             }
-            .favorable {
-                background-color: #c8e6c9;
-                border: 1px solid #2e7d32;
-            }
-            .intermediate {
-                background-color: #fff9c4;
-                border: 1px solid #f9a825;
-            }
-            .adverse {
-                background-color: #ffcdd2;
-                border: 1px solid #c62828;
-            }
-            .risk-title {
-                font-size: 1.4rem;
-                font-weight: 600;
-                margin-bottom: 10px;
-            }
-            .risk-value {
-                font-size: 1.8rem;
-                font-weight: 700;
-                margin-bottom: 10px;
-            }
-            .risk-os {
-                font-style: italic;
+            .score-label {
+                font-size: 0.9rem;
                 margin-bottom: 5px;
+                font-weight: 500;
+            }
+            .score-value {
+                font-size: 1.5rem;
+                font-weight: 700;
+            }
+            .category-value {
+                font-size: 1.2rem;
+                padding: 5px 10px;
+                border-radius: 4px;
+                display: inline-block;
+                font-weight: 600;
+                margin-top: 5px;
+            }
+            .risk-very-low {
+                background-color: #c8e6c9;
+                color: #2e7d32;
+            }
+            .risk-low {
+                background-color: #dcedc8;
+                color: #558b2f;
+            }
+            .risk-moderate {
+                background-color: #fff9c4;
+                color: #f9a825;
+            }
+            .risk-high {
+                background-color: #ffccbc;
+                color: #d84315;
+            }
+            .risk-very-high {
+                background-color: #ffcdd2;
+                color: #c62828;
+            }
+            .corner-ribbon {
+                position: absolute;
+                top: 0;
+                right: 0;
+                background-color: #009688;
+                color: white;
+                padding: 5px 10px;
+                font-size: 0.8rem;
+                border-radius: 0 8px 0 8px;
+            }
+            .divider-line {
+                height: 1px;
+                background-color: #eee;
+                margin: 15px 0;
             }
         </style>
         """, unsafe_allow_html=True)
         
-        # Display IPSS risk assessment
-        show_ipss_risk_assessment(res, free_text_input_value)
+        # Create helper function for coloring risk categories
+        def get_risk_class_color(category):
+            if 'very low' in category.lower():
+                return "#c8e6c9"  # Light green
+            elif 'low' in category.lower():
+                return "#dcedc8"  # Lighter green
+            elif 'moderate' in category.lower() or 'intermediate' in category.lower() or 'mod' in category.lower():
+                return "#fff9c4"  # Light yellow
+            elif 'high' in category.lower() and 'very' not in category.lower():
+                return "#ffccbc"  # Light orange/red
+            elif 'very high' in category.lower():
+                return "#ffcdd2"  # Light red
+            else:
+                return "#f5f7fa"  # Light gray
+        
+        st.markdown("## IPSS Risk Assessment")
+        st.markdown("International Prognostic Scoring System for myelodysplastic syndromes.")
+        
+        # Toggle for free-text vs. manual mode (matching the main calculator)
+        ipss_mode_toggle = st.toggle("Free-text Mode", key="ipss_classifier_mode_toggle", value=True)
+        
+        if ipss_mode_toggle:
+            # FREE TEXT MODE
+            with st.container():
+                st.markdown("### Input MDS Report")
+                
+                # Create 3 columns for the clinical value inputs
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    hb_override = st.number_input(
+                        "Hemoglobin (g/dL)", 
+                        min_value=0.0, 
+                        max_value=20.0,
+                        value=None,
+                        step=0.1,
+                        help="Enter the hemoglobin level in g/dL",
+                        key="ipss_hb_override"
+                    )
+                    
+                    plt_override = st.number_input(
+                        "Platelets (10^9/L)",
+                        min_value=0, 
+                        max_value=1000,
+                        value=None,
+                        step=1,
+                        help="Enter the platelet count in 10^9/L",
+                        key="ipss_plt_override"
+                    )
+                
+                with col2:
+                    anc_override = st.number_input(
+                        "ANC (10^9/L)",
+                        min_value=0.0, 
+                        max_value=20.0,
+                        value=None,
+                        step=0.1,
+                        help="Enter the absolute neutrophil count in 10^9/L",
+                        key="ipss_anc_override"
+                    )
+                    
+                    blast_override = st.number_input(
+                        "Bone Marrow Blasts (%)",
+                        min_value=0.0, 
+                        max_value=30.0,
+                        value=None,
+                        step=0.1,
+                        help="Enter the bone marrow blast percentage",
+                        key="ipss_blast_override"
+                    )
+                
+                with col3:
+                    age_override = st.number_input(
+                        "Age (years)",
+                        min_value=18, 
+                        max_value=120,
+                        value=None,
+                        step=1,
+                        help="Enter the patient's age in years",
+                        key="ipss_age_override"
+                    )
+                    
+                    cyto_options = ["Very Good", "Good", "Intermediate", "Poor", "Very Poor"]
+                    cyto_override = st.selectbox(
+                        "Cytogenetic Risk",
+                        options=cyto_options,
+                        index=None,
+                        help="Select the cytogenetic risk category",
+                        key="ipss_cyto_override"
+                    )
+                
+                free_report_text = st.text_area(
+                    "Enter MDS report data (optional):",
+                    placeholder="Paste your MDS report here if available for additional information",
+                    key="ipss_free_text_input",
+                    height=150,
+                    value=free_text_input_value if free_text_input_value else ""
+                )
+                
+                # Single calculate button
+                calculate_button = st.button("Calculate Risk Scores", key="calculate_ipss_scores", type="primary")
+                
+                if calculate_button:
+                    # Check if all required fields are filled
+                    missing_fields = []
+                    if hb_override is None:
+                        missing_fields.append("Hemoglobin")
+                    if plt_override is None:
+                        missing_fields.append("Platelets")
+                    if anc_override is None:
+                        missing_fields.append("ANC")
+                    if blast_override is None:
+                        missing_fields.append("Bone Marrow Blasts")
+                    if age_override is None:
+                        missing_fields.append("Age")
+                    if cyto_override is None:
+                        missing_fields.append("Cytogenetic Risk")
+                    
+                    if missing_fields:
+                        st.error(f"Please enter values for all required fields: {', '.join(missing_fields)}")
+                    else:
+                        # Process any text input (optional)
+                        parsed_data = None
+                        if free_report_text.strip():
+                            with st.spinner("Processing report text for additional information..."):
+                                parsed_data = parse_ipss_report(free_report_text)
+                                if parsed_data:
+                                    st.info("Report processed successfully for additional information.")
+                                    # Store parsed data for gene mutations and other details
+                                    st.session_state['original_ipss_data'] = parsed_data.copy()
+                        
+                        # Create patient data from the manual inputs
+                        with st.spinner("Calculating risk scores..."):
+                            patient_data = {
+                                "HB": hb_override,
+                                "PLT": plt_override,
+                                "ANC": anc_override,
+                                "BM_BLAST": blast_override,
+                                "AGE": age_override,
+                                "CYTO_IPSSR": cyto_override
+                            }
+                            
+                            # If we have parsed data, merge any additional information not covered by manual inputs
+                            if parsed_data:
+                                # Only copy over fields that don't override the manual inputs
+                                for key, value in parsed_data.items():
+                                    if key not in ["HB", "PLT", "ANC", "BM_BLAST", "AGE", "CYTO_IPSSR"]:
+                                        patient_data[key] = value
+                            
+                            # Default values for TP53 status if not available from parsed data
+                            if "TP53mut" not in patient_data:
+                                patient_data["TP53mut"] = "NA"
+                            if "TP53loh" not in patient_data:
+                                patient_data["TP53loh"] = "NA"
+                            if "TP53maxvaf" not in patient_data:
+                                patient_data["TP53maxvaf"] = "NA"
+                            if "TP53multi" not in patient_data:
+                                patient_data["TP53multi"] = "NA"
+                            
+                            # Calculate IPSS-M scores
+                            ipssm_result = calculate_ipssm(patient_data=patient_data)
+                            
+                            # Calculate IPSS-R scores with components
+                            ipssr_result = calculate_ipssr(patient_data=patient_data, return_components=True)
+                            
+                            # Store the parameter contributions for visualization
+                            parameter_contributions = {}
+                            if "components" in ipssr_result:
+                                parameter_contributions = {
+                                    "Cytogenetics": ipssr_result["components"].get("Cytogenetics", 0),
+                                    "Blasts": ipssr_result["components"].get("Blasts", 0),
+                                    "Hemoglobin": ipssr_result["components"].get("Hemoglobin", 0),
+                                    "Platelets": ipssr_result["components"].get("Platelets", 0),
+                                    "ANC": ipssr_result["components"].get("ANC", 0)
+                                }
+                            
+                            # Format the IPSS-M result for display
+                            formatted_ipssm = {
+                                'means': ipssm_result.get('means', {}),
+                                'best': ipssm_result.get('best', {}),
+                                'worst': ipssm_result.get('worst', {})
+                            }
+                            
+                            # Format the IPSS-R result for display
+                            formatted_ipssr = {
+                                'IPSSR_SCORE': ipssr_result.get('total_score', 0),
+                                'IPSSR_CAT': ipssr_result.get('risk_category', 'Unknown'),
+                                'components': ipssr_result.get('components', {})
+                            }
+                            
+                            # Store results in session state
+                            st.session_state['ipssm_result'] = formatted_ipssm
+                            st.session_state['ipssr_result'] = formatted_ipssr
+                            st.session_state['ipss_patient_data'] = patient_data
+                
+                # If results are available in session state, display them
+                if ('ipssm_result' in st.session_state and 
+                    'ipssr_result' in st.session_state and
+                    st.session_state['ipssm_result'] is not None and
+                    st.session_state['ipssr_result'] is not None):
+                    
+                    # Create navigation menu for IPSS-M and IPSS-R tabs
+                    selected_tab = option_menu(
+                        menu_title=None,
+                        options=[
+                            "IPSS-M", 
+                            "IPSS-R"
+                        ],
+                        icons=[
+                            "graph-up", 
+                            "graph-up-arrow"
+                        ],
+                        default_index=0,
+                        orientation="horizontal",
+                        key="risk_results_tabs_classifier",
+                        styles={
+                            "container": {"padding": "0!important", "background-color": "#fafafa"},
+                            "icon": {"color": "#009688", "font-size": "14px"},
+                            "nav-link": {
+                                "font-size": "14px",
+                                "text-align": "center",
+                                "margin": "0px",
+                                "padding": "10px",
+                                "--hover-color": "#eee"
+                            },
+                            "nav-link-selected": {"background-color": "#009688", "color": "white"},
+                        }
+                    )
+                    
+                    # Get formatted results from session state
+                    formatted_ipssm = st.session_state['ipssm_result']
+                    formatted_ipssr = st.session_state['ipssr_result']
+                    patient_data = st.session_state['ipss_patient_data']
+                    
+                    # Display the selected tab content
+                    if selected_tab == "IPSS-M":
+                        # IPSS-M Results section
+                        st.markdown("### IPSS-M Risk Classification")
+                        
+                        # Display all risk scenarios in a single row
+                        st.markdown("#### Risk Calculations")
+                        mean_best_worst_cols = st.columns(3)
+                        
+                        # Mean risk in a styled panel
+                        with mean_best_worst_cols[0]:
+                            risk_category_m = formatted_ipssm.get("means", {}).get("risk_cat", "Unknown")
+                            mean_color = get_risk_class_color(risk_category_m)
+                            mean_score = formatted_ipssm.get("means", {}).get("risk_score", "N/A")
+                            
+                            if isinstance(mean_score, (int, float)):
+                                mean_score_display = f"{mean_score:.2f}"
+                            else:
+                                mean_score_display = str(mean_score)
+                                
+                            st.markdown(f"""
+                            <div style="background-color: white; padding: 8px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
+                                <div style="font-weight: 500; margin-bottom: 5px;">Mean Risk</div>
+                                <div style="font-size: 1.2em; font-weight: bold;">{mean_score_display}</div>
+                                <div style="background-color: {mean_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
+                                    {risk_category_m}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                        # Best case panel
+                        with mean_best_worst_cols[1]:
+                            best_category = formatted_ipssm.get("best", {}).get("risk_cat", "Unknown")
+                            best_color = get_risk_class_color(best_category)
+                            best_score = formatted_ipssm.get("best", {}).get("risk_score", "N/A")
+                            
+                            if isinstance(best_score, (int, float)):
+                                best_score_display = f"{best_score:.2f}"
+                            else:
+                                best_score_display = str(best_score)
+                                
+                            st.markdown(f"""
+                            <div style="background-color: white; padding: 8px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
+                                <div style="font-weight: 500; margin-bottom: 5px;">Best Case</div>
+                                <div style="font-size: 1.2em; font-weight: bold;">{best_score_display}</div>
+                                <div style="background-color: {best_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
+                                    {best_category}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                        # Worst case panel
+                        with mean_best_worst_cols[2]:
+                            worst_category = formatted_ipssm.get("worst", {}).get("risk_cat", "Unknown")
+                            worst_color = get_risk_class_color(worst_category)
+                            worst_score = formatted_ipssm.get("worst", {}).get("risk_score", "N/A")
+                            
+                            if isinstance(worst_score, (int, float)):
+                                worst_score_display = f"{worst_score:.2f}"
+                            else:
+                                worst_score_display = str(worst_score)
+                                
+                            st.markdown(f"""
+                            <div style="background-color: white; padding: 8px; border-radius: 5px; text-align: center; border: 1px solid #eee;">
+                                <div style="font-weight: 500; margin-bottom: 5px;">Worst Case</div>
+                                <div style="font-size: 1.2em; font-weight: bold;">{worst_score_display}</div>
+                                <div style="background-color: {worst_color}; border-radius: 4px; padding: 3px; margin-top: 5px;">
+                                    {worst_category}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        # Get survival data for the mean risk category
+                        risk_category_m = formatted_ipssm.get("means", {}).get("risk_cat", "Unknown")
+                        survival_data = get_ipssm_survival_data(risk_category_m)
+                        
+                        # Show survival data
+                        st.markdown("#### Survival Data")
+                        st.markdown(f"**Median Overall Survival:** {survival_data.get('median_os', 'N/A')}")
+                        
+                        # Add IPSS-M Contributors section if available
+                        if "contributions" in formatted_ipssm.get("means", {}):
+                            st.markdown("---")
+                            st.markdown("### IPSS-M Risk Score Contributors")
+                            contributions = formatted_ipssm["means"]["contributions"]
+                            
+                            # Sort contributions by absolute value
+                            sorted_contributions = sorted(
+                                contributions.items(),
+                                key=lambda x: abs(x[1]),
+                                reverse=True
+                            )
+                            
+                            # Convert to DataFrame for easier plotting
+                            import pandas as pd
+                            import matplotlib.pyplot as plt
+                            
+                            df = pd.DataFrame(sorted_contributions, columns=['Factor', 'Contribution'])
+                            
+                            # Create a color map (red for positive/risk-increasing, green for negative/risk-decreasing)
+                            colors = ['#d62728' if c > 0 else '#2ca02c' for c in df['Contribution']]
+                            
+                            # Create the bar chart
+                            fig, ax = plt.subplots(figsize=(10, 6))
+                            bars = ax.barh(df['Factor'], df['Contribution'], color=colors)
+                            
+                            # Add a vertical line at x=0
+                            ax.axvline(x=0, color='black', linestyle='-', alpha=0.3)
+                            
+                            # Set labels and title
+                            ax.set_xlabel('Contribution to Risk Score')
+                            ax.set_title('IPSS-M Risk Score Contributors')
+                            
+                            # Invert the y-axis so the largest contributors are at the top
+                            ax.invert_yaxis()
+                            
+                            # Show the plot
+                            st.pyplot(fig)
+                            
+                            # Summary statistics
+                            total_positive = df[df['Contribution'] > 0]['Contribution'].sum()
+                            total_negative = df[df['Contribution'] < 0]['Contribution'].sum()
+                            
+                            st.markdown(f"""
+                            **Summary:**
+                            - Total risk-increasing contributions: +{total_positive:.3f}
+                            - Total risk-decreasing contributions: {total_negative:.3f}
+                            - Net risk score contribution: {(total_positive + total_negative):.3f}
+                            """)
+                    
+                    elif selected_tab == "IPSS-R":
+                        # IPSS-R Results section
+                        st.markdown("### IPSS-R Risk Classification")
+                        
+                        # Display IPSS-R score and category
+                        st.markdown("#### IPSS-R Base Score")
+                        ipssr_cols = st.columns(2)
+                        with ipssr_cols[0]:
+                            ipssr_score = formatted_ipssr.get('IPSSR_SCORE', 'N/A')
+                            if isinstance(ipssr_score, (int, float)):
+                                ipssr_score_display = f"{ipssr_score:.2f}"
+                            else:
+                                ipssr_score_display = str(ipssr_score)
+                                
+                            st.metric(label="IPSS-R Score", value=ipssr_score_display)
+                            
+                        with ipssr_cols[1]:
+                            risk_category = formatted_ipssr.get('IPSSR_CAT', 'Unknown')
+                            ipssr_color = get_risk_class_color(risk_category)
+                            st.markdown(f"""
+                            <div style="background-color: {ipssr_color}; padding: 10px; border-radius: 5px; text-align: center;">
+                                <span style="font-weight: bold; font-size: 1.2em;">{risk_category}</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        # IPSS-R Components
+                        st.markdown("---")
+                        st.markdown("### IPSS-R Score Components")
+                        
+                        if 'components' in formatted_ipssr and formatted_ipssr['components']:
+                            import pandas as pd
+                            import matplotlib.pyplot as plt
+                            import plotly.graph_objects as go
+                            
+                            components = formatted_ipssr['components']
+                            
+                            # Prepare data for the horizontal bar chart
+                            params = list(components.keys())
+                            values = list(components.values())
+                            
+                            # Define colors for different parameter types
+                            colors = {
+                                'Cytogenetics': '#FF9800',  # Orange
+                                'Blasts': '#F44336',        # Red 
+                                'Hemoglobin': '#2196F3',    # Blue
+                                'Platelets': '#4CAF50',     # Green
+                                'ANC': '#9C27B0'            # Purple
+                            }
+                            
+                            # Create the horizontal bar chart
+                            fig = go.Figure(go.Bar(
+                                x=values,
+                                y=params,
+                                orientation='h',
+                                marker_color=[colors.get(param, '#757575') for param in params],
+                                text=values,
+                                textposition='auto'
+                            ))
+                            
+                            # Customize the layout
+                            fig.update_layout(
+                                title="Contribution to IPSS-R Score",
+                                xaxis_title="Points",
+                                yaxis_title="Parameters",
+                                height=300,
+                                margin=dict(l=20, r=20, t=50, b=20)
+                            )
+                            
+                            # Add a vertical line for the total score
+                            total_score = sum(values)
+                            fig.add_vline(
+                                x=total_score, 
+                                line_width=2, 
+                                line_dash="dash", 
+                                line_color="black",
+                                annotation_text=f"Total: {total_score:.1f}",
+                                annotation_position="top right"
+                            )
+                            
+                            # Display the chart
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Show the values as text too
+                            st.markdown("#### Score Components")
+                            for param, value in components.items():
+                                st.markdown(f"- **{param}**: {value} points")
+                            st.markdown(f"- **Total Score**: {total_score}")
+                        else:
+                            st.info("Parameter contribution data not available for visualization.")
+                    else:
+                        st.warning("Insufficient data to calculate IPSS risk scores. Please ensure your text contains clinical values and cytogenetics information.")
+                else:
+                    # MANUAL MODE
+                    st.markdown("#### Manual Mode Coming Soon")
+                    st.info("Please use the Free-text Mode for now. Manual Mode will be available in a future update.")
 
     elif sub_tab == "Risk":
         # Import necessary functions for risk assessment
@@ -1827,7 +2332,7 @@ def ipss_risk_calculator_page():
                     else:
                         patient_data = {}
                     
-                    # Apply overrides now that we know they’re all manually entered
+                    # Apply overrides now that we know they're all manually entered
                     patient_data["HB"] = hb_override
                     patient_data["PLT"] = plt_override
                     patient_data["ANC"] = anc_override
