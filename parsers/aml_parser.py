@@ -29,14 +29,16 @@ def parse_genetics_report_aml(report_text: str) -> dict:
       2c) MDS-related mutations and MDS-related cytogenetics,
       3) Qualifiers,
       4) AML differentiation,
-      5) Revised ELN24 genes (added prompt).
+      5) Revised ELN24 genes (added prompt),
+      6) Check for missing cytogenetic data.
 
     Then merges all JSON objects into one dictionary. 
     No second pass is performed—each section's data is returned from its dedicated prompt.
 
     Returns:
         dict: A dictionary containing all fields needed for classification, 
-              including 'AML_differentiation' and 'differentiation_reasoning'.
+              including 'AML_differentiation', 'differentiation_reasoning', and 'no_cytogenetics_data'.
+              The 'no_cytogenetics_data' field is true if no cytogenetic information was found in the report.
     """
     # Safety check: if user typed nothing, return empty.
     if not report_text.strip():
@@ -49,6 +51,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
         "fibrotic": False,
         "hypoplasia": False,
         "number_of_dysplastic_lineages": None,
+        "no_cytogenetics_data": False,  # New field: true if no cytogenetic data is provided
         "AML_defining_recurrent_genetic_abnormalities": {
             "PML::RARA": False,
             "NPM1": False,
@@ -398,6 +401,30 @@ Here is the free-text hematological report to parse:
 [END OF REPORT]   
     """
 
+    # Prompt #6: Check if cytogenetic data is missing
+    cytogenetics_check_prompt = f"""
+The user has pasted a free-text hematological report.
+Analyze whether the report contains any cytogenetic data or report. Examples of cytogenetic data include:
+- Karyotype information
+- FISH analysis results
+- Any cytogenetic abnormalities (such as translocations, deletions, inversions)
+- Mention of cytogenetic testing or analysis
+
+Return a JSON object with a single key "no_cytogenetics_data" set to:
+- true if the report does NOT contain any cytogenetic data or if cytogenetic testing is mentioned as "not performed"
+- false if the report DOES contain cytogenetic data, even if it's just a normal karyotype
+
+Return valid JSON only with this key and no extra text.
+
+Here is the free-text hematological report to parse:
+
+[START OF REPORT]
+
+{report_text}
+
+[END OF REPORT]   
+    """
+
     try:
         # Parallelize the prompt calls
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -408,6 +435,7 @@ Here is the free-text hematological report to parse:
             future3   = executor.submit(get_json_from_prompt, first_prompt_3)
             future4   = executor.submit(get_json_from_prompt, second_prompt)
             future_eln2024 = executor.submit(get_json_from_prompt, eln2024_prompt)
+            future_cyto_check = executor.submit(get_json_from_prompt, cytogenetics_check_prompt)
 
             # Gather results when all are complete
             first_raw_1  = future1.result()
@@ -417,6 +445,7 @@ Here is the free-text hematological report to parse:
             first_raw_3  = future3.result()
             diff_data     = future4.result()
             eln2024_data  = future_eln2024.result()
+            cyto_check_data = future_cyto_check.result()
 
         # Merge all data into one dictionary.
         parsed_data = {}
@@ -427,12 +456,17 @@ Here is the free-text hematological report to parse:
         parsed_data.update(first_raw_3)
         parsed_data.update(diff_data)
         parsed_data.update(eln2024_data)
+        parsed_data.update(cyto_check_data)
 
         # Ensure keys for AML_differentiation and reasoning exist.
         if "AML_differentiation" not in parsed_data:
             parsed_data["AML_differentiation"] = None
         if "differentiation_reasoning" not in parsed_data:
             parsed_data["differentiation_reasoning"] = None
+        
+        # Ensure no_cytogenetics_data field exists
+        if "no_cytogenetics_data" not in parsed_data:
+            parsed_data["no_cytogenetics_data"] = False
 
         # Fill missing keys from required structure.
         for key, val in required_json_structure.items():
@@ -451,6 +485,35 @@ Here is the free-text hematological report to parse:
             if not isinstance(blasts, (int, float)) or not (0 <= blasts <= 100):
                 st.error("❌ Invalid blasts_percentage value. Must be a number between 0 and 100.")
                 return {}
+        
+        # Secondary detection of missing cytogenetic data
+        # Check if any cytogenetic abnormalities were detected in the report
+        has_cytogenetic_data = False
+        
+        # Check AML defining cytogenetic abnormalities
+        for key, value in parsed_data.get("AML_defining_recurrent_genetic_abnormalities", {}).items():
+            if "::" in key and value == True:  # Only check for fusion genes (contain ::)
+                has_cytogenetic_data = True
+                break
+        
+        # Check MDS related cytogenetics
+        if not has_cytogenetic_data:
+            for key, value in parsed_data.get("MDS_related_cytogenetics", {}).items():
+                if value == True:
+                    has_cytogenetic_data = True
+                    break
+        
+        # If we directly detected no cytogenetic abnormalities and the dedicated field isn't explicitly set to True,
+        # we'll use our secondary detection method as a fallback
+        if not has_cytogenetic_data and parsed_data.get("no_cytogenetics_data") is not True:
+            # Only set to True if we have strong evidence cytogenetics are missing
+            # Count how many cytogenetic keys were analyzed
+            cyto_keys_total = len(parsed_data.get("AML_defining_recurrent_genetic_abnormalities", {})) + \
+                              len(parsed_data.get("MDS_related_cytogenetics", {}))
+            
+            # If we have a significant number of keys and all are false, likely no cytogenetics data
+            if cyto_keys_total > 30:  # We have over 50 cytogenetic keys total, so this is a reasonable threshold
+                parsed_data["no_cytogenetics_data"] = True
 
         # Debug print
         print("Parsed Haematology Report JSON:")

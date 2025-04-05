@@ -81,6 +81,18 @@ def display_aml_classification_results(
         show_parsed_fields (bool): Whether to show the "View Parsed AML Values" expander.
     """
     ##########################################
+    # 0. Check for missing cytogenetic data and display warning
+    ##########################################
+    if parsed_fields.get("no_cytogenetics_data", False):
+        st.warning("""
+        ⚠️ **No cytogenetic data was detected in your report.** 
+        
+        Cytogenetic information is critical for accurate AML/MDS classification. 
+        For more accurate results, please provide a complete report that includes cytogenetic data 
+        (karyotype, FISH analysis, or specific cytogenetic abnormalities).
+        """)
+    
+    ##########################################
     # 1. Display WHO & ICC Classifications Side-by-Side
     ##########################################
     col1, col2 = st.columns(2)
@@ -170,9 +182,17 @@ def display_mds_classification_results(parsed_fields, classification_who, deriva
     Displays MDS classification results WITHOUT automatically calling the AI review.
     """
     
-
-
-
+    ##########################################
+    # 0. Check for missing cytogenetic data and display warning
+    ##########################################
+    if parsed_fields.get("no_cytogenetics_data", False):
+        st.warning("""
+        ⚠️ **No cytogenetic data was detected in your report.** 
+        
+        Cytogenetic information is critical for accurate MDS classification and risk stratification. 
+        For more accurate results, please provide a complete report that includes cytogenetic data 
+        (karyotype, FISH analysis, or specific cytogenetic abnormalities).
+        """)
 
     col1, col2 = st.columns(2)
     with col1:
