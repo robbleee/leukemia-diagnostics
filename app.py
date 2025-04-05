@@ -1302,9 +1302,9 @@ def show_ipss_risk_assessment(res, free_text_input_value):
     """, unsafe_allow_html=True)
     
     # Override section for IPSS calculations
-    with st.expander("Override Options", expanded=True):
-        st.markdown("### Optional Overrides")
-        st.markdown("You can override specific values detected in the report. Leave at default values to use data from the report.")
+    with st.expander("Required fields", expanded=True):
+        st.markdown("### Required fields")
+        st.markdown("Manually enter override values below. All fields must be set before you can calculate the risk.")
         
         # Create 3 columns for the clinical value inputs
         col1, col2, col3 = st.columns(3)
@@ -1316,7 +1316,7 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                 max_value=20.0,
                 value=0.0,
                 step=0.1,
-                help="Leave at 0 to use value from report. Only set if you want to override.",
+                help="Enter a value to override the report. (Default is 0, meaning not set.)",
                 key="ipss_hb_override"
             )
             
@@ -1326,7 +1326,7 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                 max_value=1000,
                 value=0,
                 step=1,
-                help="Leave at 0 to use value from report. Only set if you want to override.",
+                help="Enter a value to override the report. (Default is 0, meaning not set.)",
                 key="ipss_plt_override"
             )
         
@@ -1337,7 +1337,7 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                 max_value=20.0,
                 value=0.0,
                 step=0.1,
-                help="Leave at 0 to use value from report. Only set if you want to override.",
+                help="Enter a value to override the report. (Default is 0, meaning not set.)",
                 key="ipss_anc_override"
             )
             
@@ -1347,35 +1347,44 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                 max_value=30.0,
                 value=0.0,
                 step=0.1,
-                help="Leave at 0 to use value from report. Only set if you want to override.",
+                help="Enter a value to override the report. (Default is 0, meaning not set.)",
                 key="ipss_blast_override"
             )
         
         with col3:
             age_override = st.number_input(
                 "Age (years)",
-                min_value=18, 
+                min_value=0, 
                 max_value=120,
-                value=18,  # Min allowable value to indicate "not set"
+                value=0,  # 0 indicates "not set"
                 step=1,
-                help="Leave at 18 to use value from report. Only values > 18 will override.",
+                help="Enter an age greater than 0 to override the report.",
                 key="ipss_age_override"
             )
-            
-            cyto_options = ["Very Good", "Good", "Intermediate", "Poor", "Very Poor"]
-            cyto_override = st.selectbox(
-                "Cytogenetic Risk",
-                ["Use from report"] + cyto_options,
-                index=0,
-                help="Select only if you want to override the cytogenetic risk from the report.",
-                key="ipss_cyto_override"
-            )
-    
-    st.markdown("")  # Add empty line for spacing
-    
-    # Button to calculate with overrides
-    calculate_button = st.button("Calculate IPSS Risk", key="calculate_ipss_with_overrides", type="primary")
-    
+
+    st.markdown("")  # Add an empty line for spacing
+
+    # Check if all override fields have been manually set:
+    all_fields_entered = (
+        (hb_override != 0.0) and 
+        (plt_override != 0) and 
+        (anc_override != 0.0) and 
+        (blast_override != 0.0) and 
+        (age_override != 0)
+    )
+
+    if not all_fields_entered:
+        st.warning("Please manually enter values for all override fields before submitting.")
+
+    # Button to calculate with overrides (disabled until all fields are set)
+    calculate_button = st.button(
+        "Calculate IPSS Risk", 
+        key="calculate_ipss_with_overrides", 
+        type="primary", 
+        disabled=not all_fields_entered
+    )
+
+
     # IPSS-M/R Risk data section - Only run when calculate button is pressed
     if calculate_button and free_text_input_value:
         # Parse the free text for ipss risk parameters
@@ -1402,11 +1411,7 @@ def show_ipss_risk_assessment(res, free_text_input_value):
             if age_override > 18:  # Age 18 is the minimum and signals "not set"
                 ipss_data["AGE"] = age_override
                 st.sidebar.info(f"Using override: Age: {age_override} years")
-            
-            if cyto_override != "Use from report":
-                ipss_data["CYTO_IPSSR"] = cyto_override
-                st.sidebar.info(f"Using override: Cytogenetic Risk: {cyto_override}")
-            
+
             st.sidebar.markdown("---")
             st.sidebar.markdown("### Results")
             
@@ -1719,7 +1724,6 @@ def ipss_risk_calculator_page():
             Enter your MDS report data below. The system will extract relevant parameters for IPSS-M/R risk calculation.
             """)
             
-            
             # Create 3 columns for the clinical value inputs
             col1, col2, col3 = st.columns(3)
             
@@ -1730,7 +1734,7 @@ def ipss_risk_calculator_page():
                     max_value=20.0,
                     value=0.0,
                     step=0.1,
-                    help="Leave at 0 to use value from report. Only set if you want to override.",
+                    help="Enter a value to override the report. (Default is 0, which means not set.)",
                     key="hb_override"
                 )
                 
@@ -1740,7 +1744,7 @@ def ipss_risk_calculator_page():
                     max_value=1000,
                     value=0,
                     step=1,
-                    help="Leave at 0 to use value from report. Only set if you want to override.",
+                    help="Enter a value to override the report. (Default is 0, which means not set.)",
                     key="plt_override"
                 )
             
@@ -1751,7 +1755,7 @@ def ipss_risk_calculator_page():
                     max_value=20.0,
                     value=0.0,
                     step=0.1,
-                    help="Leave at 0 to use value from report. Only set if you want to override.",
+                    help="Enter a value to override the report. (Default is 0, which means not set.)",
                     key="anc_override"
                 )
                 
@@ -1761,7 +1765,7 @@ def ipss_risk_calculator_page():
                     max_value=30.0,
                     value=0.0,
                     step=0.1,
-                    help="Leave at 0 to use value from report. Only set if you want to override.",
+                    help="Enter a value to override the report. (Default is 0, which means not set.)",
                     key="blast_override"
                 )
             
@@ -1770,13 +1774,11 @@ def ipss_risk_calculator_page():
                     "Age (years)",
                     min_value=18, 
                     max_value=120,
-                    value=18,  # Min allowable value to indicate "not set"
+                    value=18,  # 18 signals "not set"
                     step=1,
-                    help="Leave at 18 to use value from report. Only values > 18 will override.",
+                    help="Enter a value greater than 18 to override the report.",
                     key="age_override"
                 )
-                
-                # TP53 status will be extracted directly from the report
             
             free_report_text = st.text_area(
                 "Enter MDS report data:",
@@ -1785,8 +1787,26 @@ def ipss_risk_calculator_page():
                 height=250
             )
             
-            # Single calculate button
-            calculate_button = st.button("Calculate Risk Scores", key="calculate_ipss_scores", type="primary")
+            # Check if all override fields are manually set (i.e. not their default "not set" values)
+            all_fields_entered = (
+                (hb_override != 0.0) and 
+                (plt_override != 0) and 
+                (anc_override != 0.0) and 
+                (blast_override != 0.0) and 
+                (age_override != 18)
+            )
+            
+            if not all_fields_entered:
+                st.warning("Please manually enter values for all override fields before submitting.")
+            
+            # The calculate button is disabled until all override fields have been manually filled.
+            calculate_button = st.button(
+                "Calculate Risk Scores", 
+                key="calculate_ipss_scores", 
+                type="primary", 
+                disabled=not all_fields_entered
+            )
+            
             if calculate_button:
                 # First try to process any text input
                 parsed_data = None
@@ -1801,28 +1821,18 @@ def ipss_risk_calculator_page():
                 
                 # Start with parsed data as the base, then apply overrides only if set
                 with st.spinner("Calculating risk scores..."):
-                    # Start with any parsed data we have
                     if parsed_data or 'original_ipss_data' in st.session_state:
                         original_data = parsed_data or st.session_state.get('original_ipss_data', {})
                         patient_data = original_data.copy()
                     else:
                         patient_data = {}
                     
-                    # Only apply overrides if they're set to non-zero values
-                    if hb_override > 0:
-                        patient_data["HB"] = hb_override
-                    
-                    if plt_override > 0:
-                        patient_data["PLT"] = plt_override
-                    
-                    if anc_override > 0:
-                        patient_data["ANC"] = anc_override
-                    
-                    if blast_override > 0:
-                        patient_data["BM_BLAST"] = blast_override
-                    
-                    if age_override > 18:  # Age 18 is the minimum and signals "not set"
-                        patient_data["AGE"] = age_override
+                    # Apply overrides now that we know they’re all manually entered
+                    patient_data["HB"] = hb_override
+                    patient_data["PLT"] = plt_override
+                    patient_data["ANC"] = anc_override
+                    patient_data["BM_BLAST"] = blast_override
+                    patient_data["AGE"] = age_override
                     
                     # Default cytogenetic value if not available - normal karyotype
                     if patient_data.get("CYTO_IPSSR") is None:
@@ -1832,37 +1842,25 @@ def ipss_risk_calculator_page():
                     patient_data["TP53mut"] = "NA"
                     patient_data["TP53loh"] = "NA"
                     patient_data["TP53maxvaf"] = "NA"
-                    
-                    # Calculate TP53multi based on mutations and LOH
                     patient_data["TP53multi"] = "NA"
                     
                     # Store for calculations but keep the prompts intact
                     if 'original_ipss_data' in st.session_state and '__prompts' in st.session_state['original_ipss_data']:
-                        # Save the prompts
                         prompts = st.session_state['original_ipss_data']['__prompts']
-                        # Update the original data with new calculation values but keep prompts
                         st.session_state['original_ipss_data'] = patient_data.copy()
                         st.session_state['original_ipss_data']['__prompts'] = prompts
                     else:
-                        # Just store the new data if no prompts exist
                         st.session_state['original_ipss_data'] = patient_data.copy()
                     
-                    # Always update the calculation data
-                    # Remove prompts from the calculation data
                     calculation_data = patient_data.copy()
                     if '__prompts' in calculation_data:
                         del calculation_data['__prompts']
                     st.session_state['ipss_patient_data'] = calculation_data
                     
                     try:
-                        # Calculate IPSS-M with contributions
                         ipssm_result = calculate_ipssm(patient_data, include_contributions=True)
-                        
-                        # Calculate IPSS-R with return_components=True
                         ipssr_result = calculate_ipssr(patient_data, return_components=True)
                         
-                        # Remove debug information now that we have a proper JSON viewer
-                        # Format results for display
                         formatted_ipssm = {
                             'means': {
                                 'riskScore': ipssm_result['means']['risk_score'],
@@ -1879,7 +1877,7 @@ def ipss_risk_calculator_page():
                                 'riskCat': ipssm_result['best']['risk_cat'],
                                 'contributions': ipssm_result['best'].get('contributions', {})
                             },
-                            'derivation': []  # Add derivation if needed
+                            'derivation': []
                         }
                         
                         formatted_ipssr = {
@@ -1893,16 +1891,13 @@ def ipss_risk_calculator_page():
                             'anc_category': ipssr_result.get('anc_category', ''),
                             'blast_category': ipssr_result.get('blast_category', ''),
                             'cyto_category': ipssr_result.get('cyto_category', ''),
-                            'derivation': []  # Add derivation if needed
+                            'derivation': []
                         }
                         
-                        # Store results in session state
                         st.session_state['ipssm_result'] = formatted_ipssm
                         st.session_state['ipssr_result'] = formatted_ipssr
-                        
-                        # Reset to first tab after new calculation
                         st.session_state["risk_results_tab"] = "IPSS-M"
-                                                
+                                                    
                     except Exception as e:
                         st.error(f"Error calculating risk scores: {str(e)}")
 
