@@ -392,7 +392,12 @@ def data_entry_page():
                 st.session_state[key] = None
 
     # Toggle for free-text vs. manual mode
-    aml_mode_toggle = st.toggle("Free-text Mode", key="aml_mode_toggle", value=True)
+    # Check if we have previously saved mode
+    previous_mode = st.session_state.get("previous_aml_mode_toggle", True)
+    aml_mode_toggle = st.toggle("Free-text Mode", key="aml_mode_toggle", value=previous_mode)
+    # Save the current mode for future reference
+    st.session_state["previous_aml_mode_toggle"] = aml_mode_toggle
+    
     if "aml_busy" not in st.session_state:
         st.session_state["aml_busy"] = False
 
@@ -450,38 +455,57 @@ def data_entry_page():
             with st.container():
                 col0, col1, col2, col3 = st.columns(4)
                 with col0:
+                    # Use saved value if available
+                    default_blasts = st.session_state.get("saved_bone_marrow_blasts", 0.0)
                     bone_marrow_blasts = st.number_input(
                         "Agreed blast count(%)", 
                         min_value=0.0, 
                         max_value=100.0, 
                         step=1.0, 
-                        value=0.0,
+                        value=default_blasts,
                         key="bone_marrow_blasts_initial",
                         help="Leave at 0 to use value from report. Only set if you want to override."
                     )
+                    # Save the value for future use
+                    st.session_state["saved_bone_marrow_blasts"] = bone_marrow_blasts
                 with col1:
+                    # Use saved value if available
+                    default_therapy = st.session_state.get("saved_prior_therapy", "None")
                     prior_therapy = st.selectbox(
                         "Previous cytotoxic therapy",
                         options=["None", "Ionising radiation", "Cytotoxic chemotherapy", "Immune interventions (ICC)", "Any combination"],
-                        index=0,
+                        index=["None", "Ionising radiation", "Cytotoxic chemotherapy", "Immune interventions (ICC)", "Any combination"].index(default_therapy),
                         key="prior_therapy"
                     )
+                    # Save the value for future use
+                    st.session_state["saved_prior_therapy"] = prior_therapy
                 with col2:
+                    # Use saved value if available
+                    default_germline = st.session_state.get("saved_germline_status", "None")
                     germline_status = st.selectbox(
                         "Germline predisposition",
                         options=["Yes", "None", "Undetermined"],
-                        index=1,
+                        index=["Yes", "None", "Undetermined"].index(default_germline),
                         key="germline_status"
                     )
+                    # Save the value for future use
+                    st.session_state["saved_germline_status"] = germline_status
                 with col3:
+                    # Use saved value if available
+                    default_mds = st.session_state.get("saved_previous_mds", "None")
                     previous_mds = st.selectbox(
                         "Previous MDS/MDS-MPN", 
                         options=["None", "Previous MDS", "Previous MDS/MPN"],
+                        index=["None", "Previous MDS", "Previous MDS/MPN"].index(default_mds),
                         key="previous_mds"
                     )
+                    # Save the value for future use
+                    st.session_state["saved_previous_mds"] = previous_mds
             
 
             if germline_status == "Yes":
+                # Use saved selected germline mutations if available
+                default_germline_selections = st.session_state.get("saved_selected_germline", [])
                 selected_germline = st.multiselect(
                     "Select known germline mutation(s):",
                     options=[
@@ -504,19 +528,27 @@ def data_entry_page():
                         "germline BLM mutation",
                         "Diamond-Blackfan anemia"
                     ],
+                    default=default_germline_selections,
                     key="selected_germline"
                 )
+                # Save the selection for future use
+                st.session_state["saved_selected_germline"] = selected_germline
                 
                 # Ensure at least one germline mutation is selected when germline is set to "Yes"
                 if not selected_germline:
                     st.error("Please select at least one germline mutation when 'Germline predisposition' is set to 'Yes'.")
             
+            # Use saved report text if available
+            default_report_text = st.session_state.get("saved_full_text_input", "")
             full_report_text = st.text_area(
                 "Enter all relevant AML/MDS data here:",
+                value=default_report_text,
                 placeholder="Paste your AML/MDS report here including: clinical info, CBC, bone marrow findings, cytogenetics, mutations...",
                 key="full_text_input",
                 height=250
             )
+            # Save the input for future use
+            st.session_state["saved_full_text_input"] = full_report_text
             
             # Moved the Analyse button inside the expander
             analyse_button = st.button("Analyse Report", key="analyse_report", type="primary")
@@ -536,58 +568,58 @@ def data_entry_page():
                     ]:
                         st.session_state.pop(k, None)
 
-                if full_report_text.strip():
-                    opt_text = ""
-                    opt_text += f"Bone Marrow Blasts Override: {bone_marrow_blasts}%. "
-                    if germline_status == "Yes":
-                        if st.session_state.get("selected_germline"):
-                            chosen = ", ".join(st.session_state["selected_germline"])
-                            opt_text += f"Germline predisposition: {chosen}. "
+                    if full_report_text.strip():
+                        opt_text = ""
+                        opt_text += f"Bone Marrow Blasts Override: {bone_marrow_blasts}%. "
+                        if germline_status == "Yes":
+                            if st.session_state.get("selected_germline"):
+                                chosen = ", ".join(st.session_state["selected_germline"])
+                                opt_text += f"Germline predisposition: {chosen}. "
+                            else:
+                                opt_text += "Germline predisposition: Yes. "
                         else:
-                            opt_text += "Germline predisposition: Yes. "
-                    else:
-                        opt_text += "Germline predisposition: None. "
+                            opt_text += "Germline predisposition: None. "
 
-                    if prior_therapy != "None":
-                        opt_text += f"Previous cytotoxic chemotherapy: {prior_therapy}. "
-                    else:
-                        opt_text += "Previous cytotoxic chemotherapy: None. "
-                    
-                    if previous_mds != "None":
-                        opt_text += f"Previous MDS/MDS-MPN: {previous_mds}. "
-
-                    full_text_combined = opt_text + "\n" + full_report_text
-
-                    with st.spinner("Parsing report..."):
-                        parsed_data = parse_genetics_report_aml(full_text_combined)
-                        if (parsed_data.get("blasts_percentage") == "Unknown" or 
-                            parsed_data.get("AML_differentiation") is None or 
-                            (parsed_data.get("AML_differentiation") or "").lower() == "ambiguous"):
-                            st.session_state["initial_parsed_data"] = parsed_data
-                            st.session_state["manual_inputs_visible"] = True
-                            st.rerun()
+                        if prior_therapy != "None":
+                            opt_text += f"Previous cytotoxic chemotherapy: {prior_therapy}. "
                         else:
-                            st.session_state["blast_percentage_known"] = True
-                            who_class, who_deriv, who_disease_type = classify_combined_WHO2022(parsed_data, not_erythroid=False)
-                            icc_class, icc_deriv, icc_disease_type = classify_combined_ICC2022(parsed_data)
-                            # Do not call classify_ELN2022 here
-                            st.session_state["aml_ai_result"] = {
-                                "parsed_data": parsed_data,
-                                "who_class": who_class,
-                                "who_derivation": who_deriv,
+                            opt_text += "Previous cytotoxic chemotherapy: None. "
+                        
+                        if previous_mds != "None":
+                            opt_text += f"Previous MDS/MDS-MPN: {previous_mds}. "
+
+                        full_text_combined = opt_text + "\n" + full_report_text
+
+                        with st.spinner("Parsing report..."):
+                            parsed_data = parse_genetics_report_aml(full_text_combined)
+                            if (parsed_data.get("blasts_percentage") == "Unknown" or 
+                                parsed_data.get("AML_differentiation") is None or 
+                                (parsed_data.get("AML_differentiation") or "").lower() == "ambiguous"):
+                                st.session_state["initial_parsed_data"] = parsed_data
+                                st.session_state["manual_inputs_visible"] = True
+                                st.rerun()
+                            else:
+                                st.session_state["blast_percentage_known"] = True
+                                who_class, who_deriv, who_disease_type = classify_combined_WHO2022(parsed_data, not_erythroid=False)
+                                icc_class, icc_deriv, icc_disease_type = classify_combined_ICC2022(parsed_data)
+                                # Do not call classify_ELN2022 here
+                                st.session_state["aml_ai_result"] = {
+                                    "parsed_data": parsed_data,
+                                    "who_class": who_class,
+                                    "who_derivation": who_deriv,
                                     "who_disease_type": who_disease_type,
-                                "icc_class": icc_class,
-                                "icc_derivation": icc_deriv,
+                                    "icc_class": icc_class,
+                                    "icc_derivation": icc_deriv,
                                     "icc_disease_type": icc_disease_type,
-                                "free_text_input": full_text_combined
-                            }
-                            st.session_state["expanded_aml_section"] = "classification"
-                            st.session_state["manual_inputs_visible"] = False
+                                    "free_text_input": full_text_combined
+                                }
+                                st.session_state["expanded_aml_section"] = "classification"
+                                st.session_state["manual_inputs_visible"] = False
 
-                    st.session_state["page"] = "results"
-                    st.rerun()
-                else:
-                    st.error("No AML data provided.")
+                        st.session_state["page"] = "results"
+                        st.rerun()
+                    else:
+                        st.error("No AML data provided.")
 
         if st.session_state.get("initial_parsed_data"):
             st.warning("Either the blast percentage could not be automatically determined or the differentiation is ambiguous/missing. Please provide the missing information to proceed with classification.")
@@ -597,14 +629,19 @@ def data_entry_page():
                     default_blast = 0.0
                     if st.session_state["initial_parsed_data"].get("blasts_percentage") not in [None, "Unknown"]:
                         default_blast = float(st.session_state["initial_parsed_data"]["blasts_percentage"])
+                    # Check for saved value
+                    saved_blast = st.session_state.get("saved_manual_blast_input", default_blast)
                     manual_blast_percentage = st.number_input(
                         "Enter Blast Percentage (%)", 
                         min_value=0.0, 
                         max_value=100.0, 
                         step=0.1, 
-                        value=default_blast, 
+                        value=saved_blast, 
                         key="manual_blast_input"
                     )
+                    # Save for future use
+                    st.session_state["saved_manual_blast_input"] = manual_blast_percentage
+                
                 with col2:
                     diff_field = st.session_state["initial_parsed_data"].get("AML_differentiation")
                     if diff_field is None or (diff_field or "").lower() == "ambiguous":
@@ -619,11 +656,17 @@ def data_entry_page():
                             "Erythroid differentiation": "M6",
                             "Megakaryoblastic features": "M7"
                         }
+                        # Check for saved value
+                        default_diff = list(diff_map.keys())[0]
+                        saved_diff = st.session_state.get("saved_manual_differentiation", default_diff)
                         manual_differentiation = st.selectbox(
                             "Select Differentiation", 
                             list(diff_map.keys()),
+                            index=list(diff_map.keys()).index(saved_diff) if saved_diff in diff_map.keys() else 0,
                             key="manual_differentiation_input"
                         )
+                        # Save for future use
+                        st.session_state["saved_manual_differentiation"] = manual_differentiation
 
                 # Moved the analyse button inside the expander and made it primary
                 submit_button = st.button("Analyse With Manual Inputs", key="submit_manual", type="primary")
@@ -1827,7 +1870,7 @@ def ipss_risk_calculator_page():
                     else:
                         patient_data = {}
                     
-                    # Apply overrides now that we know they’re all manually entered
+                    # Apply overrides now that we know they're all manually entered
                     patient_data["HB"] = hb_override
                     patient_data["PLT"] = plt_override
                     patient_data["ANC"] = anc_override
