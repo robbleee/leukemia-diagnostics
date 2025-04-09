@@ -1,9 +1,30 @@
 import streamlit as st
 # IMPORTANT: Call set_page_config as the very first Streamlit command.
 st.set_page_config(
-    page_title="Haematologic Classification",
+    page_title="HaematoAx",
     layout="wide",
     initial_sidebar_state="expanded"
+)
+
+# Import base64 early for favicon
+import base64
+
+# Add DNA/Gene favicon
+favicon_svg = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64px" height="64px">
+    <path fill="#009688" d="M32,10c-12.15,0-22,8.58-22,19.09c0,5.68,6.49,12.85,13.3,19.71C27.93,53.56,30.54,57,32,57	c1.46,0,4.07-3.44,8.7-8.2C47.51,41.94,54,34.77,54,29.09C54,18.58,44.15,10,32,10z"/>
+    <path fill="#FFFFFF" d="M44,22c0,2-3.18,3-7.09,3S30,24,30,22s3.18-3,7.09-3S44,20,44,22z M44,37c0,2-3.18,3-7.09,3S30,39,30,37s3.18-3,7.09-3S44,35,44,37z M34,29c0,2-3.18,3-7.09,3S20,31,20,29s3.18-3,7.09-3S34,27,34,29z"/>
+    <path fill="#FFFFFF" d="M32,48c0,0-11-9.83-11-20c0-5.5,3.5-9.26,11-10c11,1.09,11,10,11,10S43,38.17,32,48z"/>
+    <path fill="#009688" d="M35,16c0,1.1-0.9,2-2,2h-2c-1.1,0-2-0.9-2-2l0,0c0-1.1,0.9-2,2-2h2C34.1,14,35,14.9,35,16L35,16z"/>
+    <path fill="#009688" d="M35,44c0,1.1-0.9,2-2,2h-2c-1.1,0-2-0.9-2-2l0,0c0-1.1,0.9-2,2-2h2C34.1,42,35,42.9,35,44L35,44z"/>
+    <path fill="#009688" d="M35,36c0,1.1-0.9,2-2,2h-2c-1.1,0-2-0.9-2-2l0,0c0-1.1,0.9-2,2-2h2C34.1,34,35,34.9,35,36L35,36z"/>
+    <path fill="#009688" d="M35,24c0,1.1-0.9,2-2,2h-2c-1.1,0-2-0.9-2-2l0,0c0-1.1,0.9-2,2-2h2C34.1,22,35,22.9,35,24L35,24z"/>
+</svg>
+'''
+favicon_base64 = base64.b64encode(favicon_svg.encode("utf-8")).decode("utf-8")
+st.markdown(
+    f'<link rel="icon" href="data:image/svg+xml;base64,{favicon_base64}">',
+    unsafe_allow_html=True
 )
 
 import urllib.parse
@@ -14,7 +35,6 @@ import math
 import pandas as pd
 import matplotlib.pyplot as plt
 from streamlit_option_menu import option_menu
-import base64
 import streamlit.components.v1 as components
 
 # Import the EncryptedCookieManager from streamlit_cookies_manager.
@@ -249,8 +269,7 @@ def show_login_page():
         # Logo and branding
         st.markdown("""
         <div class="logo-container">
-            <div class="app-icon">🧬</div>
-            <h1 class="app-title">HemaGenix</h1>
+            <h1 class="app-title">HaematoAx</h1>
             <p class="app-subtitle">Advanced Hematologic Classification System</p>
         </div>
         """, unsafe_allow_html=True)
@@ -303,7 +322,7 @@ def data_entry_page():
             margin-bottom: 20px;
             ">
             <h2 style="color: #009688; text-align: left;">
-                AML/MDS Diagnostic Support Tool
+                HaematoAx
             </h2>
         </div>
         """,
@@ -1607,7 +1626,7 @@ def app_main():
     # Add sidebar navigation options
     with st.sidebar:
         selected = option_menu(
-            menu_title="Navigation",
+            menu_title="HaematoAx",
             options=["AML/MDS Classifier", "IPSS-M/R Risk Tool", "ELN Risk Calculator"],
             icons=["clipboard-data", "calculator", "graph-up"],
             menu_icon=None,
@@ -1663,7 +1682,7 @@ def ipss_risk_calculator_page():
             margin-bottom: 20px;
             ">
             <h2 style="color: #009688; text-align: left;">
-                IPSS-M/R Risk Tool
+                HaematoAx - IPSS-M/R Risk Tool
             </h2>
         </div>
         """,
@@ -2412,7 +2431,7 @@ def eln_risk_calculator_page():
             margin-bottom: 20px;
             ">
             <h2 style="color: #009688; text-align: left;">
-                ELN Risk Calculator
+                HaematoAx - ELN Risk Calculator
             </h2>
         </div>
         """,
