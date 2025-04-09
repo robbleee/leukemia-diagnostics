@@ -48,6 +48,9 @@ cookies = EncryptedCookieManager(
 if not cookies.ready():
     st.stop()
 
+from classifiers.aml_risk_classifier import classify_full_eln2022, eln2024_non_intensive_risk
+from parsers.aml_eln_parser import parse_eln_report
+from utils.forms import build_manual_eln_data
 from parsers.aml_parser import parse_genetics_report_aml
 from parsers.mds_parser import parse_genetics_report_mds
 from parsers.mds_ipss_parser import parse_ipss_report
@@ -2413,329 +2416,242 @@ def ipss_risk_calculator_page():
                 df_params = pd.DataFrame(param_data)
                 st.table(df_params)
 
+
+# Helper function to map risk category to CSS class (ensure this exists or define it)
+def get_risk_class(risk_category):
+    """Maps risk category string to a CSS class for styling."""
+    if risk_category:
+        category_lower = risk_category.lower()
+        if "favorable" in category_lower:
+            return "favorable"
+        elif "intermediate" in category_lower:
+            return "intermediate"
+        elif "adverse" in category_lower:
+            return "adverse"
+    return "unknown" # Default class if category is None or unexpected
+
+
+# Main function definition starts here
 def eln_risk_calculator_page():
     """
-    Standalone calculator for ELN 2022 and ELN 2024 risk assessment for AML.
+    Standalone calculator for ELN 2022 and ELN 2024 risk assessment for AML,
+    with enhanced Streamlit presentation and integrated instructions.
     """
-    from classifiers.aml_risk_classifier import classify_full_eln2022, eln2024_non_intensive_risk, classify_ELN2022
-    from parsers.aml_eln_parser import parse_eln_report
-    from utils.forms import build_manual_eln_data
-    
-    # Title / Header with styling to match main classifier
+
+    # --- Page Configuration & Styling ---
     st.markdown(
         """
-        <div style="
-            background-color: #FFFFFF;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 20px;
-            ">
-            <h2 style="color: #009688; text-align: left;">
-                HaematoAx - ELN Risk Calculator
-            </h2>
+        <div style="background-color:#FFFFFF; border-radius:8px; padding: 15px 20px; margin-bottom: 10px; border: 1px solid #e6e6e6; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+            <h2 style="color:#009688; text-align:left; margin:0 0 5px 0;">ELN Risk Calculator</h2>
+            <p style="color:#555; margin:0; font-size:0.95rem;">Calculate ELN risk stratification based on ELN 2022 (Intensive) and ELN 2024 (Non-Intensive) guidelines.</p>
         </div>
-        """,
-        unsafe_allow_html=True
+        """, unsafe_allow_html=True
     )
-    
-    # Add custom styling for the risk boxes
+
+    with st.expander("ℹ️ How to Use This Calculator", expanded=False):
+        st.markdown("""
+        * **Purpose:** Calculates ELN 2022 (intensive therapy) & ELN 2024 (non-intensive therapy) risk for AML.
+        * **Choose Input Method:**
+            * **Free-text Mode (Recommended):** Toggle ON, paste the full report, use optional overrides, click 'Analyse Report'.
+            * **Manual Entry Mode:** Toggle OFF, select findings, click 'Calculate ELN Risk'.
+        * **Results:** Shows risk category, median OS, and derivation steps. Review 'Data Used' section for inputs.
+        """)
+
+    # --- CSS Injection (ensure it's included) ---
     st.markdown("""
     <style>
-        .risk-box {
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .favorable {
-            background-color: #c8e6c9;
-            border: 1px solid #2e7d32;
-        }
-        .intermediate {
-            background-color: #fff9c4;
-            border: 1px solid #f9a825;
-        }
-        .adverse {
-            background-color: #ffcdd2;
-            border: 1px solid #c62828;
-        }
-        .risk-title {
-            font-size: 1.4rem;
-            font-weight: 600;
-            margin-bottom: 10px;
-        }
-        .risk-value {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-        .risk-os {
-            font-style: italic;
-            margin-bottom: 5px;
-        }
+        /* Include all the CSS from the previous version here */
+        .main .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+        .risk-box { padding: 25px; border-radius: 10px; margin-bottom: 20px; text-align: center; border-width: 1px; border-style: solid; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: transform 0.2s ease-in-out; }
+        .risk-box:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .favorable { background-color: #E8F5E9; border-color: #66BB6A; }
+        .intermediate { background-color: #FFFDE7; border-color: #FFEE58; }
+        .adverse { background-color: #FFEBEE; border-color: #EF5350; }
+        .unknown { background-color: #F5F5F5; border-color: #BDBDBD; }
+        .risk-title { font-size: 1.1rem; font-weight: 600; color: #333; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .risk-value { font-size: 2.0rem; font-weight: 700; margin-bottom: 12px; color: #111; }
+        .risk-os { font-style: normal; font-size: 0.95rem; color: #555; margin-bottom: 0px; }
+        .stExpander { border: 1px solid #e6e6e6; border-radius: 8px; margin-bottom: 15px; }
+        .stExpander header { font-weight: 600; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+        .stExpander[aria-expanded="false"] header { background-color: #fafafa; }
+        .stExpander[aria-expanded="true"] header { background-color: #f0f2f6; }
+        .stButton button { font-weight: 600; border-radius: 8px; }
+        [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] { border: 1px solid #e6e6e6; border-radius: 8px; padding: 1rem; background-color: #ffffff; margin-bottom: 1rem; }
+        .stApp > header + div > .block-container > div > div > section > div > div > div > h3 { margin-top: 0.5rem; }
+        /* Style for data list items */
+        ul li { margin-bottom: 4px; line-height: 1.4; }
     </style>
     """, unsafe_allow_html=True)
-    
-    # Instructions expander
-    with st.expander("📋 Instructions", expanded=False):
-        st.markdown("""
-        ## ELN Risk Calculator - Instructions
-        
-        This tool calculates European LeukemiaNet (ELN) risk stratification for AML patients using either free text reports or manual entry.
-        
-        ### How to use this calculator:
 
-        #### Free Text Mode:
-        1. Toggle "Free-text Mode" to ON
-        2. Paste your complete molecular report into the text area
-        3. Use the override options if needed (for TP53 or complex karyotype)
-        4. Click "Analyse Report" to calculate ELN risk
 
-        #### Manual Entry Mode:
-        1. Toggle "Free-text Mode" to OFF
-        2. Select all relevant genetic abnormalities in the form
-        3. Click "Calculate ELN Risk" to determine the risk category
-        
-        ### Results:
-        - The calculator will show both ELN 2022 and ELN 2024 (Non-Intensive) risk classifications
-        - Each result includes the risk category, median overall survival, and detailed derivation steps
-        - You can expand the derivation sections to see how the risk was calculated
-        """)
-    
-    # Toggle for free-text vs. manual mode (matching main classifier)
-    eln_mode_toggle = st.toggle("Free-text Mode", key="eln_mode_toggle", value=True)
-    
-    # FREE TEXT MODE
-    if eln_mode_toggle:
-        with st.expander("Free Text Input", expanded=True):
-            st.markdown("### Input AML Report")
-            
-            st.markdown("""
-            Enter your report data below. The system will extract relevant markers for ELN risk classification.
-            """)
-            
-            # Optional override parameters in columns (like main classifier)
-            with st.container():
-                col1, col2 = st.columns(2)
-                with col1:
-                    tp53_override = st.selectbox(
-                        "TP53 mutation override",
-                        options=["Auto-detect", "Present", "Not detected"],
-                        index=0,
-                        help="Override TP53 mutation status if necessary"
-                    )
-                with col2:
-                    complex_karyotype_override = st.selectbox(
-                        "Complex karyotype override",
-                        options=["Auto-detect", "Present", "Not detected"],
-                        index=0,
-                        help="Override complex karyotype status if necessary"
-                    )
-            
-            # Text area for pasting report - matching main classifier's look
-            report_text = st.text_area(
-                "Enter all relevant AML data here:",
-                placeholder="Paste your AML report here including: clinical info, molecular findings, cytogenetics, mutations...",
-                height=250
-            )
-            
-            # Analyse button inside the expander, primary styling
-            calculate_button = st.button("Analyse Report", type="primary", use_container_width=True)
-    
-    # MANUAL MODE
-    else:
+    # --- Input Section ---
+    st.subheader("1. Input Patient Data")
+    eln_mode_toggle = st.toggle("Use Free-text Mode", key="eln_mode_toggle", value=True, help="Toggle ON to paste report, OFF for manual selection.")
+    input_data = None
+    col_main_input, col_options = st.columns([3, 1])
+    with col_main_input:
+        if eln_mode_toggle:
+            st.markdown("##### Paste Full Report Text")
+            report_text = st.text_area("Enter relevant AML data:", placeholder="Paste comprehensive AML report...", height=300, label_visibility="collapsed")
+            calculate_button = st.button("Analyse Report", type="primary", use_container_width=True, key="analyze_report_btn")
+        else:
+            st.markdown("##### Select Findings Manually")
+            with st.container(border=True):
+                 eln_data_manual = build_manual_eln_data()
+            manual_calculate_button = st.button("Calculate ELN Risk", type="primary", use_container_width=True, key="calculate_manual_btn")
+    with col_options:
+        if eln_mode_toggle:
+            st.markdown("##### Overrides")
+            with st.container(border=True):
+                 tp53_override = st.selectbox("TP53 Mutation", ["Auto-detect", "Present", "Not detected"], index=0, help="Manually set TP53 status.", key="tp53_override_select")
+                 complex_karyotype_override = st.selectbox("Complex Karyotype", ["Auto-detect", "Present", "Not detected"], index=0, help="Manually set complex karyotype status.", key="ck_override_select")
+        else:
+            st.markdown("##### Options")
+            st.caption("Manual entry selected. Options in Free-text mode.")
 
-        
-        # Use the build_manual_eln_data function from utils.forms to get the manual inputs
-        eln_data_manual = build_manual_eln_data()
-        
-        # Button for manual calculation - with primary styling
-        manual_calculate_button = st.button("Calculate ELN Risk", type="primary", use_container_width=True)
-        
-        if manual_calculate_button:
-            # Process the manually entered data
-            with st.spinner("Calculating ELN risk categories..."):
-                # Calculate ELN 2022 risk
-                risk_eln2022, eln22_median_os, derivation_eln2022 = classify_full_eln2022(eln_data_manual)
-                
-                # Prepare data for ELN 2024 non-intensive classification
-                eln24_genes = {
-                    "TP53": eln_data_manual.get("tp53_mutation", False),
-                    "KRAS": eln_data_manual.get("kras", False),
-                    "PTPN11": eln_data_manual.get("ptpn11", False),
-                    "NRAS": eln_data_manual.get("nras", False),
-                    "FLT3_ITD": eln_data_manual.get("flt3_itd", False),
-                    "NPM1": eln_data_manual.get("npm1_mutation", False),
-                    "IDH1": eln_data_manual.get("idh1", False),
-                    "IDH2": eln_data_manual.get("idh2", False),
-                    "DDX41": eln_data_manual.get("ddx41", False)
-                }
-                
-                # Calculate ELN 2024 non-intensive risk
-                risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
-                
-                # Store the results in session state for display
-                st.session_state['eln_results'] = {
-                    'risk_eln2022': risk_eln2022,
-                    'eln22_median_os': eln22_median_os,
-                    'derivation_eln2022': derivation_eln2022,
-                    'risk_eln24': risk_eln24,
-                    'median_os_eln24': median_os_eln24,
-                    'eln24_derivation': eln24_derivation,
-                    'eln_data': eln_data_manual
-                }
-                
-                # Set flag to indicate manual calculation was performed
-                st.session_state['manual_calculation'] = True
-                
-                # Rerun to display the results
-                st.rerun()
-    
-    # Process the report text when the calculate button is clicked (for free text mode)
-    if eln_mode_toggle and calculate_button and report_text:
-        # Apply overrides if specified
+    # --- Calculation Logic ---
+    triggered_calculation = False
+    if eln_mode_toggle and st.session_state.get('analyze_report_btn', False) and 'report_text' in locals() and report_text:
+        triggered_calculation = True
         overrides = {}
-        if tp53_override != "Auto-detect":
-            overrides["tp53_override"] = tp53_override == "Present"
-        if complex_karyotype_override != "Auto-detect":
-            overrides["complex_karyotype_override"] = complex_karyotype_override == "Present"
-        
-        # Process the report text
-        with st.spinner("Extracting data and calculating risk..."):
-            # Parse the report to extract ELN markers
+        if tp53_override != "Auto-detect": overrides["tp53_override"] = tp53_override == "Present"
+        if complex_karyotype_override != "Auto-detect": overrides["complex_karyotype_override"] = complex_karyotype_override == "Present"
+        with st.spinner("🔄 Extracting & calculating..."):
             parsed_eln_data = parse_eln_report(report_text)
-            
-            # Apply any overrides
-            if parsed_eln_data and overrides:
-                for key, value in overrides.items():
-                    if key == "tp53_override":
-                        parsed_eln_data["tp53_mutation"] = value
-                    elif key == "complex_karyotype_override":
-                        parsed_eln_data["complex_karyotype"] = value
-            
             if parsed_eln_data:
-                # Prepare data for ELN 2024 non-intensive classification
-                eln24_genes = {
-                    "TP53": parsed_eln_data.get("tp53_mutation", False),
-                    "KRAS": parsed_eln_data.get("kras", False),
-                    "PTPN11": parsed_eln_data.get("ptpn11", False),
-                    "NRAS": parsed_eln_data.get("nras", False),
-                    "FLT3_ITD": parsed_eln_data.get("flt3_itd", False),
-                    "NPM1": parsed_eln_data.get("npm1_mutation", False),
-                    "IDH1": parsed_eln_data.get("idh1", False),
-                    "IDH2": parsed_eln_data.get("idh2", False),
-                    "DDX41": parsed_eln_data.get("ddx41", False)
-                }
-                
-                # Calculate ELN 2022 risk
-                risk_eln2022, eln22_median_os, derivation_eln2022 = classify_full_eln2022(parsed_eln_data)
-                
-                # Calculate ELN 2024 non-intensive risk
-                risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
-                
-                # Store the results in session state for display
-                st.session_state['eln_results'] = {
-                    'risk_eln2022': risk_eln2022,
-                    'eln22_median_os': eln22_median_os,
-                    'derivation_eln2022': derivation_eln2022,
-                    'risk_eln24': risk_eln24,
-                    'median_os_eln24': median_os_eln24,
-                    'eln24_derivation': eln24_derivation,
-                    'eln_data': parsed_eln_data
-                }
-                
-                # Set flag to indicate report processing was performed
+                if overrides:
+                    if "tp53_override" in overrides: parsed_eln_data["tp53_mutation"] = overrides["tp53_override"]
+                    if "complex_karyotype_override" in overrides: parsed_eln_data["complex_karyotype"] = overrides["complex_karyotype_override"]
+                input_data = parsed_eln_data
                 st.session_state['manual_calculation'] = False
-                
-                # Rerun to display the results
-                st.rerun()
             else:
-                st.error("Could not extract sufficient ELN risk factors from the report. Please try using the manual entry option.")
-    
-    # Display results if available in session state
+                st.error("⚠️ Could not extract factors. Check input or use manual entry.")
+                input_data = None
+
+    elif not eln_mode_toggle and st.session_state.get('calculate_manual_btn', False):
+        triggered_calculation = True
+        with st.spinner("🔄 Calculating..."):
+            input_data = eln_data_manual
+            st.session_state['manual_calculation'] = True
+
+    if triggered_calculation and input_data:
+        try:
+            eln24_genes = { k: input_data.get(k, False) for k in ["tp53_mutation", "kras", "ptpn11", "nras", "flt3_itd", "npm1_mutation", "idh1", "idh2", "ddx41"] }
+            risk_eln2022, eln22_median_os, derivation_eln2022 = classify_full_eln2022(input_data)
+            risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
+            st.session_state['eln_results'] = {
+                'risk_eln2022': risk_eln2022, 'eln22_median_os': eln22_median_os, 'derivation_eln2022': derivation_eln2022,
+                'risk_eln24': risk_eln24, 'median_os_eln24': median_os_eln24, 'eln24_derivation': eln24_derivation,
+                'eln_data': input_data
+            }
+            st.success("✅ Risk calculation complete!")
+        except Exception as e:
+            st.error(f"An error occurred during calculation: {e}")
+            if 'eln_results' in st.session_state: del st.session_state['eln_results']
+
+
+    # --- Display Results Section ---
+    st.markdown("---")
+    st.subheader("2. ELN Risk Classification Results")
+
     if 'eln_results' in st.session_state:
         results = st.session_state['eln_results']
-        
-        
-        # Get the risk data
+        # (Result extraction and display for ELN 2022 / 2024 risk boxes - code omitted for brevity, assume it's the same as before)
         risk_eln2022 = results['risk_eln2022']
         eln22_median_os = results['eln22_median_os']
         derivation_eln2022 = results['derivation_eln2022']
         risk_eln24 = results['risk_eln24']
         median_os_eln24 = results['median_os_eln24']
         eln24_derivation = results['eln24_derivation']
-        
-        # Get the risk classes for styling
+
         eln_class = get_risk_class(risk_eln2022)
         eln24_class = get_risk_class(risk_eln24)
-        
-        # Create two columns for risk displays
+
         eln_col1, eln_col2 = st.columns(2)
-        
-        # ELN 2022 Risk Classification
+
         with eln_col1:
-            st.markdown(f"""
-            <div class='risk-box {eln_class}'>
-                <div class='risk-title'>ELN 2022 Risk</div>
-                <div class='risk-value'>{risk_eln2022}</div>
-                <div class='risk-os'>Median OS: {eln22_median_os}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            with st.expander("ELN 2022 Derivation", expanded=False):
-                # Check if the derivation is a list of strings (new format) or a single string (old format)
-                if isinstance(derivation_eln2022, list):
-                    for step in derivation_eln2022:
-                        st.markdown(f"- {step}")
-                else:
-                    # For backwards compatibility with old format
-                    st.markdown(derivation_eln2022)
-        
-        # ELN 2024 Non-Intensive Risk Classification
+            with st.container(border=True):
+                st.markdown(f"""
+                <div class='risk-box {eln_class}'>
+                    <div class='risk-title'>ELN 2022 Risk (Intensive Tx)</div>
+                    <div class='risk-value'>{risk_eln2022 or 'N/A'}</div>
+                    <div class='risk-os'>Median OS: {eln22_median_os or 'Not Available'}</div>
+                </div>""", unsafe_allow_html=True)
+                with st.expander("Show ELN 2022 Derivation"):
+                    if isinstance(derivation_eln2022, list) and derivation_eln2022:
+                        for step in derivation_eln2022: st.markdown(f"- {step}")
+                    elif isinstance(derivation_eln2022, str): st.markdown(derivation_eln2022)
+                    else: st.info("No derivation steps available.")
+
         with eln_col2:
-            # Format the display differently if median_os_eln24 is a string (e.g., "N/A")
-            os_display = f"{median_os_eln24} months" if isinstance(median_os_eln24, (int, float)) else median_os_eln24
-            
-            st.markdown(f"""
-            <div class='risk-box {eln24_class}'>
-                <div class='risk-title'>ELN 2024 Risk (Non-Intensive)</div>
-                <div class='risk-value'>{risk_eln24}</div>
-                <div class='risk-os'>Median OS: {os_display}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            with st.expander("ELN 2024 Derivation", expanded=False):
-                for step in eln24_derivation:
-                    st.markdown(f"- {step}")
-        
-        # Display the data used for calculation for transparency
-        with st.expander("Data Used for Classification", expanded=False):
-            st.subheader("Features Used for ELN Classification")
-            display_data = results['eln_data'].copy()
-            if '__prompts' in display_data:
-                del display_data['__prompts']
-            st.json(display_data)
-        
-        # Clear results button
-        if st.button("Clear Results and Start Over"):
-            # Remove the results from session state
-            if 'eln_results' in st.session_state:
-                del st.session_state['eln_results']
-            if 'manual_calculation' in st.session_state:
-                del st.session_state['manual_calculation']
-            # Rerun to refresh the page
+            with st.container(border=True):
+                os_display_24 = f"{median_os_eln24} months" if isinstance(median_os_eln24, (int, float)) else (median_os_eln24 or 'Not Available')
+                st.markdown(f"""
+                <div class='risk-box {eln24_class}'>
+                    <div class='risk-title'>ELN 2024 Risk (Non-Intensive Tx)</div>
+                    <div class='risk-value'>{risk_eln24 or 'N/A'}</div>
+                    <div class='risk-os'>Median OS: {os_display_24}</div>
+                </div>""", unsafe_allow_html=True)
+                with st.expander("Show ELN 2024 Derivation"):
+                    if isinstance(eln24_derivation, list) and eln24_derivation:
+                        for step in eln24_derivation: st.markdown(f"- {step}")
+                    else: st.info("No derivation steps available.")
+
+
+        # --- Updated Data Used Display ---
+        st.markdown("---")
+        with st.expander("🔍 View Data Used for Classification", expanded=False):
+            st.caption("Features extracted or entered:")
+            display_data = results.get('eln_data', {})
+
+            formatted_html_list = format_display_data(display_data)
+
+            # Decide on number of columns based on item count
+            num_items = len(formatted_html_list) - 2 # Subtract <ul> tags
+            num_columns = 2 if num_items > 6 else 1 # Use 2 columns if more than 6 items
+
+            if num_items > 0:
+                 cols = st.columns(num_columns)
+                 items_per_col = (num_items + num_columns - 1) // num_columns
+
+                 current_col_index = 0
+                 items_in_current_col = 0
+
+                 # Print opening ul tag for the first column
+                 cols[current_col_index].markdown(formatted_html_list[0], unsafe_allow_html=True)
+
+                 for i in range(1, len(formatted_html_list) - 1): # Iterate through li items
+                     cols[current_col_index].markdown(formatted_html_list[i], unsafe_allow_html=True)
+                     items_in_current_col += 1
+
+                     # Check if we need to move to the next column
+                     if items_in_current_col == items_per_col and current_col_index < num_columns - 1:
+                          # Print closing ul tag for the current column
+                          cols[current_col_index].markdown(formatted_html_list[-1], unsafe_allow_html=True)
+                          # Move to next column
+                          current_col_index += 1
+                          items_in_current_col = 0
+                          # Print opening ul tag for the new column
+                          cols[current_col_index].markdown(formatted_html_list[0], unsafe_allow_html=True)
+
+                 # Print closing ul tag for the last column
+                 cols[current_col_index].markdown(formatted_html_list[-1], unsafe_allow_html=True)
+
+            else:
+                 # Handle case where format_display_data returned only the info message
+                 st.info(formatted_html_list[0])
+
+
+        # --- Clear Button ---
+        if st.button("Clear Results & Start Over", use_container_width=True, key="clear_results_btn"):
+            keys_to_clear = ['eln_results', 'manual_calculation', 'analyze_report_btn', 'calculate_manual_btn']
+            for key in keys_to_clear:
+                if key in st.session_state: del st.session_state[key]
             st.rerun()
 
-# Helper function for risk class styling
-def get_risk_class(risk):
-    """Returns the CSS class for a risk category."""
-    risk = risk.lower() if isinstance(risk, str) else "intermediate"
-    if "favorable" in risk:
-        return "favorable"
-    elif "adverse" in risk:
-        return "adverse"
     else:
-        return "intermediate"
+        st.info("Enter patient data above and click 'Analyse Report' or 'Calculate ELN Risk' to see the results.")
+
 
 if __name__ == "__main__":
     app_main()
