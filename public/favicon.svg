@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#009688" />
+      <stop offset="100%" stop-color="#00796B" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="url(#gradient)" />
+  
+  <!-- DNA Double Helix Structure -->
+  <path d="M18 12 C28 22, 36 22, 46 12" stroke="white" stroke-width="2.5" fill="none" />
+  <path d="M18 22 C28 32, 36 32, 46 22" stroke="white" stroke-width="2.5" fill="none" />
+  <path d="M18 32 C28 42, 36 42, 46 32" stroke="white" stroke-width="2.5" fill="none" />
+  <path d="M18 42 C28 52, 36 52, 46 42" stroke="white" stroke-width="2.5" fill="none" />
+  <path d="M18 52 C28 62, 36 62, 46 52" stroke="white" stroke-width="2.5" fill="none" />
+  
+  <!-- Vertical strands -->
+  <line x1="18" y1="12" x2="18" y2="52" stroke="white" stroke-width="2.5" />
+  <line x1="46" y1="12" x2="46" y2="52" stroke="white" stroke-width="2.5" />
+  
+  <!-- Base pairs -->
+  <circle cx="18" cy="12" r="3" fill="#64FFDA" />
+  <circle cx="46" cy="12" r="3" fill="#64FFDA" />
+  <circle cx="18" cy="22" r="3" fill="#64FFDA" />
+  <circle cx="46" cy="22" r="3" fill="#64FFDA" />
+  <circle cx="18" cy="32" r="3" fill="#64FFDA" />
+  <circle cx="46" cy="32" r="3" fill="#64FFDA" />
+  <circle cx="18" cy="42" r="3" fill="#64FFDA" />
+  <circle cx="46" cy="42" r="3" fill="#64FFDA" />
+  <circle cx="18" cy="52" r="3" fill="#64FFDA" />
+  <circle cx="46" cy="52" r="3" fill="#64FFDA" />
+</svg> 

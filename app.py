@@ -3,7 +3,8 @@ import streamlit as st
 st.set_page_config(
     page_title="HaematoAx",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    page_icon="public/favicon.svg"
 )
 
 # Import base64 early for favicon
@@ -325,7 +326,7 @@ def data_entry_page():
             margin-bottom: 20px;
             ">
             <h2 style="color: #009688; text-align: left;">
-                HaematoAx
+                AML/MDS Classifier
             </h2>
         </div>
         """,
@@ -1685,7 +1686,7 @@ def ipss_risk_calculator_page():
             margin-bottom: 20px;
             ">
             <h2 style="color: #009688; text-align: left;">
-                HaematoAx - IPSS-M/R Risk Tool
+                IPSS-M/R Risk Tool
             </h2>
         </div>
         """,
