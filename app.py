@@ -1173,32 +1173,7 @@ def results_page():
             st.markdown(f"[Click here to send your feedback]({mailto_link})", unsafe_allow_html=True)
             st.session_state.show_report_incorrect = False
 
-# Helper function to determine CSS class based on risk category
-def get_risk_class(risk):
-    risk = risk.lower()
-    if 'favorable' in risk:
-        return 'favorable'
-    elif 'intermediate' in risk:
-        return 'intermediate'
-    elif 'adverse' in risk:
-        return 'adverse'
-    else:
-        return 'intermediate'
 
-# Helper function for IPSS risk class colors
-def get_risk_class_color(category):
-    if 'very low' in category.lower():
-        return "#c8e6c9"  # Light green
-    elif 'low' in category.lower():
-        return "#dcedc8"  # Lighter green
-    elif 'moderate' in category.lower() or 'intermediate' in category.lower() or 'mod' in category.lower():
-        return "#fff9c4"  # Light yellow
-    elif 'high' in category.lower() and 'very' not in category.lower():
-        return "#ffccbc"  # Light orange/red
-    elif 'very high' in category.lower():
-        return "#ffcdd2"  # Light red
-    else:
-        return "#f5f7fa"  # Light gray
 
 # Function to display ELN risk assessment for AML
 def show_eln_risk_assessment(res, free_text_input_value):
@@ -1307,20 +1282,85 @@ def show_eln_risk_assessment(res, free_text_input_value):
                 del display_data['__prompts']
             st.json(display_data)
 
+# Helper function (similar to the one in ELN) to get CSS class for risk boxes
+def get_risk_class(risk_category):
+    """Maps risk category string to a CSS class."""
+    if not risk_category or not isinstance(risk_category, str):
+        return "risk-unknown" # Default class if category is missing or not a string
+    
+    risk_lower = risk_category.lower().replace(" ", "-").replace("_", "-")
+    # Map specific IPSS categories to standardized classes if needed, 
+    # otherwise, use the direct mapping.
+    # Example mapping (adjust based on your actual categories):
+    if "very-low" in risk_lower: return "risk-very-low"
+    if "low" in risk_lower: return "risk-low"
+    if "intermediate" in risk_lower or "moderate" in risk_lower : return "risk-moderate" # Handle variations
+    if "very-high" in risk_lower: return "risk-very-high"
+    if "high" in risk_lower: return "risk-high"
+    
+    # Fallback if no specific class matched (can adjust this logic)
+    return f"risk-{risk_lower}"
+
+
 # Function to display IPSS risk assessment for MDS
 def show_ipss_risk_assessment(res, free_text_input_value):
+    # Assuming these imports are correctly set up in your project structure
     from classifiers.mds_risk_classifier import calculate_ipssm, calculate_ipssr, get_ipssm_survival_data
     from parsers.mds_ipss_parser import parse_ipss_report
-    
+
     st.markdown("## IPSS Risk Assessment")
     st.markdown("International Prognostic Scoring System for myelodysplastic syndromes.")
-    
-    st.markdown("")  # Add empty line for spacing
-    
-    # Add custom styling to match the dedicated calculator
+    st.markdown("") # Add empty line for spacing
+
+    # Define CSS styles for risk boxes (can be moved to a central CSS file later)
+    # Using similar class names as ELN for potential consolidation
     st.markdown("""
     <style>
-        .score-box {
+        .risk-box {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 10px;
+            background-color: #ffffff; /* Default background */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .risk-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+            color: #333;
+        }
+        .risk-value {
+            font-size: 1.6em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+         .risk-os {
+            font-size: 0.9em;
+            color: #555;
+        }
+        /* Specific Risk Level Styling */
+        .risk-box.risk-very-low { background-color: #E8F5E9; border-left: 5px solid #4CAF50; }
+        .risk-box.risk-very-low .risk-value { color: #2E7D32; }
+
+        .risk-box.risk-low { background-color: #F1F8E9; border-left: 5px solid #8BC34A; }
+        .risk-box.risk-low .risk-value { color: #558B2F; }
+
+        .risk-box.risk-moderate { background-color: #FFFDE7; border-left: 5px solid #FFEB3B; }
+        .risk-box.risk-moderate .risk-value { color: #F9A825; }
+
+        .risk-box.risk-high { background-color: #FFF3E0; border-left: 5px solid #FF9800; }
+        .risk-box.risk-high .risk-value { color: #E65100; }
+
+        .risk-box.risk-very-high { background-color: #FFEBEE; border-left: 5px solid #F44336; }
+        .risk-box.risk-very-high .risk-value { color: #C62828; }
+
+        .risk-box.risk-unknown { background-color: #f5f5f5; border-left: 5px solid #9e9e9e; }
+        .risk-box.risk-unknown .risk-value { color: #616161; }
+        
+        /* Styles for parameter contribution graph (optional) */
+         .score-box { /* Keep if used elsewhere, but risk-box is primary now */
             background-color: white;
             padding: 15px;
             border: 1px solid #eee;
@@ -1336,337 +1376,287 @@ def show_ipss_risk_assessment(res, free_text_input_value):
             font-size: 1.5rem;
             font-weight: 700;
         }
-        .category-value {
-            font-size: 1.2rem;
-            padding: 5px 10px;
-            border-radius: 4px;
-            display: inline-block;
-            font-weight: 600;
-            margin-top: 5px;
-        }
-        .risk-very-low {
-            background-color: #c8e6c9;
-            color: #2e7d32;
-        }
-        .risk-low {
-            background-color: #dcedc8;
-            color: #558b2f;
-        }
-        .risk-moderate {
-            background-color: #fff9c4;
-            color: #f9a825;
-        }
-        .risk-high {
-            background-color: #ffccbc;
-            color: #d84315;
-        }
-        .risk-very-high {
-            background-color: #ffcdd2;
-            color: #c62828;
-        }
     </style>
     """, unsafe_allow_html=True)
-    
-    # Override section for IPSS calculations
-    with st.expander("Required fields", expanded=True):
-        st.markdown("### Required fields")
-        st.markdown("Manually enter override values below. All fields must be set before you can calculate the risk.")
-        
-        # Create 3 columns for the clinical value inputs
+
+    # --- Input Section ---
+    with st.expander("Override Clinical Values (Optional)", expanded=False):
+        st.markdown("Manually enter values below to override any detected in the text. All fields must be provided if overriding.")
+
         col1, col2, col3 = st.columns(3)
-        
+
         with col1:
             hb_override = st.number_input(
-                "Hemoglobin (g/dL)", 
-                min_value=0.0, 
-                max_value=20.0,
-                value=0.0,
-                step=0.1,
-                help="Enter a value to override the report. (Default is 0, meaning not set.)",
-                key="ipss_hb_override"
+                "Hemoglobin (g/dL)", min_value=0.0, max_value=25.0, value=None, step=0.1,
+                help="Leave blank to use value from text (if found).", key="ipss_hb_override", placeholder="e.g., 10.5"
             )
-            
             plt_override = st.number_input(
-                "Platelets (10^9/L)",
-                min_value=0, 
-                max_value=1000,
-                value=0,
-                step=1,
-                help="Enter a value to override the report. (Default is 0, meaning not set.)",
-                key="ipss_plt_override"
+                "Platelets (10^9/L)", min_value=0, max_value=2000, value=None, step=1,
+                help="Leave blank to use value from text (if found).", key="ipss_plt_override", placeholder="e.g., 50"
             )
-        
+
         with col2:
             anc_override = st.number_input(
-                "ANC (10^9/L)",
-                min_value=0.0, 
-                max_value=20.0,
-                value=0.0,
-                step=0.1,
-                help="Enter a value to override the report. (Default is 0, meaning not set.)",
-                key="ipss_anc_override"
+                "ANC (10^9/L)", min_value=0.0, max_value=50.0, value=None, step=0.1,
+                help="Leave blank to use value from text (if found).", key="ipss_anc_override", placeholder="e.g., 0.8"
             )
-            
             blast_override = st.number_input(
-                "Bone Marrow Blasts (%)",
-                min_value=0.0, 
-                max_value=30.0,
-                value=0.0,
-                step=0.1,
-                help="Enter a value to override the report. (Default is 0, meaning not set.)",
-                key="ipss_blast_override"
+                "Bone Marrow Blasts (%)", min_value=0.0, max_value=100.0, value=None, step=0.1, # Max 100%
+                help="Leave blank to use value from text (if found).", key="ipss_blast_override", placeholder="e.g., 5"
             )
-        
+
         with col3:
             age_override = st.number_input(
-                "Age (years)",
-                min_value=0, 
-                max_value=120,
-                value=0,  # 0 indicates "not set"
-                step=1,
-                help="Enter an age greater than 0 to override the report.",
-                key="ipss_age_override"
+                "Age (years)", min_value=0, max_value=120, value=None, step=1,
+                help="Leave blank to use value from text (if found).", key="ipss_age_override", placeholder="e.g., 70"
             )
-
-    st.markdown("")  # Add an empty line for spacing
-
-    # Check if all override fields have been manually set:
-    all_fields_entered = (
-        (hb_override != 0.0) and 
-        (plt_override != 0) and 
-        (anc_override != 0.0) and 
-        (blast_override != 0.0) and 
-        (age_override != 0)
-    )
-
-    if not all_fields_entered:
-        st.warning("Please manually enter values for all override fields before submitting.")
-
-    # Button to calculate with overrides (disabled until all fields are set)
-    calculate_button = st.button(
-        "Calculate IPSS Risk", 
-        key="calculate_ipss_with_overrides", 
-        type="primary", 
-        disabled=not all_fields_entered
-    )
-
-
-    # IPSS-M/R Risk data section - Only run when calculate button is pressed
-    if calculate_button and free_text_input_value:
-        # Parse the free text for ipss risk parameters
-        ipss_data = parse_ipss_report(free_text_input_value)
+            
+        # Determine if overrides are being attempted (at least one field filled)
+        attempting_override = any(v is not None for v in [hb_override, plt_override, anc_override, blast_override, age_override])
         
-        if ipss_data:
-            # Apply overrides if specified by user
-            if hb_override > 0:
-                ipss_data["HB"] = hb_override
-                st.sidebar.info(f"Using override: Hemoglobin: {hb_override} g/dL")
-            
-            if plt_override > 0:
-                ipss_data["PLT"] = plt_override
-                st.sidebar.info(f"Using override: Platelets: {plt_override} × 10^9/L")
-            
-            if anc_override > 0:
-                ipss_data["ANC"] = anc_override
-                st.sidebar.info(f"Using override: ANC: {anc_override} × 10^9/L")
-            
-            if blast_override > 0:
-                ipss_data["BM_BLAST"] = blast_override
-                st.sidebar.info(f"Using override: BM Blasts: {blast_override}%")
-            
-            if age_override > 18:  # Age 18 is the minimum and signals "not set"
-                ipss_data["AGE"] = age_override
-                st.sidebar.info(f"Using override: Age: {age_override} years")
+        # Check if ALL override fields are filled if an override is attempted
+        all_overrides_provided = all(v is not None for v in [hb_override, plt_override, anc_override, blast_override, age_override])
+        
+        overrides_valid = (not attempting_override) or (attempting_override and all_overrides_provided)
+        
+        if attempting_override and not all_overrides_provided:
+            st.warning("If overriding, all clinical values (Hb, Plt, ANC, Blasts, Age) must be provided.")
 
-            st.sidebar.markdown("---")
-            st.sidebar.markdown("### Results")
-            
-            # Calculate IPSS-M scores
-            ipssm_result = calculate_ipssm(patient_data=ipss_data)
-            
-            # Calculate IPSS-R scores with components
-            ipssr_result = calculate_ipssr(patient_data=ipss_data, return_components=True)
-            
-            # Store the parameter contributions for visualization
-            parameter_contributions = {}
-            if "components" in ipssr_result:
-                parameter_contributions = {
-                    "Cytogenetics": ipssr_result["components"].get("Cytogenetics", 0),
-                    "Blasts": ipssr_result["components"].get("Blasts", 0),
-                    "Hemoglobin": ipssr_result["components"].get("Hemoglobin", 0),
-                    "Platelets": ipssr_result["components"].get("Platelets", 0),
-                    "ANC": ipssr_result["components"].get("ANC", 0)
-                }
-            
-            # Create two columns for risk displays
-            ipss_col1, ipss_col2 = st.sidebar.columns(2)
-            
+    st.markdown("") # Add an empty line for spacing
+
+    # --- Calculation Trigger ---
+    # Disable button if text input is missing OR if overrides are attempted but incomplete
+    can_calculate = bool(free_text_input_value) and overrides_valid
+    
+    calculate_button = st.button(
+        "Calculate IPSS Risk",
+        key="calculate_ipss_risk_main", # Changed key to avoid conflicts if sidebar still exists elsewhere
+        type="primary",
+        disabled=not can_calculate
+    )
+
+    # Display info message if calculation cannot proceed
+    if not free_text_input_value:
+         st.info("Please provide clinical text in the input box above to enable IPSS calculation.")
+    elif not overrides_valid:
+         st.info("Please complete all override fields if you wish to use manual values, or clear them to use values from text.")
+
+
+    # --- Results Section (Displayed in Main Panel) ---
+    # Check if the button was clicked AND calculation is possible
+    if calculate_button and can_calculate:
+        ipss_data = {}
+        ipssm_result = None
+        ipssr_result = None
+        parameter_contributions = {}
+        calculation_error = None
+        override_messages = []
+
+        with st.spinner("Processing IPSS risk assessment..."):
+            try:
+                # Parse the free text for IPSS risk parameters
+                ipss_data = parse_ipss_report(free_text_input_value) if free_text_input_value else {}
+                
+                # Store original parsed data for inspection if needed
+                st.session_state['original_ipss_data'] = ipss_data.copy() if ipss_data else {}
+
+                # Apply overrides if specified by user and are valid
+                if attempting_override and all_overrides_provided:
+                    ipss_data["HB"] = hb_override
+                    override_messages.append(f"Using override: Hemoglobin: {hb_override} g/dL")
+                    ipss_data["PLT"] = plt_override
+                    override_messages.append(f"Using override: Platelets: {plt_override} × 10^9/L")
+                    ipss_data["ANC"] = anc_override
+                    override_messages.append(f"Using override: ANC: {anc_override} × 10^9/L")
+                    ipss_data["BM_BLAST"] = blast_override
+                    override_messages.append(f"Using override: BM Blasts: {blast_override}%")
+                    ipss_data["AGE"] = age_override
+                    override_messages.append(f"Using override: Age: {age_override} years")
+                    
+                    # Store overridden data for inspection
+                    st.session_state['overridden_ipss_data'] = ipss_data.copy()
+
+                # Check if essential data is present AFTER parsing and overrides
+                # (Adjust required fields based on your classifiers)
+                required_fields_present = all(k in ipss_data and ipss_data[k] is not None for k in ["HB", "PLT", "ANC", "BM_BLAST", "CYTO_IPSSR", "AGE"]) # Example required keys
+
+                if ipss_data and required_fields_present: # Ensure data exists and required fields are present
+                    # Calculate IPSS-M scores
+                    # Make sure calculate_ipssm handles potential missing optional fields gracefully
+                    ipssm_result = calculate_ipssm(patient_data=ipss_data)
+
+                    # Calculate IPSS-R scores with components
+                    # Make sure calculate_ipssr handles potential missing optional fields gracefully
+                    ipssr_result = calculate_ipssr(patient_data=ipss_data, return_components=True)
+
+                    # Store the parameter contributions for visualization
+                    if ipssr_result and "components" in ipssr_result:
+                        parameter_contributions = {
+                            "Cytogenetics": ipssr_result["components"].get("Cytogenetics", 0),
+                            "Blasts": ipssr_result["components"].get("Blasts", 0),
+                            "Hemoglobin": ipssr_result["components"].get("Hemoglobin", 0),
+                            "Platelets": ipssr_result["components"].get("Platelets", 0),
+                            "ANC": ipssr_result["components"].get("ANC", 0)
+                        }
+                else:
+                    missing_keys = [k for k in ["HB", "PLT", "ANC", "BM_BLAST", "CYTO_IPSSR", "AGE"] if k not in ipss_data or ipss_data[k] is None]
+                    calculation_error = f"Insufficient data to calculate IPSS scores. Missing or invalid: {', '.join(missing_keys)}. Please check the input text or provide overrides."
+
+            except Exception as e:
+                calculation_error = f"An error occurred during calculation: {e}"
+                st.error(calculation_error) # Show error immediately
+
+        # --- Display Results or Error ---
+        if calculation_error:
+            st.error(calculation_error)
+        elif ipssm_result is not None and ipssr_result is not None:
+            # Display override messages if any
+            if override_messages:
+                 st.info("\n".join(override_messages))
+
+            st.markdown("---") # Separator before results
+            st.markdown("### Results")
+
+            # Create two columns for risk displays in the MAIN panel
+            ipss_col1, ipss_col2 = st.columns(2)
+
             # IPSS-R Risk Classification
             with ipss_col1:
-                risk_category = ipssr_result.get("risk_category", "Unknown")
-                risk_class = risk_category.lower().replace(" ", "-") + "-risk" if risk_category else "moderate-risk"
-                
+                risk_category_r = ipssr_result.get("risk_category", "Unknown")
+                risk_class_r = get_risk_class(risk_category_r) # Use helper function
+                score_r = ipssr_result.get("total_score", "N/A")
+                score_r_display = f"{score_r:.2f}" if isinstance(score_r, (int, float)) else score_r
+
                 st.markdown(f"""
-                <div class='risk-box {risk_class}'>
+                <div class='risk-box {risk_class_r}'>
                     <div class='risk-title'>IPSS-R Risk</div>
-                    <div class='risk-value'>{risk_category}</div>
-                    <div class='risk-os'>Score: {ipssr_result.get("total_score", "N/A")}</div>
+                    <div class='risk-value'>{risk_category_r}</div>
+                    <div class='risk-os'>Score: {score_r_display}</div>
                 </div>
                 """, unsafe_allow_html=True)
-            
+
             # IPSS-M Risk Classification
             with ipss_col2:
                 risk_category_m = ipssm_result.get("means", {}).get("risk_cat", "Unknown")
-                risk_class_m = risk_category_m.lower().replace(" ", "-") + "-risk" if risk_category_m else "moderate-risk"
-                
+                risk_class_m = get_risk_class(risk_category_m) # Use helper function
+                score_m = ipssm_result.get("means", {}).get("risk_score", "N/A")
+                score_m_display = f"{score_m:.2f}" if isinstance(score_m, (int, float)) else score_m
+
                 # Get survival data for the mean risk category
                 survival_data = get_ipssm_survival_data(risk_category_m)
-                
+                median_os_m = survival_data.get('median_os', 'N/A')
+                os_display = f"Median OS: {median_os_m}" if median_os_m != 'N/A' else "" # Show OS if available
+
                 st.markdown(f"""
                 <div class='risk-box {risk_class_m}'>
                     <div class='risk-title'>IPSS-M Risk</div>
                     <div class='risk-value'>{risk_category_m}</div>
-                    <div class='risk-os'>Score: {ipssm_result.get("means", {}).get("risk_score", "N/A")}</div>
+                    <div class='risk-os'>Score: {score_m_display} {os_display}</div>
                 </div>
                 """, unsafe_allow_html=True)
-            
-            # Display parameter contributions graph
-            with st.sidebar.expander("Parameter Contributions", expanded=True):
-                st.markdown("### IPSS-R Score Contributions")
                 
+            st.markdown("") # Spacing
+
+            # Display parameter contributions graph in the MAIN panel expander
+            with st.expander("IPSS-R Parameter Contributions", expanded=False):
                 if parameter_contributions:
-                    import pandas as pd
-                    import plotly.graph_objects as go
-                    
                     # Prepare data for the horizontal bar chart
                     params = list(parameter_contributions.keys())
-                    values = list(parameter_contributions.values())
-                    
+                    values = [v if v is not None else 0 for v in parameter_contributions.values()] # Handle None scores
+
                     # Define colors for different parameter types
                     colors = {
-                        'Cytogenetics': '#FF9800',  # Orange
-                        'Blasts': '#F44336',        # Red 
-                        'Hemoglobin': '#2196F3',    # Blue
-                        'Platelets': '#4CAF50',     # Green
-                        'ANC': '#9C27B0'            # Purple
+                        'Cytogenetics': '#FF9800', # Orange
+                        'Blasts': '#F44336',       # Red
+                        'Hemoglobin': '#2196F3',   # Blue
+                        'Platelets': '#4CAF50',    # Green
+                        'ANC': '#9C27B0'           # Purple
                     }
-                    
+
                     # Create the horizontal bar chart
                     fig = go.Figure(go.Bar(
                         x=values,
                         y=params,
                         orientation='h',
                         marker_color=[colors.get(param, '#757575') for param in params],
-                        text=values,
+                        text=[f'{v:.1f}' for v in values], # Format text display
                         textposition='auto'
                     ))
-                    
+
                     # Customize the layout
                     fig.update_layout(
-                        title="Contribution to IPSS-R Score",
+                        # title="Contribution to IPSS-R Score", # Title inside expander is enough
                         xaxis_title="Points",
                         yaxis_title="Parameters",
                         height=300,
-                        margin=dict(l=20, r=20, t=50, b=20)
+                        margin=dict(l=20, r=20, t=30, b=20), # Adjusted top margin
+                        xaxis=dict(range=[min(0, min(values))-0.5, max(values)+0.5]) # Adjust range slightly
                     )
-                    
+
                     # Add a vertical line for the total score
                     total_score = sum(values)
                     fig.add_vline(
-                        x=total_score, 
-                        line_width=2, 
-                        line_dash="dash", 
+                        x=total_score,
+                        line_width=2,
+                        line_dash="dash",
                         line_color="black",
                         annotation_text=f"Total: {total_score:.1f}",
                         annotation_position="top right"
                     )
-                    
-                    # Display the chart
+
                     st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Show the values as text too
-                    st.markdown("#### Score Components")
-                    for param, value in parameter_contributions.items():
-                        st.markdown(f"- **{param}**: {value} points")
-                    st.markdown(f"- **Total Score**: {total_score}")
+
+                    # Show the values as text too (optional redundancy)
+                    # st.markdown("#### Score Components")
+                    # for param, value in parameter_contributions.items():
+                    #    st.markdown(f"- **{param}**: {value:.1f} points" if value is not None else f"- **{param}**: N/A")
+                    # st.markdown(f"- **Total Score**: {total_score:.1f}")
                 else:
                     st.info("Parameter contribution data not available for visualization.")
-            
-            # Display more detailed information in expander
-            with st.sidebar.expander("IPSS Details", expanded=False):
-                st.markdown("### IPSS-M Details")
-                st.markdown(f"**Mean Risk Score:** {ipssm_result.get('means', {}).get('risk_score', 'N/A')}")
-                st.markdown(f"**Risk Category:** {risk_category_m}")
-                st.markdown(f"**Median OS:** {survival_data.get('median_os', 'N/A')}")
-                
-                st.markdown("### IPSS-R Details")
-                st.markdown(f"**Standard IPSS-R Score:** {ipssr_result.get('total_score', 'N/A')}")
-                st.markdown(f"**Risk Category:** {risk_category}")
-        else:
-            st.sidebar.warning("Insufficient data to calculate IPSS risk scores. Please ensure your text contains clinical values and cytogenetics information.")
-    else:
-        st.info("IPSS-M/R Risk assessment requires free text input with MDS-related data. This feature is only available when using the AI-assisted mode with free text input.")
-        st.markdown("""
-        Consider using the dedicated IPSS-M/R Risk Tool page for more detailed classification.
-        """)
 
-##################################
-# APP MAIN
-##################################
-def app_main():
-    """
-    The main function that manages login checks, sidebar user options,
-    and routes between the 'data_entry_page' and 'results_page'.
-    """
-    token = st.session_state.get("jwt_token")
-    user_data = verify_jwt_token(token) if token else None
-    if not user_data:
-        show_login_page()
-        return
+            # Display more detailed information in MAIN panel expander
+            with st.expander("IPSS Calculation Details", expanded=False):
+                 if ipssm_result:
+                     st.markdown("### IPSS-M Details")
+                     st.markdown(f"**Mean Risk Score:** {score_m_display}")
+                     st.markdown(f"**Risk Category:** {risk_category_m}")
+                     st.markdown(f"**Median OS:** {median_os_m}")
+                     # Add other IPSS-M details if available in ipssm_result['means'] or ipssm_result['std']
+                 else:
+                      st.markdown("### IPSS-M Details")
+                      st.markdown("_Calculation failed or data missing._")
+                      
+                 st.markdown("---") # Separator
+                 
+                 if ipssr_result:
+                     st.markdown("### IPSS-R Details")
+                     st.markdown(f"**IPSS-R Score:** {score_r_display}")
+                     st.markdown(f"**Risk Category:** {risk_category_r}")
+                     # Add IPSS-R survival data if available/calculated
+                 else:
+                     st.markdown("### IPSS-R Details")
+                     st.markdown("_Calculation failed or data missing._")
 
-    # Remove the sidebar IPSS calculator call
-    # sidebar_ipss_calculator()
+            # Display the data used for calculations (optional)
+            with st.expander("Data Inspector - IPSS Features", expanded=False):
+                 st.subheader("Features Used for IPSS Classification")
+                 display_data_key = 'overridden_ipss_data' if attempting_override else 'original_ipss_data'
+                 if display_data_key in st.session_state:
+                     display_data = st.session_state[display_data_key].copy()
+                     # Clean up internal keys if necessary before display
+                     if '__prompts' in display_data: del display_data['__prompts']
+                     st.json(display_data)
+                 else:
+                     st.write("No data available for inspection.")
 
-    # Add sidebar navigation options
-    with st.sidebar:
-        selected = option_menu(
-            menu_title="HaematoAx",
-            options=["AML/MDS Classifier", "IPSS-M/R Risk Tool", "ELN Risk Calculator"],
-            icons=["clipboard-data", "calculator", "graph-up"],
-            menu_icon=None,
-            default_index=0,
-        )
-        
+        # Handle case where calculation was successful but yielded no results (should be caught by error handling ideally)
+        elif not calculation_error and (ipssm_result is None or ipssr_result is None):
+             st.warning("Calculation completed, but no valid IPSS results were generated. This might indicate an issue with the input data or classification logic even if no direct error occurred.")
 
-    with st.sidebar.expander("User Options", expanded=True):
-        st.write("Logged in as:", st.session_state["username"])
-        if st.button("Logout"):
-            st.session_state["jwt_token"] = None
-            st.session_state["username"] = ""
-            cookies["jwt_token"] = ""
-            cookies.save()
-            st.rerun()
-
-    if "page" not in st.session_state:
-        st.session_state["page"] = "data_entry"
-    
-    # Handle navigation selection
-    if selected == "IPSS-M/R Risk Tool":
-        st.session_state["page"] = "ipss_risk_calculator"
-    elif selected == "ELN Risk Calculator":
-        st.session_state["page"] = "eln_risk_calculator"
-    elif selected == "AML/MDS Classifier" and st.session_state["page"] != "results":
-        st.session_state["page"] = "data_entry"
-
-    if st.session_state["page"] == "data_entry":
-        data_entry_page()
-    elif st.session_state["page"] == "results":
-        results_page()
-    elif st.session_state["page"] == "ipss_risk_calculator":
-        ipss_risk_calculator_page()
-    elif st.session_state["page"] == "eln_risk_calculator":
-        eln_risk_calculator_page()
-
+    # Add message if button hasn't been pressed yet (and input is available)
+    elif not calculate_button and can_calculate:
+        st.markdown("---")
+        st.info("Click the 'Calculate IPSS Risk' button above to see the results.")
 
 
 def ipss_risk_calculator_page():
@@ -2652,6 +2642,66 @@ def eln_risk_calculator_page():
 
     else:
         st.info("Enter patient data above and click 'Analyse Report' or 'Calculate ELN Risk' to see the results.")
+
+
+##################################
+# APP MAIN
+##################################
+def app_main():
+    """
+    The main function that manages login checks, sidebar user options,
+    and routes between the 'data_entry_page' and 'results_page'.
+    """
+    token = st.session_state.get("jwt_token")
+    user_data = verify_jwt_token(token) if token else None
+    if not user_data:
+        show_login_page()
+        return
+
+    # Remove the sidebar IPSS calculator call
+    # sidebar_ipss_calculator()
+
+    # Add sidebar navigation options
+    with st.sidebar:
+        selected = option_menu(
+            menu_title="HaematoAx",
+            options=["AML/MDS Classifier", "IPSS-M/R Risk Tool", "ELN Risk Calculator"],
+            icons=["clipboard-data", "calculator", "graph-up"],
+            menu_icon=None,
+            default_index=0,
+        )
+        
+
+    with st.sidebar.expander("User Options", expanded=True):
+        st.write("Logged in as:", st.session_state["username"])
+        if st.button("Logout"):
+            st.session_state["jwt_token"] = None
+            st.session_state["username"] = ""
+            cookies["jwt_token"] = ""
+            cookies.save()
+            st.rerun()
+
+    if "page" not in st.session_state:
+        st.session_state["page"] = "data_entry"
+    
+    # Handle navigation selection
+    if selected == "IPSS-M/R Risk Tool":
+        st.session_state["page"] = "ipss_risk_calculator"
+    elif selected == "ELN Risk Calculator":
+        st.session_state["page"] = "eln_risk_calculator"
+    elif selected == "AML/MDS Classifier" and st.session_state["page"] != "results":
+        st.session_state["page"] = "data_entry"
+
+    if st.session_state["page"] == "data_entry":
+        data_entry_page()
+    elif st.session_state["page"] == "results":
+        results_page()
+    elif st.session_state["page"] == "ipss_risk_calculator":
+        ipss_risk_calculator_page()
+    elif st.session_state["page"] == "eln_risk_calculator":
+        eln_risk_calculator_page()
+
+
 
 
 if __name__ == "__main__":
