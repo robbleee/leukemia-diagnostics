@@ -202,7 +202,7 @@ Extract these fields:
     "t3q_GATA2": false,
     "karyotype_complexity": "Normal" 
 }},
-"cyto_category_ipssr": "Intermediate"
+"cyto_category_ipssr": "Good"
 
 For "karyotype_complexity", choose from "Normal", "Complex (3 abnormalities)", or "Very complex (>3 abnormalities)".
 For "cyto_category_ipssr", choose from "Very Good", "Good", "Intermediate", "Poor", or "Very Poor" based on the IPSS-R criteria:

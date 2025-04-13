@@ -1350,9 +1350,9 @@ def show_ipss_risk_assessment(res, free_text_input_value):
             with col3:
                 age_override = st.number_input(
                     "Age (years)",
-                    min_value=18, 
+                    min_value=0, 
                     max_value=120,
-                    value=18,  # 18 signals "not set"
+                    value=0,  # 18 signals "not set"
                     step=1,
                     help="Enter a value greater than 18 to override the report.",
                     key="age_override"
@@ -1373,7 +1373,7 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                 (plt_override != 0) and 
                 (anc_override != 0.0) and 
                 (blast_override != 0.0) and 
-                (age_override != 18)
+                (age_override != 0)
             )
             
             if not all_fields_entered:
@@ -2336,9 +2336,9 @@ def ipss_risk_calculator_page():
             with col3:
                 age_override = st.number_input(
                     "Age (years)",
-                    min_value=18, 
+                    min_value=0, 
                     max_value=120,
-                    value=18,  # 18 signals "not set"
+                    value=0,  # 18 signals "not set"
                     step=1,
                     help="Enter a value greater than 18 to override the report.",
                     key="age_override"
@@ -2357,7 +2357,7 @@ def ipss_risk_calculator_page():
                 (plt_override != 0) and 
                 (anc_override != 0.0) and 
                 (blast_override != 0.0) and 
-                (age_override != 18)
+                (age_override != 0)
             )
             
             if not all_fields_entered:
