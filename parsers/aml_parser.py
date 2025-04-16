@@ -13,7 +13,7 @@ def get_json_from_prompt(prompt: str) -> dict:
     response = client.chat.completions.create(
         model="o3-mini",
         messages=[
-            {"role": "system", "content": "You are a knowledgeable hematologist who returns valid JSON."},
+            {"role": "system", "content": "You are a knowledgeable haematologist who returns valid JSON."},
             {"role": "user", "content": prompt}
         ]
     )
@@ -22,7 +22,7 @@ def get_json_from_prompt(prompt: str) -> dict:
 
 def parse_genetics_report_aml(report_text: str) -> dict:
     """
-    Sends the free-text hematological report to OpenAI using separate prompts:
+    Sends the free-text haematological report to OpenAI using separate prompts:
       1) Basic clinical numeric/boolean values,
       2a) AML-defining recurrent genetic abnormalities,
       2b) Biallelic TP53 mutation,
@@ -158,7 +158,7 @@ def parse_genetics_report_aml(report_text: str) -> dict:
     # Prompt #1: Basic clinical numeric & boolean values.
     # -------------------------------------------------------
     first_prompt_1 = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract the following fields from the text and format them into a valid JSON object exactly as specified below.
 For boolean fields, use true/false. For numerical fields, provide the value.
 If a field is not found or unclear, set it to false (for booleans) or null (for numerical values).
@@ -171,7 +171,7 @@ Extract these fields:
 
 Return valid JSON only with these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 
 [START OF REPORT]
 
@@ -182,7 +182,7 @@ Here is the free-text hematological report to parse:
 
     # Prompt #2a: AML_defining_recurrent_genetic_abnormalities
     first_prompt_2a = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
 For boolean fields, use true/false.
 
@@ -233,7 +233,7 @@ Extract this nested field:
 
 Return valid JSON only with these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 
 [START OF REPORT]
 
@@ -244,7 +244,7 @@ Here is the free-text hematological report to parse:
 
     # Prompt #2b: Biallelic_TP53_mutation
     first_prompt_2b = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
 For boolean fields, use true/false.
 
@@ -258,7 +258,7 @@ Extract this nested field:
 
 Return valid JSON only with these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 
 [START OF REPORT]
 
@@ -269,7 +269,7 @@ Here is the free-text hematological report to parse:
 
     # Prompt #2c: MDS_related_mutation and MDS_related_cytogenetics
     first_prompt_2c = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract the following information from the text and format them into a valid JSON object exactly as specified below.
 For boolean fields, use true/false.
 
@@ -308,7 +308,7 @@ Extract these nested fields:
 
 Return valid JSON only with these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 
 [START OF REPORT]
 
@@ -319,7 +319,7 @@ Here is the free-text hematological report to parse:
 
     # Prompt #3: Qualifiers
     first_prompt_3 = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
 For boolean fields, use true/false and for text fields, output the value exactly. If a field is not found or unclear, set it to false or "None" as appropriate.
 Assume MDS is over 3 months ago unless stated otherwise.
@@ -334,7 +334,7 @@ Extract these fields:
 
 Return valid JSON only with these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 
 [START OF REPORT]
 
@@ -345,7 +345,7 @@ Here is the free-text hematological report to parse:
 
     # Prompt #4: AML differentiation
     second_prompt = f"""
-The previous hematological report needs to be evaluated for AML differentiation.
+The previous haematological report needs to be evaluated for AML differentiation.
 Using only data from morphology, histology, and flow cytometry (ignore any genetic or cytogenetic data),
 suggest the most appropriate category of AML differentiation and convert that suggestion to the corresponding FAB classification code according to the mapping below:
 
@@ -374,7 +374,7 @@ You may also provide a "differentiation_reasoning" key with bullet point logic.
 
     # Prompt #5: Revised ELN24 genes
     eln2024_prompt = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract whether the following genes are mutated (true/false) or not mentioned (false).
 For each gene, set the value to true if the text indicates that gene is mutated; otherwise false.
 
@@ -392,7 +392,7 @@ For each gene, set the value to true if the text indicates that gene is mutated;
 
 Return valid JSON only with these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 
 [START OF REPORT]
 
@@ -403,7 +403,7 @@ Here is the free-text hematological report to parse:
 
     # Prompt #6: Check if cytogenetic data is missing
     cytogenetics_check_prompt = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Analyze whether the report contains any cytogenetic data or report. Examples of cytogenetic data include:
 - Karyotype information
 - FISH analysis results
@@ -416,7 +416,7 @@ Return a JSON object with a single key "no_cytogenetics_data" set to:
 
 Return valid JSON only with this key and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 
 [START OF REPORT]
 

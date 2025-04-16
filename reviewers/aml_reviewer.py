@@ -88,7 +88,7 @@ Derivation: {icc_deriv}
         classification_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a knowledgeable hematologist."},
+                {"role": "system", "content": "You are a knowledgeable haematologist."},
                 {"role": "user", "content": classification_prompt}
             ],
             max_tokens=600,
@@ -155,7 +155,7 @@ Please follow these rules:
         gene_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a knowledgeable hematologist."},
+                {"role": "system", "content": "You are a knowledgeable haematologist."},
                 {"role": "user", "content": gene_prompt}
             ],
             max_tokens=3000,
@@ -221,7 +221,7 @@ Please follow these rules:
         mrd_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a knowledgeable hematologist."},
+                {"role": "system", "content": "You are a knowledgeable haematologist."},
                 {"role": "user", "content": mrd_prompt}
             ],
             max_tokens=3000,
@@ -282,7 +282,7 @@ def get_gpt4_review_aml_additional_comments(classification: dict,
         additional_comments_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a knowledgeable hematologist."},
+                {"role": "system", "content": "You are a knowledgeable haematologist."},
                 {"role": "user", "content": additional_comments_prompt}
             ],
             max_tokens=3000,

@@ -12,7 +12,7 @@ def classify_combined_ICC2022(parsed_data: dict) -> tuple:
     then the MDS ICC classifier is called and its result is returned.
     
     Args:
-        parsed_data (dict): A dictionary containing extracted hematological report data.
+        parsed_data (dict): A dictionary containing extracted haematological report data.
     
     Returns:
         tuple: (classification (str), derivation (list of str), disease_type (str))

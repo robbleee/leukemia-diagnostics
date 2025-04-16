@@ -13,7 +13,7 @@ client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 ##############################
 def parse_genetics_report_mds(report_text: str) -> dict:
     """
-    Parses free-text hematological/cytogenetics reports specifically for MDS classification
+    Parses free-text haematological/cytogenetics reports specifically for MDS classification
     under WHO 2022. Returns a dict containing relevant fields.
     """
     if not report_text.strip():

@@ -74,7 +74,7 @@ def parse_eln_report(report_text: str) -> Dict[str, Any]:
     
     # Build the OpenAI prompt
     prompt = f"""
-    You are a specialized hematology AI assistant with expertise in AML and MDS genetics. 
+    You are a specialized haematology AI assistant with expertise in AML and MDS genetics. 
     Please analyse the clinical report provided below and extract information relevant 
     for ELN 2022 and ELN 2024 risk stratification.
     
@@ -135,7 +135,7 @@ def parse_eln_report(report_text: str) -> Dict[str, Any]:
         response = client.chat.completions.create(
             model="o3-mini",  
             messages=[
-                {"role": "system", "content": "You are a specialized hematology AI that returns valid JSON."},
+                {"role": "system", "content": "You are a specialized haematology AI that returns valid JSON."},
                 {"role": "user", "content": prompt}
             ],
         )

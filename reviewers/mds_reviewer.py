@@ -88,7 +88,7 @@ Derivation: {icc_deriv}
         classification_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a knowledgeable hematologist experienced in MDS."},
+                {"role": "system", "content": "You are a knowledgeable haematologist experienced in MDS."},
                 {"role": "user", "content": classification_prompt}
             ],
             max_tokens=600,
@@ -154,7 +154,7 @@ Follow these rules:
         gene_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a knowledgeable hematologist experienced in MDS."},
+                {"role": "system", "content": "You are a knowledgeable haematologist experienced in MDS."},
                 {"role": "user", "content": gene_prompt}
             ],
             max_tokens=3000,
@@ -213,7 +213,7 @@ Provide a section called Additional Considerations for MDS.
         additional_comments_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a knowledgeable hematologist experienced in MDS."},
+                {"role": "system", "content": "You are a knowledgeable haematologist experienced in MDS."},
                 {"role": "user", "content": additional_comments_prompt}
             ],
             max_tokens=3000,

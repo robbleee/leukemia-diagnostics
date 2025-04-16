@@ -274,7 +274,7 @@ def show_login_page():
         st.markdown("""
         <div class="logo-container">
             <h1 class="app-title">HaematoAx</h1>
-            <p class="app-subtitle">Advanced Hematologic Classification System</p>
+            <p class="app-subtitle">Haematology classification Support tool</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -1418,11 +1418,7 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                     if patient_data.get("CYTO_IPSSR") is None:
                         patient_data["CYTO_IPSSR"] = "Good"
                     
-                    # Handle TP53 overrides - updated to match manual form
-                    patient_data["TP53mut"] = "NA"
-                    patient_data["TP53loh"] = "NA"
-                    patient_data["TP53maxvaf"] = "NA"
-                    patient_data["TP53multi"] = "NA"
+
                     
                     # Store for calculations but keep the prompts intact
                     if 'original_ipss_data' in st.session_state and '__prompts' in st.session_state['original_ipss_data']:
@@ -1435,6 +1431,11 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                     calculation_data = patient_data.copy()
                     if '__prompts' in calculation_data:
                         del calculation_data['__prompts']
+                    
+                    # Make sure to keep the default VAF flag in the session state data
+                    if 'used_default_tp53_vaf' in patient_data:
+                        calculation_data['used_default_tp53_vaf'] = patient_data['used_default_tp53_vaf']
+                        
                     st.session_state['ipss_patient_data'] = calculation_data
                     
                     try:
@@ -1549,7 +1550,9 @@ def show_ipss_risk_assessment(res, free_text_input_value):
                 except Exception as e:
                     st.error(f"Error calculating risk scores: {str(e)}")
     
-    # Add JSON data display expander
+    # Remove the separate overrides panel, since it's now integrated above
+    
+    # Add JSON data display expander before the help information
     if 'ipss_patient_data' in st.session_state:
         with st.expander("Data Inspector - View JSON Data", expanded=False):
             # Only show the calculation data - simplified to a single tab
@@ -1663,6 +1666,10 @@ def show_ipss_risk_assessment(res, free_text_input_value):
         
         # Create a results header
         st.markdown("## Risk Assessment Results")
+        
+        # Show warning if default TP53 VAF value was used
+        if patient_data and patient_data.get('used_default_tp53_vaf', False):
+            st.warning("⚠️ **Notice:** Default TP53 mutation VAF value (30%) was used in calculations because no specific VAF value was found in your report. For more accurate risk classification, please provide the actual VAF if available.", icon="⚠️")
         
         # Create colored category display helper function
         def get_risk_class_color(category):
@@ -2401,12 +2408,7 @@ def ipss_risk_calculator_page():
                     # Default cytogenetic value if not available - normal karyotype
                     if patient_data.get("CYTO_IPSSR") is None:
                         patient_data["CYTO_IPSSR"] = "Good"
-                    
-                    # Handle TP53 overrides - updated to match manual form
-                    patient_data["TP53mut"] = "NA"
-                    patient_data["TP53loh"] = "NA"
-                    patient_data["TP53maxvaf"] = "NA"
-                    patient_data["TP53multi"] = "NA"
+
                     
                     # Store for calculations but keep the prompts intact
                     if 'original_ipss_data' in st.session_state and '__prompts' in st.session_state['original_ipss_data']:
@@ -2419,6 +2421,11 @@ def ipss_risk_calculator_page():
                     calculation_data = patient_data.copy()
                     if '__prompts' in calculation_data:
                         del calculation_data['__prompts']
+                    
+                    # Make sure to keep the default VAF flag in the session state data
+                    if 'used_default_tp53_vaf' in patient_data:
+                        calculation_data['used_default_tp53_vaf'] = patient_data['used_default_tp53_vaf']
+                        
                     st.session_state['ipss_patient_data'] = calculation_data
                     
                     try:
@@ -2551,8 +2558,6 @@ def ipss_risk_calculator_page():
             else:
                 st.info("No calculation data available yet. Run a calculation first.")
     
-    # Remove help information section - moved to sidebar
-    
     # Display results only if they exist in session state
     if (st.session_state['ipssm_result'] is not None and 
         st.session_state['ipssr_result'] is not None and
@@ -2650,6 +2655,10 @@ def ipss_risk_calculator_page():
         
         # Create a results header
         st.markdown("## Risk Assessment Results")
+        
+        # Show warning if default TP53 VAF value was used
+        if patient_data and patient_data.get('used_default_tp53_vaf', False):
+            st.warning("⚠️ **Notice:** Default TP53 mutation VAF value (30%) was used in calculations because no specific VAF value was found in your report. For more accurate risk classification, please provide the actual VAF if available.", icon="⚠️")
         
         # Create colored category display helper function
         def get_risk_class_color(category):
@@ -2757,7 +2766,7 @@ def ipss_risk_calculator_page():
                 # Sort contributions by absolute value
                 sorted_contributions = sorted(
                     contributions.items(),
-                    key=lambda x: abs(x[1]),
+                    key=lambda x: abs(x[1]) if x[0] != 'total' else 0,
                     reverse=True
                 )
                 
@@ -2904,11 +2913,11 @@ def ipss_risk_calculator_page():
                     "Parameter": ["Hemoglobin", "Platelets", "ANC", "Bone Marrow Blasts", "Cytogenetics"],
                     "Value": [patient_data["HB"], patient_data["PLT"], patient_data["ANC"], patient_data["BM_BLAST"], patient_data["CYTO_IPSSR"]],
                     "Category": [
-                        f"{formatted_ipssr['hb_category']} ({components['Hemoglobin']} points)",
-                        f"{formatted_ipssr['plt_category']} ({components['Platelets']} points)",
-                        f"{formatted_ipssr['anc_category']} ({components['ANC']} points)",
-                        f"{formatted_ipssr['blast_category']} ({components['Bone Marrow Blasts']} points)",
-                        f"{formatted_ipssr['cyto_category']} ({components['Cytogenetics']} points)"
+                        f"{formatted_ipssr['hb_category']} ({components.get('Hemoglobin', 'N/A')} points)",
+                        f"{formatted_ipssr['plt_category']} ({components.get('Platelets', 'N/A')} points)",
+                        f"{formatted_ipssr['anc_category']} ({components.get('ANC', 'N/A')} points)",
+                        f"{formatted_ipssr['blast_category']} ({components.get('Bone Marrow Blasts', 'N/A')} points)",
+                        f"{formatted_ipssr['cyto_category']} ({components.get('Cytogenetics', 'N/A')} points)"
                     ]
                 }
                 

@@ -1,16 +1,16 @@
-# WHO Hematologic Classification Tool
+# WHO Haematologic Classification Tool
 
 ![Streamlit App](https://blood-cancer-classifier.streamlit.app/)
 
 ## 📚 Overview
 
-The **WHO Hematologic Classification Tool** is a web-based application designed to assist clinicians, researchers, and students in classifying hematologic malignancies based on user-provided data. Leveraging the World Health Organization (WHO) classification guidelines, this tool offers a streamlined and intuitive interface for determining cancer types, providing detailed derivations, and suggesting clinical next steps.
+The **WHO Haematologic Classification Tool** is a web-based application designed to assist clinicians, researchers, and students in classifying haematologic malignancies based on user-provided data. Leveraging the World Health Organization (WHO) classification guidelines, this tool offers a streamlined and intuitive interface for determining cancer types, providing detailed derivations, and suggesting clinical next steps.
 
 **Disclaimer**: This tool is intended for **educational purposes only** and should **not** be used as a substitute for professional medical advice or diagnosis.
 
 ## 🚀 Features
 
-- **Comprehensive Classification**: Identifies a wide range of hematologic malignancies, including rare and aggressive subtypes.
+- **Comprehensive Classification**: Identifies a wide range of haematologic malignancies, including rare and aggressive subtypes.
 - **User-Friendly Interface**: Organized input panels with clear sections for easy data entry.
 - **Detailed Derivation**: Provides step-by-step explanations of the classification logic.
 - **AI-Powered Recommendations**: (For authenticated users) Generates AI-driven reviews and clinical next steps.
@@ -34,7 +34,7 @@ Ensure you have the following installed on your system:
 
     ```bash
     git clone https://github.com/robbleee/blood-cancer-classifier.git
-    cd hematologic-classification-tool
+    cd haematologic-classification-tool
     ```
 
 2. **Create and activate a virtual environment**:
@@ -153,7 +153,7 @@ if __name__ == "__main__":
      api_key = "<your-openai-api-key>"
      ```
 
-## 📋 Classifiable Hematologic Malignancies
+## 📋 Classifiable Haematologic Malignancies
 
 1. Acute Erythroid Leukemia (AML-M6)
 2. Acute Lymphoblastic Leukemia (ALL, Pediatric)

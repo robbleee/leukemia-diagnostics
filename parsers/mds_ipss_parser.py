@@ -13,7 +13,7 @@ def get_json_from_prompt(prompt: str) -> dict:
     response = client.chat.completions.create(
         model="o3-mini",
         messages=[
-            {"role": "system", "content": "You are a knowledgeable hematologist who returns valid JSON."},
+            {"role": "system", "content": "You are a knowledgeable haematologist who returns valid JSON."},
             {"role": "user", "content": prompt}
         ]
     )
@@ -40,14 +40,14 @@ def try_convert_tp53_vaf(vaf_value):
         if isinstance(vaf_value, (int, float)) and vaf_value > 0:
             return vaf_value
         else:
-            return "NA"
+            return 0.0  # Return 0.0 instead of "NA" to avoid type issues later
     except (ValueError, TypeError):
-        # If conversion fails, return "NA"
-        return "NA"
+        # If conversion fails, return 0.0 instead of "NA"
+        return 0.0
 
 def parse_ipss_report(report_text: str) -> dict:
     """
-    Sends the free-text hematological report to OpenAI to extract values 
+    Sends the free-text haematological report to OpenAI to extract values 
     needed for IPSS-M and IPSS-R risk classification.
     
     Extracts:
@@ -137,14 +137,14 @@ def parse_ipss_report(report_text: str) -> dict:
             "STAG2": False,
             "WT1": False
         },
-        "cyto_category_ipssr": "Intermediate"  # IPSS-R cytogenetic category: "Very Good", "Good", "Intermediate", "Poor", "Very Poor"
+        "cyto_category_ipssr": "Good"  # IPSS-R cytogenetic category: "Very Good", "Good", "Intermediate", "Poor", "Very Poor"
     }
     
     # -------------------------------------------------------
     # Prompt #1: Clinical Values
     # -------------------------------------------------------
     clinical_prompt = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract the following clinical values from the text and format them into a valid JSON object.
 For numerical fields, provide the value as a number (not a string).
 If a field is not found or unclear, use the default value provided.
@@ -160,7 +160,7 @@ Extract these fields:
 
 Return valid JSON only with these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 
 [START OF REPORT]
 
@@ -173,7 +173,7 @@ Here is the free-text hematological report to parse:
     # Prompt #2: Cytogenetics
     # -------------------------------------------------------
     cytogenetics_prompt = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract the following cytogenetic information from the text and format it into a valid JSON object.
 For boolean fields, use true/false.
 
@@ -214,7 +214,7 @@ For "cyto_category_ipssr", choose from "Very Good", "Good", "Intermediate", "Poo
 
 Return valid JSON only with these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 
 [START OF REPORT]
 
@@ -227,7 +227,7 @@ Here is the free-text hematological report to parse:
     # Prompt #3: TP53 details
     # -------------------------------------------------------
     tp53_prompt = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract the TP53 mutation information from the text and format it into a valid JSON object.
 
 Extract these fields:
@@ -245,7 +245,6 @@ IMPORTANT RULES:
 
 Examples of what to look for:
 - "TP53 mutation with 45% VAF" → TP53mut: "1", TP53maxvaf: 45.0, TP53loh: false
-- "Biallelic TP53 mutation" → TP53mut: "2", TP53maxvaf: 30.0, TP53loh: true
 - "TP53 mutation with loss of heterozygosity" → TP53mut: "1", TP53maxvaf: 30.0, TP53loh: true
 - "Two TP53 mutations" → TP53mut: "2", TP53maxvaf: 30.0, TP53loh: false
 - "No TP53 mutation" → TP53mut: "0", TP53maxvaf: 0.0, TP53loh: false
@@ -254,7 +253,7 @@ Take care to distinguish between single and multiple TP53 mutations. If the text
 
 Return valid JSON only with these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 
 [START OF REPORT]
 
@@ -267,7 +266,7 @@ Here is the free-text hematological report to parse:
     # Prompt #4: Gene mutations
     # -------------------------------------------------------
     genes_prompt = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract information about gene mutations from the text and format it into a valid JSON object.
 For each gene, set the value to true if the text indicates that gene is mutated; otherwise false.
 
@@ -325,7 +324,7 @@ Examples of text that should set TP53multi to true:
 
 Return valid JSON only with these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 
 [START OF REPORT]
 
@@ -453,28 +452,35 @@ Here is the free-text hematological report to parse:
             "del17_17p": 1 if parsed_data["cytogenetics"]["del17p"] else 0,
             "complex": 1 if parsed_data["cytogenetics"]["karyotype_complexity"] in ["Complex (3 abnormalities)", "Very complex (>3 abnormalities)"] else 0,
             
-            # TP53 status - FIXED: Convert values and provide fallbacks
+            # TP53 status
             "TP53mut": str(parsed_data["tp53_details"]["TP53mut"]),  # Ensure it's a string
             "TP53maxvaf": try_convert_tp53_vaf(parsed_data["tp53_details"]["TP53maxvaf"]),
             "TP53loh": "1" if parsed_data["tp53_details"]["TP53loh"] else "0",
-            "TP53multi": 1 if parsed_data["gene_mutations"].get("TP53multi", False) or str(parsed_data["tp53_details"]["TP53mut"]) == "2" else 0
+            "TP53multi": 1 if parsed_data["gene_mutations"].get("TP53multi", False) or str(parsed_data["tp53_details"]["TP53mut"]) == "2" else 0,
+            
+            # Flag to indicate if default values were used
+            "used_default_tp53_vaf": False
         }
         
         # Additional validation for TP53 data
         if isinstance(ipssm_data["TP53mut"], (int, float)):
             ipssm_data["TP53mut"] = str(int(ipssm_data["TP53mut"]))
         
-        # Check for TP53 data consistency and apply fallbacks
-        # If TP53mut is "1" or "2", ensure TP53maxvaf has a value other than "NA"
-        if ipssm_data["TP53mut"] in ["1", "2"] and ipssm_data["TP53maxvaf"] == "NA":
-            print("⚠️ TP53 mutation present but VAF is NA. Setting default value of 30.0")
+        # For TP53 mutations with no VAF value, use a default VAF
+        if ipssm_data["TP53mut"] in ["1", "2"] and (ipssm_data["TP53maxvaf"] == "NA" or ipssm_data["TP53maxvaf"] == 0):
+            print("⚠️ TP53 mutation present but VAF is missing or 0. Setting default value of 30.0")
             ipssm_data["TP53maxvaf"] = 30.0  # Default value if mutation is present but VAF is missing
+            ipssm_data["used_default_tp53_vaf"] = True  # Mark that default VAF was used
             
         # If TP53mut isn't one of the expected values, fix it
         if ipssm_data["TP53mut"] not in ["0", "1", "2"]:
             print(f"⚠️ Invalid TP53mut value: {ipssm_data['TP53mut']}. Converting to appropriate string.")
             if ipssm_data["TP53mut"] and ipssm_data["TP53mut"].lower() not in ["0", "false", "no", "none"]:
                 ipssm_data["TP53mut"] = "1"  # Any non-zero/non-false value becomes "1"
+                # Ensure we have a VAF value for this mutation
+                if not ipssm_data["TP53maxvaf"] or ipssm_data["TP53maxvaf"] == "NA":
+                    ipssm_data["TP53maxvaf"] = 30.0
+                    ipssm_data["used_default_tp53_vaf"] = True  # Mark that default VAF was used
             else:
                 ipssm_data["TP53mut"] = "0"
                 

@@ -259,19 +259,38 @@ def preprocess_patient_data(patient_data: Dict[str, Any]) -> Dict[str, Any]:
         if processed.get("TP53maxvaf") == "NA" or processed.get("TP53maxvaf") is None:
             tp53_max_vaf = 0.0
         else:
-            tp53_max_vaf = float(processed.get("TP53maxvaf", 0))
+            try:
+                tp53_max_vaf = float(processed.get("TP53maxvaf", 0))
+            except (ValueError, TypeError):
+                tp53_max_vaf = 0.0
     except (ValueError, TypeError):
         tp53_max_vaf = 0.0
         
     del17_17p = _safe_number(processed.get("del17_17p", 0))
     
+    # First, ensure TP53mut is a valid string
+    tp53mut_raw = processed.get("TP53mut", "0")
+    if isinstance(tp53mut_raw, (int, float)):
+        tp53mut_raw = str(int(tp53mut_raw))
+    elif not isinstance(tp53mut_raw, str):
+        tp53mut_raw = "0"
+        
+    processed["TP53mut"] = tp53mut_raw
+    
+    # For TP53 mutations with missing VAF, use a default value
+    if processed["TP53mut"] in ["1", "2"] and tp53_max_vaf == 0:
+        tp53_max_vaf = 30.0
+        processed["TP53maxvaf"] = 30.0
+    
     # If VAF > 55% or del17/17p present, set TP53loh to 1
     if tp53_max_vaf > 0.55 or del17_17p == 1:
         processed["TP53loh"] = "1"
+    elif "TP53loh" not in processed or processed["TP53loh"] in ["NA", None]:
+        processed["TP53loh"] = "0"
     
-    # Ensure TP53mut and TP53loh are strings
-    processed["TP53mut"] = str(processed.get("TP53mut", "0"))
-    processed["TP53loh"] = str(processed.get("TP53loh", "0"))
+    # Convert TP53loh to string if it's not already
+    if not isinstance(processed.get("TP53loh"), str):
+        processed["TP53loh"] = "1" if processed.get("TP53loh") else "0"
     
     # Determine TP53multi based on conditions
     tp53mut = processed["TP53mut"]
@@ -279,14 +298,16 @@ def preprocess_patient_data(patient_data: Dict[str, Any]) -> Dict[str, Any]:
     
     if tp53mut == "0":
         processed["TP53multi"] = "0"
-    elif tp53mut == "2 or more":
+    elif tp53mut == "2" or tp53mut == "2 or more":
         processed["TP53multi"] = "1"
     elif tp53mut == "1" and tp53loh == "1":
         processed["TP53multi"] = "1"
     elif tp53mut == "1" and tp53loh == "0":
         processed["TP53multi"] = "0"
     else:
-        processed["TP53multi"] = "NA"
+        # Default to 0 if we can't determine clearly rather than "NA"
+        processed["TP53multi"] = "0"
+        print(f"⚠️ Could not determine TP53multi status clearly. tp53mut={tp53mut}, tp53loh={tp53loh}. Defaulting to 0.")
     
     # Transformation of clinical variables
     processed["HB1"] = float(processed.get("HB", 0))
@@ -368,12 +389,20 @@ def calculate_ipssm(
             else:
                 value = processed_data.get(var_name)
             
+            # Handle "NA" values safely - convert to appropriate type
+            if value == "NA" or value is None:
+                value = beta[scenario]
+                
+            # For TP53multi specifically, ensure it's properly handled
+            if var_name == "TP53multi" and isinstance(value, str):
+                if value in ["0", "1"]:
+                    value = int(value)
+                else:
+                    # Default to 0 or the scenario value if can't convert
+                    value = beta[scenario]
+            
             # Calculate contribution
             try:
-                # Handle missing values by using scenario-specific defaults
-                if value == "NA" or value is None:
-                    value = beta[scenario]
-                
                 # Safely convert to float
                 float_value = float(value)
                 contribution = ((float_value - beta["means"]) * beta["coeff"]) / math.log(2)
@@ -390,41 +419,47 @@ def calculate_ipssm(
                         "explanation": f"{variable_explanation}. Value {float_value} compared to reference value {beta['means']}. Coefficient {beta['coeff']} indicates impact on risk score.",
                         "interpretation": get_contribution_interpretation(var_name, contribution),
                     }
-            except (ValueError, TypeError):
-                # If conversion fails, use the default for this scenario
-                value = beta[scenario]
-                contribution = ((float(value) - beta["means"]) * beta["coeff"]) / math.log(2)
+            except (ValueError, TypeError) as e:
+                # If this value causes an error, log it and use the scenario default
+                print(f"⚠️ Error calculating contribution for {var_name}: {e}. Using scenario default.")
+                float_value = float(beta[scenario])
+                contribution = ((float_value - beta["means"]) * beta["coeff"]) / math.log(2)
                 contributions[var_name] = contribution
-                
-                # Add detailed calculation steps if requested
-                if include_detailed_calculations:
-                    variable_explanation = get_variable_explanation(var_name)
-                    detailed_calculations[var_name] = {
-                        "raw_value": float(value),
-                        "reference_value": beta["means"],
-                        "coefficient": beta["coeff"],
-                        "calculation": f"(({value} - {beta['means']}) * {beta['coeff']}) / {math.log(2):.4f} = {contribution:.4f}",
-                        "explanation": f"{variable_explanation}. Default value {value} used due to missing data. Reference value {beta['means']}. Coefficient {beta['coeff']} indicates impact on risk score.",
-                        "interpretation": get_contribution_interpretation(var_name, contribution),
-                    }
         
-        # Calculate total risk score
+        # Sum all contributions
         risk_score = sum(contributions.values())
+        
+        # Add total contribution to detailed calculations if requested
+        if include_detailed_calculations:
+            detailed_calculations["total"] = {
+                "raw_value": risk_score,
+                "calculation": f"Sum of all contributions = {risk_score:.4f}",
+                "explanation": f"The IPSS-M risk score is the sum of all variable contributions."
+            }
+        
+        # Determine risk category using the find_category_index function
+        extended_cutpoints = [-float('inf')] + IPSSM_CUTPOINTS + [float('inf')]
+        cat_index = find_category_index(risk_score, extended_cutpoints, right=False)
+        risk_cat = IPSSM_CATEGORIES[cat_index] if 0 <= cat_index < len(IPSSM_CATEGORIES) else "Unknown"
+        
+        # Round the risk score if requested
         if rounding:
             risk_score = round_number(risk_score, rounding_digits)
         
-        # Determine risk category
-        extended_cutpoints = [-float('inf')] + IPSSM_CUTPOINTS + [float('inf')]
-        cat_index = find_category_index(risk_score, extended_cutpoints)
-        risk_cat = IPSSM_CATEGORIES[cat_index] if 0 <= cat_index < len(IPSSM_CATEGORIES) else "Unknown"
-        
-        # Set results
+        # Store results
         scores[scenario]["risk_score"] = risk_score
         scores[scenario]["risk_cat"] = risk_cat
         
         # Add contributions if requested
         if include_contributions:
-            scores[scenario]["contributions"] = contributions
+            if rounding:
+                scores[scenario]["contributions"] = {k: round_number(v, rounding_digits) for k, v in contributions.items()}
+                # Add total as sum of rounded contributions
+                scores[scenario]["contributions"]["total"] = round_number(sum(scores[scenario]["contributions"].values()), rounding_digits)
+            else:
+                scores[scenario]["contributions"] = contributions
+                # Add total as sum of unrounded contributions
+                scores[scenario]["contributions"]["total"] = sum(contributions.values())
         
         # Add detailed calculations if requested
         if include_detailed_calculations:
@@ -869,7 +904,7 @@ def demo():
 
 def parse_for_ipssm(report_text: str) -> dict:
     """
-    Sends the free-text hematological report to OpenAI to extract data needed for IPSS-M and IPSS-R calculators.
+    Sends the free-text haematological report to OpenAI to extract data needed for IPSS-M and IPSS-R calculators.
     Uses multiple concurrent prompts to extract different categories of information:
       1) Clinical blood counts (HB, PLT, ANC)
       2) Cytogenetic details and karyotype complexity
@@ -962,7 +997,7 @@ def parse_for_ipssm(report_text: str) -> dict:
     # Prompt #1: Clinical blood counts
     # -------------------------------------------------------
     clinical_prompt = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract the following clinical values from the text and format them into a valid JSON object.
 For numerical fields, provide the value with appropriate units as indicated.
 If a value is not found, set it to null.
@@ -977,7 +1012,7 @@ Extract these fields:
 
 Return valid JSON with only these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 {report_text}
     """
 
@@ -985,7 +1020,7 @@ Here is the free-text hematological report to parse:
     # Prompt #2: Cytogenetic details and karyotype complexity
     # -------------------------------------------------------
     cytogenetics_prompt = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract cytogenetic abnormalities and karyotype complexity from the text and format them into a valid JSON object.
 For boolean fields, use true/false. For karyotype_complexity, choose the most appropriate category based on the report.
 If an abnormality is not mentioned, set it to false.
@@ -1009,7 +1044,7 @@ Extract these fields:
 
 Return valid JSON with only these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 {report_text}
     """
 
@@ -1017,7 +1052,7 @@ Here is the free-text hematological report to parse:
     # Prompt #3: TP53 details
     # -------------------------------------------------------
     tp53_prompt = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract detailed information about TP53 mutations from the text and format it into a valid JSON object.
 
 For "TP53mut", select from:
@@ -1037,7 +1072,7 @@ Extract these fields:
 
 Return valid JSON with only these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 {report_text}
     """
 
@@ -1045,7 +1080,7 @@ Here is the free-text hematological report to parse:
     # Prompt #4: Additional gene mutations for IPSS-M
     # -------------------------------------------------------
     mutations_prompt = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract information about the following gene mutations and format it into a valid JSON object.
 For each gene, set the value to true if the text indicates the gene is mutated; otherwise false.
 
@@ -1070,7 +1105,7 @@ Extract these fields:
 
 Return valid JSON with only these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 {report_text}
     """
 
@@ -1078,7 +1113,7 @@ Here is the free-text hematological report to parse:
     # Prompt #5: Residual genes for Nres2 calculation
     # -------------------------------------------------------
     residual_prompt = f"""
-The user has pasted a free-text hematological report.
+The user has pasted a free-text haematological report.
 Please extract information about the following "residual" gene mutations and format it into a valid JSON object.
 For each gene, set the value to true if the text indicates the gene is mutated; otherwise false.
 These genes contribute to the Nres2 score in the IPSS-M calculator.
@@ -1104,7 +1139,7 @@ Extract these fields:
 
 Return valid JSON with only these keys and no extra text.
 
-Here is the free-text hematological report to parse:
+Here is the free-text haematological report to parse:
 {report_text}
     """
 

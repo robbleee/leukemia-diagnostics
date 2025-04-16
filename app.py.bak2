@@ -251,7 +251,7 @@ def show_login_page():
         <div class="logo-container">
             <div class="app-icon">🧬</div>
             <h1 class="app-title">HemaGenix</h1>
-            <p class="app-subtitle">Advanced Hematologic Classification System</p>
+            <p class="app-subtitle">Advanced Haematologic Classification System</p>
         </div>
         """, unsafe_allow_html=True)
         

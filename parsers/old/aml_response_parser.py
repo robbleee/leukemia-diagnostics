@@ -45,7 +45,7 @@ def parse_aml_response_report(report_text: str) -> dict:
 
     # Build the prompt with instructions
     prompt = f"""
-    You are a specialized medical AI and a knowledgeable hematologist. The user has pasted a free-text AML response assessment report.
+    You are a specialized medical AI and a knowledgeable haematologist. The user has pasted a free-text AML response assessment report.
     Please parse it into a valid JSON object with the exact keys below (no extra keys). 
     Booleans should be true or false. Numeric fields should be integers or floats. Use null if unknown. 
 
