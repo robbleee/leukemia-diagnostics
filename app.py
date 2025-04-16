@@ -1727,6 +1727,20 @@ def show_ipss_risk_assessment(res, free_text_input_value):
             
             # Display all risk scenarios in a single row with matching panel styles
             st.markdown("#### Risk Calculations")
+            
+            # Add explanation for the three different risk scores
+            st.markdown("""
+            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 3px solid #4b7bec;">
+                <h5 style="margin-top: 0;">Understanding IPSS-M Risk Scores</h5>
+                <p>The IPSS-M model provides three different risk scores to account for potential uncertainty in the data:</p>
+                <ul>
+                    <li><strong>Mean Risk:</strong> Calculated using available data with population averages for any missing values, particularly for residual gene mutations.</li>
+                    <li><strong>Best Case:</strong> Assumes the most favorable outcome for any missing data points.</li>
+                    <li><strong>Worst Case:</strong> Assumes the most unfavorable outcome for any missing data points.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+            
             mean_best_worst_cols = st.columns(3)
             
             # Mean risk in a styled panel matching best/worst case
@@ -2716,6 +2730,20 @@ def ipss_risk_calculator_page():
             
             # Display all risk scenarios in a single row with matching panel styles
             st.markdown("#### Risk Calculations")
+            
+            # Add explanation for the three different risk scores
+            st.markdown("""
+            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 3px solid #4b7bec;">
+                <h5 style="margin-top: 0;">Understanding IPSS-M Risk Scores</h5>
+                <p>The IPSS-M model provides three different risk scores to account for potential uncertainty in the data:</p>
+                <ul>
+                    <li><strong>Mean Risk:</strong> Calculated using available data with population averages for any missing values, particularly for residual gene mutations.</li>
+                    <li><strong>Best Case:</strong> Assumes the most favorable outcome for any missing data points.</li>
+                    <li><strong>Worst Case:</strong> Assumes the most unfavorable outcome for any missing data points.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+            
             mean_best_worst_cols = st.columns(3)
             
             # Mean risk in a styled panel matching best/worst case
