@@ -44,8 +44,8 @@ def display_erythroid_form_for_classification(classification: str, parsed_fields
                 not_erythroid_flag = True
                 deviation_details = "No erythroid override: criteria not met."
 
-            # Call the combined classifier with the flag
-            new_class, new_deriv = classify_combined_WHO2022(parsed_fields, not_erythroid=not_erythroid_flag)
+            # Call the combined classifier with the flag and properly unpack all three return values
+            new_class, new_deriv, disease_type = classify_combined_WHO2022(parsed_fields, not_erythroid=not_erythroid_flag)
 
             # Append the deviation details to the derivation
             new_deriv.append(deviation_details)
