@@ -981,16 +981,6 @@ def results_page():
                 if is_present:
                     patient_genetic_data.append(gene)
         
-        # For PML-RARA, get risk group
-        has_pml_rara = "PML-RARA" in patient_genetic_data
-        pml_rara_risk = None
-        if has_pml_rara:
-            pml_rara_risk = st.radio(
-                "PML-RARA Risk Group",
-                ["Low Risk", "High Risk"],
-                horizontal=True
-            )
-            
         # Display the detected markers
         st.markdown("#### Detected Markers for MRD Monitoring")
         if not patient_genetic_data:
@@ -1003,10 +993,12 @@ def results_page():
             for gene in patient_genetic_data:
                 st.markdown(f"- **{gene}**")
         
-        # For debugging
-        has_pml_rara_debug = any("PML" in gene and "RARA" in gene for gene in patient_genetic_data)
-        st.write(f"Debug - Has PML-RARA: {has_pml_rara_debug}")
-        st.write(f"Debug - Detected genes: {patient_genetic_data}")
+        # Enhanced pattern matching for gene detection (debug info)
+        has_pml_rara_debug = any(("PML" in gene and "RARA" in gene) or ("PML-RARA" in gene) or ("PML::RARA" in gene) for gene in patient_genetic_data)
+        has_cbfb_myh11_debug = any(("CBFB" in gene and "MYH11" in gene) or ("CBFB-MYH11" in gene) or ("CBFB::MYH11" in gene) for gene in patient_genetic_data)
+        has_runx1_runx1t1_debug = any(("RUNX1" in gene and ("RUNX1T1" in gene or "AML1-ETO" in gene)) or ("RUNX1-RUNX1T1" in gene) or ("RUNX1::RUNX1T1" in gene) for gene in patient_genetic_data)
+        
+
         
         # Display MRD monitoring schedules based on detected markers
         st.markdown("### MRD Monitoring Schedules")
@@ -1014,46 +1006,41 @@ def results_page():
         # Flag to track if any specific marker was found and displayed
         found_specific_marker = False
         
-        # PML-RARA fusion - check for any format containing both PML and RARA
-        if any("PML" in gene and "RARA" in gene for gene in patient_genetic_data):
+        # PML-RARA fusion - Enhanced detection for any format containing both PML and RARA
+        if any(("PML" in gene and "RARA" in gene) or ("PML-RARA" in gene) or ("PML::RARA" in gene) for gene in patient_genetic_data):
             found_specific_marker = True
-            st.markdown("#### PML::RARA Fusion")
+            st.markdown("#### PML-RARA Fusion")
             
-            # Add note about risk classification
-            st.warning("**Important:** PML-RARA MRD protocols differ based on risk classification (Low vs High risk). Please check the patient's risk status in the 'Risk' tab for accurate classification.")
+            col1, col2 = st.columns(2)
             
-            st.markdown("##### Low Risk PML-RARA (WBC ≤ 10 × 10⁹/L)")
-            st.markdown("""
-            **Test Type:** Molecular RT-qPCR
+            with col1:
+                st.markdown("##### Low Risk PML-RARA (WBC ≤ 10 × 10⁹/L)")
+                st.markdown("""
+                **Test Type:** Molecular RT-qPCR
+                
+                **Recommended Schedule:**
+                * **Diagnosis:** Bone Marrow (BM)
+                * **During Induction:** Not routinely performed
+                * **Post Induction:** Not routinely performed 
+                * **End of Consolidation:** BM (critical timepoint)
+                * **Follow-up:** If BM negative at end of consolidation, MRD monitoring can be discontinued
+                """)
             
-            **Recommended Schedule:**
-            * **Diagnosis:** Bone Marrow (BM)
-            * **During Induction:** Not routinely performed
-            * **Post Induction:** Not routinely performed 
-            * **End of Consolidation:** BM (critical timepoint)
-            * **Follow-up:** If BM negative at end of consolidation, MRD monitoring can be discontinued
-            
-            **Note:** For Low Risk PML-RARA, MRD monitoring is typically discontinued once BM negativity is achieved at the end of consolidation.
-            """)
-            
-            st.markdown("##### High Risk PML-RARA (WBC > 10 × 10⁹/L)")
-            st.markdown("""
-            **Test Type:** Molecular RT-qPCR
-            
-            **Recommended Schedule:**
-            * **Diagnosis:** Bone Marrow (BM)
-            * **During Consolidation:** PB every 4-6 weeks can be considered
-            * **End of Consolidation:** BM (critical timepoint)
-            * **Follow-up:** BM every 3 months for at least 24 months
-            * **Allogeneic Stem Cell Transplant (if performed):** Pre- and post-transplant monitoring
-            """)
-            
-            # If the user selected a risk group through the radio button, show that selection
-            if pml_rara_risk:
-                st.info(f"Based on your selection, this patient has {pml_rara_risk} PML-RARA.")
+            with col2:
+                st.markdown("##### High Risk PML-RARA (WBC > 10 × 10⁹/L)")
+                st.markdown("""
+                **Test Type:** Molecular RT-qPCR
+                
+                **Recommended Schedule:**
+                * **Diagnosis:** Bone Marrow (BM)
+                * **During Consolidation:** PB every 4-6 weeks
+                * **End of Consolidation:** BM (critical timepoint)
+                * **Follow-up:** BM every 3 months for at least 24 months
+                * **If Transplant:** Pre- and post-transplant monitoring
+                """)
         
-        # NPM1
-        if "NPM1" in patient_genetic_data:
+        # NPM1 - Enhanced detection
+        if any("NPM1" in gene for gene in patient_genetic_data):
             found_specific_marker = True
             st.markdown("#### NPM1 Mutation")
             st.markdown("""
@@ -1064,14 +1051,17 @@ def results_page():
             * **Post 2 Cycles of Induction Therapy:** PB
             * **End of Treatment:** BM
             * **Follow-up (for 24 months):** BM every 3 months or PB every 4-6 weeks
-            * **Allogeneic Stem Cell Transplant (Allo-SCT):** Pre- and post-transplant monitoring (sample type as clinically indicated)
+            * **If Transplant:** Pre- and post-transplant monitoring
             """)
         
-        # Core Binding Factor Leukemias
-        if "CBFB-MYH11" in patient_genetic_data or "RUNX1-RUNX1T1" in patient_genetic_data:
+        # Core Binding Factor Leukemias - Enhanced detection for both fusion types
+        if any(("CBFB" in gene and "MYH11" in gene) or ("CBFB-MYH11" in gene) or ("CBFB::MYH11" in gene) for gene in patient_genetic_data) or any(("RUNX1" in gene and ("RUNX1T1" in gene or "AML1-ETO" in gene)) or ("RUNX1-RUNX1T1" in gene) or ("RUNX1::RUNX1T1" in gene) for gene in patient_genetic_data):
             found_specific_marker = True
             st.markdown("#### Core-Binding Factor (CBF) Leukemia")
-            cbf_type = "CBFB::MYH11" if "CBFB-MYH11" in patient_genetic_data else "RUNX1::RUNX1T1"
+            
+            # Determine which CBF type is present
+            cbf_type = "CBFB-MYH11" if any(("CBFB" in gene and "MYH11" in gene) or ("CBFB-MYH11" in gene) or ("CBFB::MYH11" in gene) for gene in patient_genetic_data) else "RUNX1-RUNX1T1"
+            
             st.markdown(f"""
             **Fusion:** {cbf_type}
             
@@ -1082,11 +1072,11 @@ def results_page():
             * **Post 2 Cycles of Induction Therapy:** PB
             * **End of Treatment:** BM
             * **Follow-up (for 24 months):** PB every 4-6 weeks
-            * **Allogeneic Stem Cell Transplant (Allo-SCT):** Pre- and post-transplant monitoring (sample type as clinically indicated)
+            * **If Transplant:** Pre- and post-transplant monitoring
             """)
         
-        # KMT2A rearrangements
-        if "KMT2A" in patient_genetic_data:
+        # KMT2A rearrangements - Enhanced detection
+        if any(("KMT2A" in gene) or ("MLL" in gene) for gene in patient_genetic_data):
             found_specific_marker = True
             st.markdown("#### KMT2A Rearrangement")
             st.markdown("""
@@ -1096,16 +1086,16 @@ def results_page():
             * **Diagnosis:** Bone Marrow (BM)
             * **Post 2 Cycles of Induction Therapy:** BM
             * **End of Treatment:** BM
-            * **Follow-up:** European LeukemiaNet (ELN) guidelines do not offer specific recommendations
-            * **Allogeneic Stem Cell Transplant (Allo-SCT):** Pre- and post-transplant monitoring (sample type as clinically indicated)
+            * **Follow-up:** No specific ELN recommendations
+            * **If Transplant:** Pre- and post-transplant monitoring
             
-            **Note:** KMT2A partner gene needed for specific assay design. ELN guidelines less specific; follow local/suggested protocol.
+            **Note:** KMT2A partner gene needed for specific assay design.
             """)
         
-        # DEK-NUP214 fusion
-        if "DEK-NUP214" in patient_genetic_data:
+        # DEK-NUP214 fusion - Enhanced detection
+        if any(("DEK" in gene and "NUP214" in gene) or ("DEK-NUP214" in gene) or ("DEK::NUP214" in gene) for gene in patient_genetic_data):
             found_specific_marker = True
-            st.markdown("#### DEK::NUP214 Fusion")
+            st.markdown("#### DEK-NUP214 Fusion")
             st.markdown("""
             **Test Type:** Molecular RT-qPCR
             
@@ -1113,23 +1103,23 @@ def results_page():
             * **Diagnosis:** Bone Marrow (BM)
             * **Post 2 Cycles of Induction Therapy:** BM
             * **End of Treatment:** BM
-            * **Follow-up:** ELN guidelines do not offer specific recommendations
-            * **Allogeneic Stem Cell Transplant (Allo-SCT):** Pre- and post-transplant monitoring (sample type as clinically indicated)
+            * **Follow-up:** No specific ELN recommendations
+            * **If Transplant:** Pre- and post-transplant monitoring
             """)
         
-        # BCR-ABL1 fusion
-        if "BCR-ABL1" in patient_genetic_data:
+        # BCR-ABL1 fusion - Enhanced detection
+        if any(("BCR" in gene and "ABL1" in gene) or ("BCR-ABL1" in gene) or ("BCR::ABL1" in gene) for gene in patient_genetic_data):
             found_specific_marker = True
-            st.markdown("#### BCR::ABL1 Fusion")
+            st.markdown("#### BCR-ABL1 Fusion")
             st.markdown("""
             **Test Type:** Molecular RT-qPCR
             
             **Recommended Schedule:**
             * **Diagnosis:** Bone Marrow (BM)
-            * **Post 2 Cycles of Induction Therapy:** No routine MRD assessment specified
+            * **During Treatment:** No routine MRD assessment specified
             * **End of Treatment:** No routine MRD assessment specified
-            * **Follow-up:** ELN guidelines do not offer specific guidance. Submission with all follow-up samples is suggested
-            * **Allogeneic Stem Cell Transplant (Allo-SCT):** Pre- and post-transplant monitoring (sample type as clinically indicated)
+            * **Follow-up:** Submit with all follow-up samples
+            * **If Transplant:** Pre- and post-transplant monitoring
             """)
         
         # If none of the specific markers were found or displayed, show flow cytometry recommendation
@@ -1141,9 +1131,6 @@ def results_page():
             **Target:** Leukemia-Associated Immunophenotype (LAIP) or Differentiation from Normal (DfN)
             
             **Sample Type:** Bone Marrow
-            
-            **Note:** Flow cytometry is not an ELN-validated approach in the same way as specific molecular markers, 
-            but remains the preferred method when no specific molecular markers are available.
             """)
 
     elif sub_tab == "Gene Review":
