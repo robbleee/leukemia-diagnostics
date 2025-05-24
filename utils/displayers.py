@@ -70,6 +70,45 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
         disease_type (str): The disease type (MDS, AML, etc.)
         session_key (str): A unique key for storing the form's state in session (e.g., "mds_who_confirmation")
     """
+    # Get parsed data from session state
+    parsed_data = None
+    if "aml_manual_result" in st.session_state:
+        parsed_data = st.session_state["aml_manual_result"].get("parsed_data", {})
+    elif "aml_ai_result" in st.session_state:
+        parsed_data = st.session_state["aml_ai_result"].get("parsed_data", {})
+    
+    # Check for cytogenetic exceptions in the parsed data
+    has_del5q = False
+    has_inv3_t33 = False
+    
+    if parsed_data and "MDS_related_cytogenetics" in parsed_data:
+        has_del5q = parsed_data["MDS_related_cytogenetics"].get("del_5q", False)
+        has_inv3_t33 = parsed_data["MDS_related_cytogenetics"].get("inv3_t33", False)
+    
+    # Check for eosinophilia-related gene rearrangements
+    eosinophilia_rearrangements = []
+    
+    if parsed_data:
+        # Check AML_defining_recurrent_genetic_abnormalities
+        if "AML_defining_recurrent_genetic_abnormalities" in parsed_data:
+            if parsed_data["AML_defining_recurrent_genetic_abnormalities"].get("FIP1L1::PDGFRA", False):
+                eosinophilia_rearrangements.append("FIP1L1::PDGFRA")
+            if parsed_data["AML_defining_recurrent_genetic_abnormalities"].get("ETV6::ABL1", False):
+                eosinophilia_rearrangements.append("ETV6::ABL1")
+            if parsed_data["AML_defining_recurrent_genetic_abnormalities"].get("ETV6::SYK", False):
+                eosinophilia_rearrangements.append("ETV6::SYK")
+            if parsed_data["AML_defining_recurrent_genetic_abnormalities"].get("FGR1", False):
+                eosinophilia_rearrangements.append("FGR1")
+            if parsed_data["AML_defining_recurrent_genetic_abnormalities"].get("FLT3", False):
+                eosinophilia_rearrangements.append("FLT3")
+        
+        # Check for JAK2 in MDS_related_mutation
+        if "MDS_related_mutation" in parsed_data and parsed_data["MDS_related_mutation"].get("JAK2", False):
+            eosinophilia_rearrangements.append("JAK2")
+    
+    # Create a flag for whether eosinophilia is an absolute exclusion
+    has_eosinophilia_rearrangements = len(eosinophilia_rearrangements) > 0
+    
     if disease_type == "MDS":
         # Initialize session state for this specific form if not already present
         if session_key not in st.session_state:
@@ -79,8 +118,6 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
                 "eosinophil_cytosis": False,
                 "monocyte_cytosis": False,
                 "platelet_cytosis": False,
-                "del5q_or_inv3": False,
-                "eosinophilia_with_rearrangements": False,
                 "submitted": False
             }
         
@@ -98,31 +135,33 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
             monocyte_cytosis = st.session_state[session_key].get("monocyte_cytosis", False)
             platelet_cytosis = st.session_state[session_key].get("platelet_cytosis", False)
             eosinophil_cytosis = st.session_state[session_key].get("eosinophil_cytosis", False)
-            del5q_or_inv3 = st.session_state[session_key].get("del5q_or_inv3", False)
-            eosinophilia_with_rearrangements = st.session_state[session_key].get("eosinophilia_with_rearrangements", False)
             
             # Cytoses warnings based on whether exceptions apply
             has_cytosis = wbc_cytosis or monocyte_cytosis or platelet_cytosis or eosinophil_cytosis
             
             if has_cytosis:
-                if platelet_cytosis and del5q_or_inv3:
+                if platelet_cytosis and (has_del5q or has_inv3_t33):
                     st.warning("⚠️ **EXCEPTION APPLIES**: Thrombocytosis with del(5q) or inv(3)/t(3;3) can still be classified as MDS, but consideration of a myeloproliferative pathway is recommended.", icon="⚠️")
-                elif eosinophil_cytosis and eosinophilia_with_rearrangements:
-                    st.error("❌ **ABSOLUTE EXCLUSION - EOSINOPHILIA WITH GENE REARRANGEMENTS**: Eosinophilia with specific gene rearrangements (e.g., FIP1L1::PDGFRA, ETV::ABL1, JAK2, FGR1) excludes MDS diagnosis. Consider 'myeloid/lymphoid neoplasms with eosinophilia and tyrosine kinase gene fusions'.", icon="❌")
+                    
+                    # Add a new message to explicitly state we're allowing MDS diagnosis despite thrombocytosis
+                    st.info(f"ℹ️ **MDS Diagnosis Allowed**: Despite thrombocytosis ≥ 450 × 10^9/L being present, MDS diagnosis is still permitted due to the presence of {' and '.join([x for x in ['del(5q)' if has_del5q else '', 'inv(3)/t(3;3)' if has_inv3_t33 else ''] if x])} cytogenetic abnormality. This is a recognized exception to the absolute exclusion rule.", icon="ℹ️")
+                elif eosinophil_cytosis and has_eosinophilia_rearrangements:
+                    st.error(f"❌ **ABSOLUTE EXCLUSION - EOSINOPHILIA WITH GENE REARRANGEMENTS**: Eosinophilia with {', '.join(eosinophilia_rearrangements)} detected. This excludes MDS diagnosis. Consider 'myeloid/lymphoid neoplasms with eosinophilia and tyrosine kinase gene fusions'.", icon="❌")
                 else:
                     # General cytoses exclusion
                     exclusion_list = []
                     if wbc_cytosis:
-                        exclusion_list.append("WBC > 13 × 10^9/L")
+                        exclusion_list.append("WBC > 13 × 10^9/L (requires MPN pathway)")
                     if monocyte_cytosis:
-                        exclusion_list.append("Monocytosis ≥ 10% and ≥ 0.5 × 10^9/L")
-                    if platelet_cytosis and not del5q_or_inv3:
-                        exclusion_list.append("Thrombocytosis ≥ 450 × 10^9/L")
-                    if eosinophil_cytosis and not eosinophilia_with_rearrangements:
-                        exclusion_list.append("Eosinophilia > 0.5 × 10^9/L")
+                        exclusion_list.append("Monocytosis ≥ 10% and ≥ 0.5 × 10^9/L (requires CMML pathway)")
+                    if platelet_cytosis and not (has_del5q or has_inv3_t33):
+                        exclusion_list.append("Thrombocytosis ≥ 450 × 10^9/L (requires consideration of MPN pathway)")
+                    # Only add eosinophilia to exclusion list if specific rearrangements are present
+                    if eosinophil_cytosis and has_eosinophilia_rearrangements:
+                        exclusion_list.append(f"Eosinophilia > 0.5 × 10^9/L with {', '.join(eosinophilia_rearrangements)} (requires consideration of myeloid/lymphoid neoplasms with eosinophilia)")
                     
                     if exclusion_list:
-                        st.error(f"❌ **ABSOLUTE EXCLUSION - PERSISTENT CYTOSES**: The following unexplained cytoses exclude MDS diagnosis: {', '.join(exclusion_list)}. Consider alternative diagnoses such as MDS/MPN, CMML, or other myeloproliferative neoplasms.", icon="❌")
+                        st.error(f"❌ **ABSOLUTE EXCLUSION - PERSISTENT CYTOSES**: The following unexplained cytoses exclude MDS diagnosis: {', '.join(exclusion_list)}", icon="❌")
         else:
             # Create a placeholder to hold the form
             form_placeholder = st.empty()
@@ -148,43 +187,46 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
                 with col1:
                     wbc_cytosis = st.checkbox(
                         "WBC > 13 × 10^9/L",
-                        value=st.session_state[session_key].get("wbc_cytosis", False)
+                        value=st.session_state[session_key].get("wbc_cytosis", False),
+                        help="Any WBC > 13 × 10^9/L that cannot be explained by other conditions excludes MDS and requires a myeloproliferative neoplasm (MPN) pathway."
                     )
                     
                     eosinophil_cytosis = st.checkbox(
                         "Eosinophilia > 0.5 × 10^9/L",
-                        value=st.session_state[session_key].get("eosinophil_cytosis", False)
+                        value=st.session_state[session_key].get("eosinophil_cytosis", False),
+                        help="Eosinophilia excludes MDS diagnosis only when specific gene rearrangements are present."
                     )
                 
                 with col2:
                     monocyte_cytosis = st.checkbox(
                         "Monocytosis ≥ 10% and ≥ 0.5 × 10^9/L",
-                        value=st.session_state[session_key].get("monocyte_cytosis", False)
+                        value=st.session_state[session_key].get("monocyte_cytosis", False),
+                        help="Any monocytosis (≥ 10% and absolute ≥ 0.5 × 10^9/L) that is persistent on follow-up excludes MDS and requires a CMML pathway."
                     )
                     
                     platelet_cytosis = st.checkbox(
                         "Thrombocytosis ≥ 450 × 10^9/L",
-                        value=st.session_state[session_key].get("platelet_cytosis", False)
+                        value=st.session_state[session_key].get("platelet_cytosis", False),
+                        help="Any thrombocytosis ≥ 450 × 10^9/L generally excludes MDS unless there is cytogenetic change del(5q) or inv(3)/t(3;3). Requires consideration of an MPN pathway."
                     )
                 
-                # Exception conditions (only show if relevant cytosis is checked)
-                if st.session_state[session_key].get("platelet_cytosis", False) or platelet_cytosis:
-                    st.markdown("##### Exception for Thrombocytosis")
-                    del5q_or_inv3 = st.checkbox(
-                        "Presence of del(5q) or inv(3)/t(3;3)",
-                        value=st.session_state[session_key].get("del5q_or_inv3", False),
-                        help="With these cytogenetic changes, MDS diagnosis is still allowed despite thrombocytosis, but consideration of MPD pathway is needed."
-                    )
+                # If thrombocytosis is checked, display info about detected cytogenetic abnormalities
+                if platelet_cytosis or st.session_state[session_key].get("platelet_cytosis", False):
+                    if has_del5q or has_inv3_t33:
+                        abnormalities = []
+                        if has_del5q:
+                            abnormalities.append("del(5q)")
+                        if has_inv3_t33:
+                            abnormalities.append("inv(3)/t(3;3)")
+                        
+                        st.info(f"ℹ️ {', '.join(abnormalities)} detected in cytogenetics. MDS diagnosis is still allowed with thrombocytosis.", icon="ℹ️")
                 
-                if st.session_state[session_key].get("eosinophil_cytosis", False) or eosinophil_cytosis:
-                    st.markdown("##### Eosinophilia with Gene Rearrangements")
-                    eosinophilia_with_rearrangements = st.checkbox(
-                        "Eosinophilia with specific rearrangements (e.g., FIP1L1::PDGFRA, ETV::ABL1, JAK2, FGR1)",
-                        value=st.session_state[session_key].get("eosinophilia_with_rearrangements", False),
-                        help="These require consideration of 'myeloid/lymphoid neoplasms with eosinophilia and tyrosine kinase gene fusions'"
-                    )
-                else:
-                    eosinophilia_with_rearrangements = st.session_state[session_key].get("eosinophilia_with_rearrangements", False)
+                # If eosinophilia is checked, display info about detected gene rearrangements
+                if eosinophil_cytosis or st.session_state[session_key].get("eosinophil_cytosis", False):
+                    if has_eosinophilia_rearrangements:
+                        st.error(f"⚠️ {', '.join(eosinophilia_rearrangements)} detected. If eosinophilia is present, this EXCLUDES MDS diagnosis and requires consideration of 'myeloid/lymphoid neoplasms with eosinophilia and tyrosine kinase gene fusions'.", icon="⚠️")
+                    else:
+                        st.info("ℹ️ No eosinophilia-related gene rearrangements detected. Eosinophilia alone is not an absolute exclusion for MDS diagnosis.", icon="ℹ️")
                 
                 submit = st.form_submit_button("Confirm MDS Criteria")
             
@@ -199,8 +241,6 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
                     "eosinophil_cytosis": eosinophil_cytosis,
                     "monocyte_cytosis": monocyte_cytosis,
                     "platelet_cytosis": platelet_cytosis,
-                    "del5q_or_inv3": del5q_or_inv3 if "del5q_or_inv3" in locals() else False,
-                    "eosinophilia_with_rearrangements": eosinophilia_with_rearrangements,
                     "submitted": True
                 }
                 
@@ -215,24 +255,29 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
                 has_cytosis = wbc_cytosis or monocyte_cytosis or platelet_cytosis or eosinophil_cytosis
                 
                 if has_cytosis:
-                    if platelet_cytosis and ("del5q_or_inv3" in locals() and del5q_or_inv3):
+                    if platelet_cytosis and (has_del5q or has_inv3_t33):
                         st.warning("⚠️ **EXCEPTION APPLIES**: Thrombocytosis with del(5q) or inv(3)/t(3;3) can still be classified as MDS, but consideration of a myeloproliferative pathway is recommended.", icon="⚠️")
-                    elif eosinophil_cytosis and eosinophilia_with_rearrangements:
-                        st.error("❌ **ABSOLUTE EXCLUSION - EOSINOPHILIA WITH GENE REARRANGEMENTS**: Eosinophilia with specific gene rearrangements (e.g., FIP1L1::PDGFRA, ETV::ABL1, JAK2, FGR1) excludes MDS diagnosis. Consider 'myeloid/lymphoid neoplasms with eosinophilia and tyrosine kinase gene fusions'.", icon="❌")
+                        
+                        # Add a new message to explicitly state we're allowing MDS diagnosis despite thrombocytosis
+                        st.info(f"ℹ️ **MDS Diagnosis Allowed**: Despite thrombocytosis ≥ 450 × 10^9/L being present, MDS diagnosis is still permitted due to the presence of {' and '.join([x for x in ['del(5q)' if has_del5q else '', 'inv(3)/t(3;3)' if has_inv3_t33 else ''] if x])} cytogenetic abnormality. This is a recognized exception to the absolute exclusion rule.", icon="ℹ️")
+                    elif eosinophil_cytosis and has_eosinophilia_rearrangements:
+                        st.error(f"❌ **ABSOLUTE EXCLUSION - EOSINOPHILIA WITH GENE REARRANGEMENTS**: Eosinophilia with {', '.join(eosinophilia_rearrangements)} detected. This excludes MDS diagnosis. Consider 'myeloid/lymphoid neoplasms with eosinophilia and tyrosine kinase gene fusions'.", icon="❌")
                     else:
                         # General cytoses exclusion
                         exclusion_list = []
                         if wbc_cytosis:
-                            exclusion_list.append("WBC > 13 × 10^9/L")
+                            exclusion_list.append("WBC > 13 × 10^9/L (requires MPN pathway)")
                         if monocyte_cytosis:
-                            exclusion_list.append("Monocytosis ≥ 10% and ≥ 0.5 × 10^9/L")
-                        if platelet_cytosis and not ("del5q_or_inv3" in locals() and del5q_or_inv3):
-                            exclusion_list.append("Thrombocytosis ≥ 450 × 10^9/L")
-                        if eosinophil_cytosis and not eosinophilia_with_rearrangements:
-                            exclusion_list.append("Eosinophilia > 0.5 × 10^9/L")
+                            exclusion_list.append("Monocytosis ≥ 10% and ≥ 0.5 × 10^9/L (requires CMML pathway)")
+                        if platelet_cytosis and not (has_del5q or has_inv3_t33):
+                            exclusion_list.append("Thrombocytosis ≥ 450 × 10^9/L (requires consideration of MPN pathway)")
+                        
+                        # Only add eosinophilia to exclusion list if specific rearrangements are present
+                        if eosinophil_cytosis and has_eosinophilia_rearrangements:
+                            exclusion_list.append(f"Eosinophilia > 0.5 × 10^9/L with {', '.join(eosinophilia_rearrangements)} (requires consideration of myeloid/lymphoid neoplasms with eosinophilia)")
                         
                         if exclusion_list:
-                            st.error(f"❌ **ABSOLUTE EXCLUSION - PERSISTENT CYTOSES**: The following unexplained cytoses exclude MDS diagnosis: {', '.join(exclusion_list)}. Consider alternative diagnoses such as MDS/MPN, CMML, or other myeloproliferative neoplasms.", icon="❌")
+                            st.error(f"❌ **ABSOLUTE EXCLUSION - PERSISTENT CYTOSES**: The following unexplained cytoses exclude MDS diagnosis: {', '.join(exclusion_list)}", icon="❌")
     else:
         # If not MDS, just display the classification
         st.markdown(f"**Classification:** {classification}")

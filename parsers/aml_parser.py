@@ -93,7 +93,12 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "PICALM::MLLT10": False,
             "FUS::ERG": False,
             "RUNX1::CBFA2T3": False,
-            "CBFA2T3::GLIS2": False
+            "CBFA2T3::GLIS2": False,
+            "FIP1L1::PDGFRA": False,
+            "ETV6::ABL1": False,
+            "ETV6::SYK": False,
+            "FGR1": False,
+            "FLT3": False
         },
         "Biallelic_TP53_mutation": {
             "2_x_TP53_mutations": False,
@@ -132,7 +137,8 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "add_17p": False,
             "del_17p": False,
             "del_20q": False,
-            "idic_X_q13": False
+            "idic_X_q13": False,
+            "inv3_t33": False
         },
         "AML_differentiation": None,
         "differentiation_reasoning": None,
@@ -230,7 +236,12 @@ Extract this nested field:
     "PICALM::MLLT10": false,
     "FUS::ERG": false,
     "RUNX1::CBFA2T3": false,
-    "CBFA2T3::GLIS2": false
+    "CBFA2T3::GLIS2": false,
+    "FIP1L1::PDGFRA": false,
+    "ETV6::ABL1": false,
+    "ETV6::SYK": false,
+    "FGR1": false,
+    "FLT3": false
 }}
 
 Return valid JSON only with these keys and no extra text.
@@ -307,7 +318,8 @@ Extract these nested fields:
     "add_17p": false,
     "del_17p": false,
     "del_20q": false,
-    "idic_X_q13": false
+    "idic_X_q13": false,
+    "inv3_t33": false
 }}
 
 Return valid JSON only with these keys and no extra text.
