@@ -270,9 +270,9 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
                 
                 # Add checkbox for morphological dysplasia
                 morphological_dysplasia = st.checkbox(
-                    "Morphologically defined dysplasia affecting at least one lineage",
+                    "Please confirm that morphological criteria for dysplasia are met: at least 10% cells of at least one lineage have significant dysplastic features and no alternative cause for dysplasia is present",
                     value=st.session_state[session_key].get("morphological_dysplasia", False),
-                    help="Check this if dysplastic features are morphologically evident in at least one cell lineage."
+                    help="Dysplasia must be significant and affect at least 10% of cells in at least one lineage, with no alternative explanation."
                 )
                 
                 # Cytoses assessment using individual checkboxes
