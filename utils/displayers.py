@@ -123,18 +123,41 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
         
         # If the form has already been submitted, just display the results
         if st.session_state[session_key].get("submitted", False):
-            # Display the classification
-            st.markdown(f"**Classification:** {classification}")
-            
-            # Display warnings based on form data
-            if not st.session_state[session_key].get("cytopenia_confirmed", False):
-                st.warning("⚠️ **MDS Diagnostic Criteria Not Met**: Persistent cytopenia (>4 months) in at least one lineage without alternative cause is required for MDS diagnosis.", icon="⚠️")
-            
-            # Check for absolute exclusions
+            # Get form data
+            cytopenia_confirmed = st.session_state[session_key].get("cytopenia_confirmed", False)
             wbc_cytosis = st.session_state[session_key].get("wbc_cytosis", False)
             monocyte_cytosis = st.session_state[session_key].get("monocyte_cytosis", False)
             platelet_cytosis = st.session_state[session_key].get("platelet_cytosis", False)
             eosinophil_cytosis = st.session_state[session_key].get("eosinophil_cytosis", False)
+            
+            # Check if any exclusions apply
+            has_exclusions = False
+            
+            # Evaluate all possible exclusion conditions
+            if not cytopenia_confirmed:
+                has_exclusions = True
+            
+            if wbc_cytosis:
+                has_exclusions = True
+            
+            if monocyte_cytosis:
+                has_exclusions = True
+            
+            if platelet_cytosis and not (has_del5q or has_inv3_t33):
+                has_exclusions = True
+            
+            if eosinophil_cytosis and has_eosinophilia_rearrangements:
+                has_exclusions = True
+            
+            # Display appropriate classification based on exclusions
+            if has_exclusions:
+                st.markdown(f"**Classification:** Not MDS - consider other diagnostic pathways")
+            else:
+                st.markdown(f"**Classification:** {classification}")
+            
+            # Display warnings based on form data
+            if not cytopenia_confirmed:
+                st.warning("⚠️ **MDS Diagnostic Criteria Not Met**: Persistent cytopenia (>4 months) in at least one lineage without alternative cause is required for MDS diagnosis.", icon="⚠️")
             
             # Cytoses warnings based on whether exceptions apply
             has_cytosis = wbc_cytosis or monocyte_cytosis or platelet_cytosis or eosinophil_cytosis
@@ -244,8 +267,30 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
                     "submitted": True
                 }
                 
-                # Display the classification
-                st.markdown(f"**Classification:** {classification}")
+                # Check if any exclusions apply
+                has_exclusions = False
+                
+                # Evaluate all possible exclusion conditions
+                if not cytopenia_confirmed:
+                    has_exclusions = True
+                
+                if wbc_cytosis:
+                    has_exclusions = True
+                
+                if monocyte_cytosis:
+                    has_exclusions = True
+                
+                if platelet_cytosis and not (has_del5q or has_inv3_t33):
+                    has_exclusions = True
+                
+                if eosinophil_cytosis and has_eosinophilia_rearrangements:
+                    has_exclusions = True
+                
+                # Display appropriate classification based on exclusions
+                if has_exclusions:
+                    st.markdown(f"**Classification:** Not MDS - consider other diagnostic pathways")
+                else:
+                    st.markdown(f"**Classification:** {classification}")
                 
                 # Display warnings based on form data
                 if not cytopenia_confirmed:
