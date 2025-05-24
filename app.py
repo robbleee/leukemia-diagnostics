@@ -441,7 +441,10 @@ def data_entry_page():
                     "aml_gene_review",
                     "aml_additional_comments",
                     "initial_parsed_data",
-                    "blast_percentage_known"
+                    "blast_percentage_known",
+                    "erythroid_form_submitted",  # Clear erythroid form submission state
+                    "mds_who_confirmation",      # Clear MDS WHO form state
+                    "mds_icc_confirmation"       # Clear MDS ICC form state
                 ]:
                     st.session_state.pop(k, None)
 
@@ -586,7 +589,10 @@ def data_entry_page():
                         "aml_gene_review",
                         "aml_additional_comments",
                         "initial_parsed_data",
-                        "blast_percentage_known"
+                        "blast_percentage_known",
+                        "erythroid_form_submitted",  # Clear erythroid form submission state
+                        "mds_who_confirmation",      # Clear MDS WHO form state
+                        "mds_icc_confirmation"       # Clear MDS ICC form state
                     ]:
                         st.session_state.pop(k, None)
 
@@ -697,6 +703,19 @@ def data_entry_page():
                     if st.session_state.get("germline_status") == "Yes" and not st.session_state.get("selected_germline"):
                         st.error("Please select at least one germline mutation when 'Germline predisposition' is set to 'Yes'.")
                     else:
+                        # Clear previous results and form states
+                        for k in [
+                            "aml_ai_result",
+                            "aml_class_review",
+                            "aml_mrd_review",
+                            "aml_gene_review",
+                            "aml_additional_comments",
+                            "erythroid_form_submitted",  # Clear erythroid form submission state
+                            "mds_who_confirmation",      # Clear MDS WHO form state
+                            "mds_icc_confirmation"       # Clear MDS ICC form state
+                        ]:
+                            st.session_state.pop(k, None)
+                            
                         updated_parsed_data = st.session_state.get("initial_parsed_data") or {}
                         updated_parsed_data["blasts_percentage"] = manual_blast_percentage
                         updated_parsed_data["bone_marrow_blasts_override"] = st.session_state["bone_marrow_blasts_initial"]
@@ -808,20 +827,24 @@ def results_page():
     }
 
     if sub_tab == "Classification":
+        # Display classification results - these will be the same regardless of input mode
+        from utils.displayers import display_aml_classification_results
+
+        # Get the classification results and display them
         display_aml_classification_results(
-            res["parsed_data"],
-            res["who_class"],
-            res["who_derivation"],
-            res["icc_class"],
-            res["icc_derivation"],
-            classification_eln="Not computed here",
-            mode=mode
+            parsed_fields=res["parsed_data"],
+            classification_who=res["who_class"],
+            who_derivation=res["who_derivation"],
+            classification_icc=res["icc_class"],
+            icc_derivation=res["icc_derivation"],
+            classification_eln=res.get("classification_eln", ""),
+            mode=mode,
+            show_parsed_fields=debug_mode
         )
         
-        # Check for UBA1 mutation in MDS cases for VEXAS syndrome warning
-        if (res["who_disease_type"] == "MDS" or res["icc_disease_type"] == "MDS") and \
-           res["parsed_data"].get("MDS_related_mutation", {}).get("UBA1", False):
-            st.warning("⚠️ **VEXAS SYNDROME ALERT**: UBA1 mutation detected in an MDS context. VEXAS syndrome (Vacuoles, E1 enzyme, X-linked, Autoinflammatory, Somatic) should be considered. Clinical correlation with systemic inflammation, fever, and skin manifestations is recommended.", icon="⚠️")
+        # Check for UBA1 mutation which indicates VEXAS syndrome
+        if res["parsed_data"].get("MDS_related_mutation", {}).get("UBA1", False):
+            st.warning("⚠️ **UBA1 MUTATION DETECTED**: UBA1 mutations are pathognomonic for VEXAS syndrome (Vacuoles, E1 enzyme, X-linked, Autoinflammatory, Somatic). Consider this diagnosis if consistent with clinical features.", icon="⚠️")
         
         # Check for JAK2 mutation - may indicate MPN or MDS/MPN overlap
         if res["parsed_data"].get("MDS_related_mutation", {}).get("JAK2", False):
@@ -831,15 +854,62 @@ def results_page():
         if res["parsed_data"].get("AML_defining_recurrent_genetic_abnormalities", {}).get("BCR::ABL1", False):
             st.warning("⚠️ **BCR::ABL1 FUSION DETECTED**: While this finding does not exclude MDS, BCR::ABL1 fusion is characteristic of chronic myeloid leukemia (CML) and Ph+ acute leukemias. Consider alternative diagnoses and tyrosine kinase inhibitor therapy.", icon="⚠️")
         
-        if "aml_class_review" not in st.session_state:
+        # Check if there are any unsubmitted forms before generating the classification review
+        has_pending_forms = False
+        
+        # Determine WHO disease type
+        who_disease_type = "Unknown"
+        if "aml_manual_result" in st.session_state:
+            who_disease_type = st.session_state["aml_manual_result"].get("who_disease_type", "Unknown")
+        elif "aml_ai_result" in st.session_state:
+            who_disease_type = st.session_state["aml_ai_result"].get("who_disease_type", "Unknown")
+        
+        # Determine ICC disease type
+        icc_disease_type = "Unknown"
+        if "aml_manual_result" in st.session_state:
+            icc_disease_type = st.session_state["aml_manual_result"].get("icc_disease_type", "Unknown")
+        elif "aml_ai_result" in st.session_state:
+            icc_disease_type = st.session_state["aml_ai_result"].get("icc_disease_type", "Unknown")
+        
+        # Check for erythroid classifications
+        who_has_erythroid = "erythroid" in res["who_class"].lower()
+        icc_has_erythroid = "erythroid" in res["icc_class"].lower()
+        
+        # Check for erythroid form submission
+        # We need to track erythroid form submissions in session state
+        if who_has_erythroid or icc_has_erythroid:
+            # Initialize erythroid form tracking in session state if not already present
+            if "erythroid_form_submitted" not in st.session_state:
+                st.session_state["erythroid_form_submitted"] = False
+                has_pending_forms = True
+            elif not st.session_state["erythroid_form_submitted"]:
+                has_pending_forms = True
+        
+        # Check if MDS WHO form is pending submission
+        if who_disease_type == "MDS" and "mds_who_confirmation" in st.session_state:
+            if not st.session_state["mds_who_confirmation"].get("submitted", False):
+                has_pending_forms = True
+        
+        # Check if MDS ICC form is pending submission
+        if icc_disease_type == "MDS" and "mds_icc_confirmation" in st.session_state:
+            if not st.session_state["mds_icc_confirmation"].get("submitted", False):
+                has_pending_forms = True
+        
+        # Only generate and display the classification review if there are no pending forms
+        if not has_pending_forms and "aml_class_review" not in st.session_state:
             with st.spinner("Generating Classification Review..."):
                 st.session_state["aml_class_review"] = get_gpt4_review_aml_classification(
                     classification_dict,
                     res["parsed_data"],
                     free_text_input=free_text_input_value
                 )
-        st.markdown("### Classification Review")
-        st.markdown(st.session_state["aml_class_review"])
+            st.markdown("### Classification Review")
+            st.markdown(st.session_state["aml_class_review"])
+        elif not has_pending_forms:
+            st.markdown("### Classification Review")
+            st.markdown(st.session_state["aml_class_review"])
+        else:
+            st.info("Please complete all required forms before the classification review is generated.")
 
     elif sub_tab == "ELN Risk (AML)":
         # Import necessary functions for risk assessment
@@ -1211,7 +1281,8 @@ def results_page():
         "aml_gene_review",
         "aml_additional_comments",
         "initial_parsed_data",
-        "free_text_input"
+        "free_text_input",
+        "erythroid_form_submitted"
     ]
 
     col_download, col3, col4, col5, col6, col_back, col_clear = st.columns(7)

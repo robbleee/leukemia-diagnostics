@@ -53,6 +53,9 @@ def display_erythroid_form_for_classification(classification: str, parsed_fields
             # Update session state with new classification results
             st.session_state["classification_who"] = new_class
             st.session_state["who_derivation"] = new_deriv
+            
+            # Mark the erythroid form as submitted in session state
+            st.session_state["erythroid_form_submitted"] = True
 
             # Display the new classification results
             st.markdown(f"**Classification:** {new_class}")
