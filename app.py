@@ -823,6 +823,14 @@ def results_page():
            res["parsed_data"].get("MDS_related_mutation", {}).get("UBA1", False):
             st.warning("⚠️ **VEXAS SYNDROME ALERT**: UBA1 mutation detected in an MDS context. VEXAS syndrome (Vacuoles, E1 enzyme, X-linked, Autoinflammatory, Somatic) should be considered. Clinical correlation with systemic inflammation, fever, and skin manifestations is recommended.", icon="⚠️")
         
+        # Check for JAK2 mutation - may indicate MPN or MDS/MPN overlap
+        if res["parsed_data"].get("MDS_related_mutation", {}).get("JAK2", False):
+            st.warning("⚠️ **JAK2 MUTATION DETECTED**: JAK2 mutation is most commonly associated with myeloproliferative neoplasms (MPNs). Consider MPN or MDS/MPN overlap syndrome if clinical and morphological features are consistent.", icon="⚠️")
+        
+        # Check for BCR::ABL1 fusion
+        if res["parsed_data"].get("AML_defining_recurrent_genetic_abnormalities", {}).get("BCR::ABL1", False):
+            st.warning("⚠️ **BCR::ABL1 FUSION DETECTED**: While this finding does not exclude MDS, BCR::ABL1 fusion is characteristic of chronic myeloid leukemia (CML) and Ph+ acute leukemias. Consider alternative diagnoses and tyrosine kinase inhibitor therapy.", icon="⚠️")
+        
         if "aml_class_review" not in st.session_state:
             with st.spinner("Generating Classification Review..."):
                 st.session_state["aml_class_review"] = get_gpt4_review_aml_classification(

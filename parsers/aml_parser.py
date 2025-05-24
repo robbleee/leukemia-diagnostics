@@ -111,7 +111,8 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "STAG2": False,
             "U2AF1": False,
             "ZRSR2": False,
-            "UBA1": False
+            "UBA1": False,
+            "JAK2": False
         },
         "MDS_related_cytogenetics": {
             "Complex_karyotype": False,
@@ -285,7 +286,8 @@ Extract these nested fields:
     "STAG2": false,
     "U2AF1": false,
     "ZRSR2": false,
-    "UBA1": false
+    "UBA1": false,
+    "JAK2": false
 }},
 "MDS_related_cytogenetics": {{
     "Complex_karyotype": false,
