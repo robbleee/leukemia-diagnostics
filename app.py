@@ -817,6 +817,12 @@ def results_page():
             classification_eln="Not computed here",
             mode=mode
         )
+        
+        # Check for UBA1 mutation in MDS cases for VEXAS syndrome warning
+        if (res["who_disease_type"] == "MDS" or res["icc_disease_type"] == "MDS") and \
+           res["parsed_data"].get("MDS_related_mutation", {}).get("UBA1", False):
+            st.warning("⚠️ **VEXAS SYNDROME ALERT**: UBA1 mutation detected in an MDS context. VEXAS syndrome (Vacuoles, E1 enzyme, X-linked, Autoinflammatory, Somatic) should be considered. Clinical correlation with systemic inflammation, fever, and skin manifestations is recommended.", icon="⚠️")
+        
         if "aml_class_review" not in st.session_state:
             with st.spinner("Generating Classification Review..."):
                 st.session_state["aml_class_review"] = get_gpt4_review_aml_classification(
