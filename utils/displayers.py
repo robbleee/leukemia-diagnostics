@@ -85,6 +85,40 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
         has_del5q = parsed_data["MDS_related_cytogenetics"].get("del_5q", False)
         has_inv3_t33 = parsed_data["MDS_related_cytogenetics"].get("inv3_t33", False)
     
+    # Check for MDS-defining cytogenetic changes
+    has_mds_defining_cytogenetics = False
+    has_minus_7 = False
+    has_del_7q = False
+    has_complex_karyotype = False
+    
+    if parsed_data and "MDS_related_cytogenetics" in parsed_data:
+        has_del5q = parsed_data["MDS_related_cytogenetics"].get("del_5q", False)
+        has_minus_7 = parsed_data["MDS_related_cytogenetics"].get("-7", False)
+        has_del_7q = parsed_data["MDS_related_cytogenetics"].get("del_7q", False)
+        has_complex_karyotype = parsed_data["MDS_related_cytogenetics"].get("Complex_karyotype", False)
+    
+    # Check for MDS-defining genetic changes
+    has_sf3b1 = False
+    has_multi_hit_tp53 = False
+    
+    if parsed_data:
+        if "MDS_related_mutation" in parsed_data:
+            has_sf3b1 = parsed_data["MDS_related_mutation"].get("SF3B1", False)
+        
+        if "Biallelic_TP53_mutation" in parsed_data:
+            has_multi_hit_tp53 = (
+                parsed_data["Biallelic_TP53_mutation"].get("2_x_TP53_mutations", False) or
+                parsed_data["Biallelic_TP53_mutation"].get("1_x_TP53_mutation_del_17p", False) or
+                parsed_data["Biallelic_TP53_mutation"].get("1_x_TP53_mutation_LOH", False) or
+                parsed_data["Biallelic_TP53_mutation"].get("1_x_TP53_mutation_10_percent_vaf", False)
+            )
+    
+    # Determine if any MDS-defining genetic/cytogenetic changes are present
+    has_mds_defining_genetic_cytogenetic = (
+        has_del5q or has_minus_7 or has_del_7q or has_complex_karyotype or
+        has_sf3b1 or has_multi_hit_tp53
+    )
+    
     # Check for eosinophilia-related gene rearrangements
     eosinophilia_rearrangements = []
     
@@ -114,6 +148,7 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
         if session_key not in st.session_state:
             st.session_state[session_key] = {
                 "cytopenia_confirmed": False,
+                "morphological_dysplasia": False,
                 "wbc_cytosis": False,
                 "eosinophil_cytosis": False,
                 "monocyte_cytosis": False,
@@ -125,6 +160,7 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
         if st.session_state[session_key].get("submitted", False):
             # Get form data
             cytopenia_confirmed = st.session_state[session_key].get("cytopenia_confirmed", False)
+            morphological_dysplasia = st.session_state[session_key].get("morphological_dysplasia", False)
             wbc_cytosis = st.session_state[session_key].get("wbc_cytosis", False)
             monocyte_cytosis = st.session_state[session_key].get("monocyte_cytosis", False)
             platelet_cytosis = st.session_state[session_key].get("platelet_cytosis", False)
@@ -135,6 +171,11 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
             
             # Evaluate all possible exclusion conditions
             if not cytopenia_confirmed:
+                has_exclusions = True
+            
+            # Check if MDS-defining features are present (either morphological dysplasia or specific genetic/cytogenetic changes)
+            has_mds_defining_features = morphological_dysplasia or has_mds_defining_genetic_cytogenetic
+            if not has_mds_defining_features:
                 has_exclusions = True
             
             if wbc_cytosis:
@@ -158,6 +199,10 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
             # Display warnings based on form data
             if not cytopenia_confirmed:
                 st.warning("⚠️ **MDS Diagnostic Criteria Not Met**: Persistent cytopenia (>4 months) in at least one lineage without alternative cause is required for MDS diagnosis.", icon="⚠️")
+            
+            # Warning if no MDS-defining features are present
+            if not has_mds_defining_features:
+                st.warning("⚠️ **MDS Diagnostic Criteria Not Met**: At least one MDS-defining feature must be present - either morphologically defined dysplasia or specific genetic/cytogenetic changes (del 5q-, -7, del 7q, complex karyotype, SF3B1 mutation, or multi-hit TP53).", icon="⚠️")
             
             # Cytoses warnings based on whether exceptions apply
             has_cytosis = wbc_cytosis or monocyte_cytosis or platelet_cytosis or eosinophil_cytosis
@@ -200,6 +245,34 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
                     "Confirm persistent cytopenia in at least one lineage for >4 months without clear alternative cause",
                     value=st.session_state[session_key].get("cytopenia_confirmed", False),
                     help="Cytopenia must be persistent and not explained by other conditions such as vitamin deficiency, drug effect, or other disease."
+                )
+                
+                # Morphological dysplasia checkbox
+                st.markdown("##### MDS-Defining Features (at least one required)")
+                
+                # Display info on which genetic/cytogenetic changes are already detected
+                if has_mds_defining_genetic_cytogenetic:
+                    mds_defining_changes = []
+                    if has_del5q:
+                        mds_defining_changes.append("del(5q)")
+                    if has_minus_7:
+                        mds_defining_changes.append("-7")
+                    if has_del_7q:
+                        mds_defining_changes.append("del(7q)")
+                    if has_complex_karyotype:
+                        mds_defining_changes.append("complex karyotype")
+                    if has_sf3b1:
+                        mds_defining_changes.append("SF3B1 mutation")
+                    if has_multi_hit_tp53:
+                        mds_defining_changes.append("multi-hit TP53")
+                    
+                    st.info(f"ℹ️ MDS-defining genetic/cytogenetic changes detected: {', '.join(mds_defining_changes)}", icon="ℹ️")
+                
+                # Add checkbox for morphological dysplasia
+                morphological_dysplasia = st.checkbox(
+                    "Morphologically defined dysplasia affecting at least one lineage",
+                    value=st.session_state[session_key].get("morphological_dysplasia", False),
+                    help="Check this if dysplastic features are morphologically evident in at least one cell lineage."
                 )
                 
                 # Cytoses assessment using individual checkboxes
@@ -260,6 +333,7 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
                 # Store form data in session state
                 st.session_state[session_key] = {
                     "cytopenia_confirmed": cytopenia_confirmed,
+                    "morphological_dysplasia": morphological_dysplasia,
                     "wbc_cytosis": wbc_cytosis,
                     "eosinophil_cytosis": eosinophil_cytosis,
                     "monocyte_cytosis": monocyte_cytosis,
@@ -272,6 +346,16 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
                 
                 # Evaluate all possible exclusion conditions
                 if not cytopenia_confirmed:
+                    has_exclusions = True
+                
+                # Check if MDS-defining features are present (either morphological dysplasia or specific genetic/cytogenetic changes)
+                has_mds_defining_features = False
+                if st.session_state[session_key].get("morphological_dysplasia", False):
+                    has_mds_defining_features = True
+                if has_mds_defining_genetic_cytogenetic:
+                    has_mds_defining_features = True
+                
+                if not has_mds_defining_features:
                     has_exclusions = True
                 
                 if wbc_cytosis:
@@ -295,6 +379,10 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
                 # Display warnings based on form data
                 if not cytopenia_confirmed:
                     st.warning("⚠️ **MDS Diagnostic Criteria Not Met**: Persistent cytopenia (>4 months) in at least one lineage without alternative cause is required for MDS diagnosis.", icon="⚠️")
+                
+                # Warning if no MDS-defining features are present
+                if not has_mds_defining_features:
+                    st.warning("⚠️ **MDS Diagnostic Criteria Not Met**: At least one MDS-defining feature must be present - either morphologically defined dysplasia or specific genetic/cytogenetic changes (del 5q-, -7, del 7q, complex karyotype, SF3B1 mutation, or multi-hit TP53).", icon="⚠️")
                 
                 # Cytoses warnings based on whether exceptions apply
                 has_cytosis = wbc_cytosis or monocyte_cytosis or platelet_cytosis or eosinophil_cytosis
