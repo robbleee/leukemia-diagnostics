@@ -1124,14 +1124,9 @@ def results_page():
             elif not st.session_state["erythroid_form_submitted"]:
                 has_pending_forms = True
         
-        # Check if MDS WHO form is pending submission
-        if who_disease_type == "MDS" and "mds_who_confirmation" in st.session_state:
-            if not st.session_state["mds_who_confirmation"].get("submitted", False):
-                has_pending_forms = True
-        
-        # Check if MDS ICC form is pending submission
-        if icc_disease_type == "MDS" and "mds_icc_confirmation" in st.session_state:
-            if not st.session_state["mds_icc_confirmation"].get("submitted", False):
+        # Check if MDS confirmation form is pending submission (combined form)
+        if (who_disease_type == "MDS" or icc_disease_type == "MDS") and "mds_confirmation" in st.session_state:
+            if not st.session_state["mds_confirmation"].get("submitted", False):
                 has_pending_forms = True
         
         # Only generate and display the classification review if there are no pending forms

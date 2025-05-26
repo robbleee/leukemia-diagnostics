@@ -73,6 +73,197 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
         disease_type (str): The disease type (MDS, AML, etc.)
         session_key (str): A unique key for storing the form's state in session (e.g., "mds_who_confirmation")
     """
+    # This function is kept for backward compatibility but will redirect to the combined form
+    # in the case where it's called directly
+    st.warning("Please use the combined MDS confirmation form at the top of the page instead.")
+
+def display_aml_classification_results(
+    parsed_fields,
+    classification_who,
+    who_derivation,
+    classification_icc,
+    icc_derivation,
+    classification_eln,  # if needed elsewhere; not shown in these two columns
+    mode="manual",
+    show_parsed_fields: bool = False
+):
+    """
+    Displays AML classification results in Streamlit.
+
+    Args:
+        parsed_fields (dict): The raw parsed data values.
+        classification_who (str): WHO 2022 classification result.
+        who_derivation (list): Step-by-step derivation for WHO 2022.
+        classification_icc (str): ICC 2022 classification result.
+        icc_derivation (list): Step-by-step derivation for ICC 2022.
+        classification_eln (str): ELN classification result.
+        mode (str): Typically 'manual' or other mode.
+        show_parsed_fields (bool): Whether to show the "View Parsed AML Values" expander.
+    """
+    ##########################################
+    # 0. Check for missing cytogenetic data and display warning
+    ##########################################
+    if parsed_fields.get("no_cytogenetics_data", False):
+        st.warning("""
+        ⚠️ **No cytogenetic data was detected in your report.** 
+        
+        Cytogenetic information is critical for accurate AML/MDS classification. 
+        For more accurate results, please provide a complete report that includes cytogenetic data 
+        (karyotype, FISH analysis, or specific cytogenetic abnormalities).
+        """)
+    
+    ##########################################
+    # Determine disease types
+    ##########################################
+    who_disease_type = "Unknown"
+    if "aml_manual_result" in st.session_state:
+        who_disease_type = st.session_state["aml_manual_result"].get("who_disease_type", "Unknown")
+    elif "aml_ai_result" in st.session_state:
+        who_disease_type = st.session_state["aml_ai_result"].get("who_disease_type", "Unknown")
+    
+    icc_disease_type = "Unknown"
+    if "aml_manual_result" in st.session_state:
+        icc_disease_type = st.session_state["aml_manual_result"].get("icc_disease_type", "Unknown")
+    elif "aml_ai_result" in st.session_state:
+        icc_disease_type = st.session_state["aml_ai_result"].get("icc_disease_type", "Unknown")
+    
+    # Determine if MDS confirmation form should be shown
+    show_mds_form = who_disease_type == "MDS" or icc_disease_type == "MDS"
+    mds_form_submitted = "mds_confirmation" in st.session_state and st.session_state["mds_confirmation"].get("submitted", False)
+    
+    ##########################################
+    # Display single MDS confirmation form if applicable
+    ##########################################
+    if show_mds_form:
+        session_key = "mds_confirmation"
+        # Display the MDS confirmation form just once above the classification columns
+        st.markdown("### **MDS Confirmation**")
+        
+        # Call a modified confirmation form that handles both classifications
+        display_combined_mds_confirmation_form(
+            who_classification=classification_who if who_disease_type == "MDS" else None,
+            icc_classification=classification_icc if icc_disease_type == "MDS" else None,
+            session_key=session_key
+        )
+    
+    ##########################################
+    # 1. Display WHO & ICC Classifications Side-by-Side
+    # Only show classifications if:
+    # - No MDS form is needed, OR
+    # - MDS form has been submitted
+    ##########################################
+    if not show_mds_form or mds_form_submitted:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### **WHO 2022 Classification**")
+            
+            # If classification mentions erythroid, show the evaluation form
+            if "erythroid" in classification_who.lower():
+                display_erythroid_form_for_classification(classification_who, parsed_fields)
+            else:
+                # If we already showed the MDS form, just display the classification or modified classification
+                if show_mds_form and who_disease_type == "MDS" and mds_form_submitted:
+                    # Check if exclusions apply to this classification
+                    if st.session_state["mds_confirmation"].get("has_exclusions", False):
+                        st.markdown(f"**Classification:** Not MDS - consider other diagnostic pathways")
+                    else:
+                        st.markdown(f"**Classification:** {classification_who}")
+                else:
+                    # For non-MDS or if confirmation form is not submitted yet
+                    st.markdown(f"**Classification:** {classification_who}")
+                
+        with col2:
+            st.markdown("### **ICC 2022 Classification**")
+            
+            if "erythroid" in classification_icc.lower():
+                display_erythroid_form_for_classification(classification_icc, parsed_fields)
+            else:
+                # If we already showed the MDS form, just display the classification or modified classification
+                if show_mds_form and icc_disease_type == "MDS" and mds_form_submitted:
+                    # Check if exclusions apply to this classification
+                    if st.session_state["mds_confirmation"].get("has_exclusions", False):
+                        st.markdown(f"**Classification:** Not MDS - consider other diagnostic pathways")
+                    else:
+                        st.markdown(f"**Classification:** {classification_icc}")
+                else:
+                    # For non-MDS or if confirmation form is not submitted yet
+                    st.markdown(f"**Classification:** {classification_icc}")
+        
+        ##########################################
+        # 2. Display Derivations Side-by-Side
+        ##########################################
+        col_who, col_icc = st.columns(2)
+        with col_who:
+            with st.expander("View WHO 2022 Derivation", expanded=False):
+                who_derivation_markdown = "\n\n".join(
+                    [f"**Step {idx}:** {step}" for idx, step in enumerate(who_derivation, start=1)]
+                )
+                st.markdown(who_derivation_markdown)
+        with col_icc:
+            with st.expander("View ICC 2022 Derivation", expanded=False):
+                icc_derivation_markdown = "\n\n".join(
+                    [f"**Step {idx}:** {step}" for idx, step in enumerate(icc_derivation, start=1)]
+                )
+                st.markdown(icc_derivation_markdown)
+        
+        ##########################################
+        # 3. Display All Form Inputs
+        ##########################################
+        with st.expander("View All Form Inputs", expanded=False):
+            st.markdown("### Form Input Data")
+            st.markdown("Below is all the data that was used for classification:")
+            
+            # Create a nicely formatted display of all inputs
+            if parsed_fields:
+                # Display clinical parameters first
+                clinical_params = ["blast_percentage", "fibrotic", "hypoplasia", "number_of_dysplastic_lineages"]
+                clinical_values = {k: v for k, v in parsed_fields.items() if k in clinical_params}
+                
+                if clinical_values:
+                    st.markdown("#### Clinical Parameters")
+                    for key, value in clinical_values.items():
+                        formatted_key = key.replace("_", " ").title()
+                        st.markdown(f"- **{formatted_key}**: {value}")
+                
+                # Display genetic abnormalities
+                genetic_params = [k for k in parsed_fields.keys() if any(term in k.lower() for term in 
+                                ["mutation", "translocation", "inversion", "rearrangement", "deletion", "gene"])]
+                genetic_values = {k: v for k, v in parsed_fields.items() if k in genetic_params}
+                
+                if genetic_values:
+                    st.markdown("#### Genetic Parameters")
+                    for key, value in genetic_values.items():
+                        formatted_key = key.replace("_", " ").title()
+                        st.markdown(f"- **{formatted_key}**: {value}")
+                
+                # Display all other parameters
+                other_params = {k: v for k, v in parsed_fields.items() 
+                            if k not in clinical_values and k not in genetic_values}
+                
+                if other_params:
+                    st.markdown("#### Other Parameters")
+                    for key, value in other_params.items():
+                        formatted_key = key.replace("_", " ").title()
+                        st.markdown(f"- **{formatted_key}**: {value}")
+            else:
+                st.info("No input data available for display.")
+
+    ##########################################
+    # 4. (Optional) Show JSON of parsed fields
+    ##########################################
+    if show_parsed_fields:
+        with st.expander("View Parsed AML Values", expanded=False):
+            st.json(parsed_fields)
+
+def display_combined_mds_confirmation_form(who_classification, icc_classification, session_key):
+    """
+    Displays a single MDS confirmation form that applies to both WHO and ICC classifications.
+    
+    Args:
+        who_classification (str): WHO 2022 classification result (or None if not MDS)
+        icc_classification (str): ICC 2022 classification result (or None if not MDS)
+        session_key (str): A unique key for storing the form's state in session
+    """
     # Get parsed data from session state
     parsed_data = None
     if "aml_manual_result" in st.session_state:
@@ -113,7 +304,8 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
                 parsed_data["Biallelic_TP53_mutation"].get("2_x_TP53_mutations", False) or
                 parsed_data["Biallelic_TP53_mutation"].get("1_x_TP53_mutation_del_17p", False) or
                 parsed_data["Biallelic_TP53_mutation"].get("1_x_TP53_mutation_LOH", False) or
-                parsed_data["Biallelic_TP53_mutation"].get("1_x_TP53_mutation_10_percent_vaf", False)
+                parsed_data["Biallelic_TP53_mutation"].get("1_x_TP53_mutation_10_percent_vaf", False) or
+                parsed_data["Biallelic_TP53_mutation"].get("1_x_TP53_mutation_50_percent_vaf", False)
             )
     
     # Determine if any MDS-defining genetic/cytogenetic changes are present
@@ -146,28 +338,197 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
     # Create a flag for whether eosinophilia is an absolute exclusion
     has_eosinophilia_rearrangements = len(eosinophilia_rearrangements) > 0
     
-    if disease_type == "MDS":
-        # Initialize session state for this specific form if not already present
-        if session_key not in st.session_state:
-            st.session_state[session_key] = {
-                "cytopenia_confirmed": False,
-                "morphological_dysplasia": False,
-                "wbc_cytosis": False,
-                "eosinophil_cytosis": False,
-                "monocyte_cytosis": False,
-                "platelet_cytosis": False,
-                "submitted": False
-            }
+    # Initialize session state for this specific form if not already present
+    if session_key not in st.session_state:
+        st.session_state[session_key] = {
+            "cytopenia_confirmed": False,
+            "morphological_dysplasia": False,
+            "wbc_cytosis": False,
+            "eosinophil_cytosis": False,
+            "monocyte_cytosis": False,
+            "platelet_cytosis": False,
+            "submitted": False,
+            "has_exclusions": False
+        }
+    
+    # Show classification info only if the form hasn't been submitted yet
+    if not st.session_state[session_key].get("submitted", False):
+        st.markdown("#### Classifications under review:")
+        if who_classification:
+            st.markdown(f"- **WHO 2022:** {who_classification}")
+        if icc_classification:
+            st.markdown(f"- **ICC 2022:** {icc_classification}")
+    
+    # If the form has already been submitted, just display the results
+    if st.session_state[session_key].get("submitted", False):
+        # Get form data
+        cytopenia_confirmed = st.session_state[session_key].get("cytopenia_confirmed", False)
+        morphological_dysplasia = st.session_state[session_key].get("morphological_dysplasia", False)
+        wbc_cytosis = st.session_state[session_key].get("wbc_cytosis", False)
+        monocyte_cytosis = st.session_state[session_key].get("monocyte_cytosis", False)
+        platelet_cytosis = st.session_state[session_key].get("platelet_cytosis", False)
+        eosinophil_cytosis = st.session_state[session_key].get("eosinophil_cytosis", False)
         
-        # If the form has already been submitted, just display the results
-        if st.session_state[session_key].get("submitted", False):
-            # Get form data
-            cytopenia_confirmed = st.session_state[session_key].get("cytopenia_confirmed", False)
-            morphological_dysplasia = st.session_state[session_key].get("morphological_dysplasia", False)
-            wbc_cytosis = st.session_state[session_key].get("wbc_cytosis", False)
-            monocyte_cytosis = st.session_state[session_key].get("monocyte_cytosis", False)
-            platelet_cytosis = st.session_state[session_key].get("platelet_cytosis", False)
-            eosinophil_cytosis = st.session_state[session_key].get("eosinophil_cytosis", False)
+        # Check if any exclusions apply
+        has_exclusions = False
+        
+        # Evaluate all possible exclusion conditions
+        if not cytopenia_confirmed:
+            has_exclusions = True
+        
+        # Check if MDS-defining features are present (either morphological dysplasia or specific genetic/cytogenetic changes)
+        has_mds_defining_features = morphological_dysplasia or has_mds_defining_genetic_cytogenetic
+        if not has_mds_defining_features:
+            has_exclusions = True
+        
+        if wbc_cytosis:
+            has_exclusions = True
+        
+        if monocyte_cytosis:
+            has_exclusions = True
+        
+        if platelet_cytosis and not (has_del5q or has_inv3_t33):
+            has_exclusions = True
+        
+        if eosinophil_cytosis and has_eosinophilia_rearrangements:
+            has_exclusions = True
+        
+        # Store exclusion result in session state
+        st.session_state[session_key]["has_exclusions"] = has_exclusions
+        
+        # Display warnings based on form data
+        if not cytopenia_confirmed:
+            st.warning("⚠️ **MDS Diagnostic Criteria Not Met**: Persistent cytopenia (>4 months) in at least one lineage without alternative cause is required for MDS diagnosis.", icon="⚠️")
+        
+        # Warning if no MDS-defining features are present
+        if not has_mds_defining_features:
+            st.warning("⚠️ **MDS Diagnostic Criteria Not Met**: At least one MDS-defining feature must be present - either morphologically defined dysplasia or specific genetic/cytogenetic changes (del 5q-, -7, del 7q, complex karyotype, SF3B1 mutation, or multi-hit TP53).", icon="⚠️")
+        
+        # Cytoses warnings based on whether exceptions apply
+        has_cytosis = wbc_cytosis or monocyte_cytosis or platelet_cytosis or eosinophil_cytosis
+        
+        if has_cytosis:
+            if platelet_cytosis and (has_del5q or has_inv3_t33):
+                st.warning("⚠️ **EXCEPTION APPLIES**: Thrombocytosis with del(5q) or inv(3)/t(3;3) can still be classified as MDS, but consideration of a myeloproliferative pathway is recommended.", icon="⚠️")
+                
+                # Add a new message to explicitly state we're allowing MDS diagnosis despite thrombocytosis
+                st.info(f"ℹ️ **MDS Diagnosis Allowed**: Despite thrombocytosis ≥ 450 × 10^9/L being present, MDS diagnosis is still permitted due to the presence of {' and '.join([x for x in ['del(5q)' if has_del5q else '', 'inv(3)/t(3;3)' if has_inv3_t33 else ''] if x])} cytogenetic abnormality. This is a recognized exception to the absolute exclusion rule.", icon="ℹ️")
+            elif eosinophil_cytosis and has_eosinophilia_rearrangements:
+                st.error(f"❌ **ABSOLUTE EXCLUSION - EOSINOPHILIA WITH GENE REARRANGEMENTS**: Eosinophilia with {', '.join(eosinophilia_rearrangements)} detected. This excludes MDS diagnosis. Consider 'myeloid/lymphoid neoplasms with eosinophilia and tyrosine kinase gene fusions'.", icon="❌")
+            else:
+                # General cytoses exclusion
+                exclusion_list = []
+                if wbc_cytosis:
+                    exclusion_list.append("WBC > 13 × 10^9/L (requires MPN pathway)")
+                if monocyte_cytosis:
+                    exclusion_list.append("Monocytosis ≥ 10% and ≥ 0.5 × 10^9/L (requires CMML pathway)")
+                if platelet_cytosis and not (has_del5q or has_inv3_t33):
+                    exclusion_list.append("Thrombocytosis ≥ 450 × 10^9/L (requires consideration of MPN pathway)")
+                # Only add eosinophilia to exclusion list if specific rearrangements are present
+                if eosinophil_cytosis and has_eosinophilia_rearrangements:
+                    exclusion_list.append(f"Eosinophilia > 0.5 × 10^9/L with {', '.join(eosinophilia_rearrangements)} (requires consideration of myeloid/lymphoid neoplasms with eosinophilia)")
+                
+                if exclusion_list:
+                    st.error(f"❌ **ABSOLUTE EXCLUSION - PERSISTENT CYTOSES**: The following unexplained cytoses exclude MDS diagnosis: {', '.join(exclusion_list)}", icon="❌")
+    else:
+        # Create a placeholder to hold the form
+        form_placeholder = st.empty()
+        
+        with form_placeholder.form(f"{session_key}_form"):
+            st.markdown(
+                "<h4 style='margin-bottom: 0px;'>MDS Diagnostic Criteria & Exclusions</h4>",
+                unsafe_allow_html=True
+            )
+            
+            # Cytopenia confirmation checkbox
+            cytopenia_confirmed = st.checkbox(
+                "Confirm persistent cytopenia in at least one lineage for >4 months without clear alternative cause",
+                value=st.session_state[session_key].get("cytopenia_confirmed", False),
+                help="Cytopenia must be persistent and not explained by other conditions such as vitamin deficiency, drug effect, or other disease."
+            )
+            
+            # Morphological dysplasia checkbox
+            st.markdown("##### MDS-Defining Features (at least one required)")
+            
+            # Display info on which genetic/cytogenetic changes are already detected
+            if has_mds_defining_genetic_cytogenetic:
+                mds_defining_changes = []
+                if has_del5q:
+                    mds_defining_changes.append("del(5q)")
+                if has_minus_7:
+                    mds_defining_changes.append("-7")
+                if has_del_7q:
+                    mds_defining_changes.append("del(7q)")
+                if has_complex_karyotype:
+                    mds_defining_changes.append("complex karyotype")
+                if has_sf3b1:
+                    mds_defining_changes.append("SF3B1 mutation")
+                if has_multi_hit_tp53:
+                    mds_defining_changes.append("multi-hit TP53")
+                
+                st.info(f"ℹ️ MDS-defining genetic/cytogenetic changes detected: {', '.join(mds_defining_changes)}", icon="ℹ️")
+            
+            # Add checkbox for morphological dysplasia
+            morphological_dysplasia = st.checkbox(
+                "Please confirm that morphological criteria for dysplasia are met: at least 10% cells of at least one lineage have significant dysplastic features and no alternative cause for dysplasia is present",
+                value=st.session_state[session_key].get("morphological_dysplasia", False),
+                help="Dysplasia must be significant and affect at least 10% of cells in at least one lineage, with no alternative explanation."
+            )
+            
+            # Cytoses assessment using individual checkboxes
+            st.markdown("##### Persistent Cytoses (unexplained by other conditions)")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                wbc_cytosis = st.checkbox(
+                    "WBC > 13 × 10^9/L",
+                    value=st.session_state[session_key].get("wbc_cytosis", False),
+                    help="Any WBC > 13 × 10^9/L that cannot be explained by other conditions excludes MDS and requires a myeloproliferative neoplasm (MPN) pathway."
+                )
+                
+                eosinophil_cytosis = st.checkbox(
+                    "Eosinophilia > 0.5 × 10^9/L",
+                    value=st.session_state[session_key].get("eosinophil_cytosis", False),
+                    help="Eosinophilia excludes MDS diagnosis only when specific gene rearrangements are present."
+                )
+            
+            with col2:
+                monocyte_cytosis = st.checkbox(
+                    "Monocytosis ≥ 10% and ≥ 0.5 × 10^9/L",
+                    value=st.session_state[session_key].get("monocyte_cytosis", False),
+                    help="Monocytosis excludes MDS diagnosis and requires consideration of chronic myelomonocytic leukemia (CMML)."
+                )
+                
+                platelet_cytosis = st.checkbox(
+                    "Thrombocytosis ≥ 450 × 10^9/L",
+                    value=st.session_state[session_key].get("platelet_cytosis", False),
+                    help="Thrombocytosis usually excludes MDS diagnosis except when del(5q) or inv(3)/t(3;3) is present."
+                )
+            
+            # If eosinophilia is checked, display info about detected gene rearrangements
+            if eosinophil_cytosis or st.session_state[session_key].get("eosinophil_cytosis", False):
+                if has_eosinophilia_rearrangements:
+                    st.error(f"⚠️ {', '.join(eosinophilia_rearrangements)} detected. If eosinophilia is present, this EXCLUDES MDS diagnosis and requires consideration of 'myeloid/lymphoid neoplasms with eosinophilia and tyrosine kinase gene fusions'.", icon="⚠️")
+                else:
+                    st.info("ℹ️ No eosinophilia-related gene rearrangements detected. Eosinophilia alone is not an absolute exclusion for MDS diagnosis.", icon="ℹ️")
+            
+            submit = st.form_submit_button("Confirm MDS Criteria")
+        
+        if submit:
+            # Remove the form from the interface
+            form_placeholder.empty()
+            
+            # Store form data in session state
+            st.session_state[session_key] = {
+                "cytopenia_confirmed": cytopenia_confirmed,
+                "morphological_dysplasia": morphological_dysplasia,
+                "wbc_cytosis": wbc_cytosis,
+                "eosinophil_cytosis": eosinophil_cytosis,
+                "monocyte_cytosis": monocyte_cytosis,
+                "platelet_cytosis": platelet_cytosis,
+                "submitted": True
+            }
             
             # Check if any exclusions apply
             has_exclusions = False
@@ -177,7 +538,12 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
                 has_exclusions = True
             
             # Check if MDS-defining features are present (either morphological dysplasia or specific genetic/cytogenetic changes)
-            has_mds_defining_features = morphological_dysplasia or has_mds_defining_genetic_cytogenetic
+            has_mds_defining_features = False
+            if st.session_state[session_key].get("morphological_dysplasia", False):
+                has_mds_defining_features = True
+            if has_mds_defining_genetic_cytogenetic:
+                has_mds_defining_features = True
+            
             if not has_mds_defining_features:
                 has_exclusions = True
             
@@ -193,369 +559,11 @@ def display_mds_confirmation_form(classification: str, disease_type: str, sessio
             if eosinophil_cytosis and has_eosinophilia_rearrangements:
                 has_exclusions = True
             
-            # Display appropriate classification based on exclusions
-            if has_exclusions:
-                st.markdown(f"**Classification:** Not MDS - consider other diagnostic pathways")
-            else:
-                st.markdown(f"**Classification:** {classification}")
+            # Store exclusion result in session state
+            st.session_state[session_key]["has_exclusions"] = has_exclusions
             
-            # Display warnings based on form data
-            if not cytopenia_confirmed:
-                st.warning("⚠️ **MDS Diagnostic Criteria Not Met**: Persistent cytopenia (>4 months) in at least one lineage without alternative cause is required for MDS diagnosis.", icon="⚠️")
-            
-            # Warning if no MDS-defining features are present
-            if not has_mds_defining_features:
-                st.warning("⚠️ **MDS Diagnostic Criteria Not Met**: At least one MDS-defining feature must be present - either morphologically defined dysplasia or specific genetic/cytogenetic changes (del 5q-, -7, del 7q, complex karyotype, SF3B1 mutation, or multi-hit TP53).", icon="⚠️")
-            
-            # Cytoses warnings based on whether exceptions apply
-            has_cytosis = wbc_cytosis or monocyte_cytosis or platelet_cytosis or eosinophil_cytosis
-            
-            if has_cytosis:
-                if platelet_cytosis and (has_del5q or has_inv3_t33):
-                    st.warning("⚠️ **EXCEPTION APPLIES**: Thrombocytosis with del(5q) or inv(3)/t(3;3) can still be classified as MDS, but consideration of a myeloproliferative pathway is recommended.", icon="⚠️")
-                    
-                    # Add a new message to explicitly state we're allowing MDS diagnosis despite thrombocytosis
-                    st.info(f"ℹ️ **MDS Diagnosis Allowed**: Despite thrombocytosis ≥ 450 × 10^9/L being present, MDS diagnosis is still permitted due to the presence of {' and '.join([x for x in ['del(5q)' if has_del5q else '', 'inv(3)/t(3;3)' if has_inv3_t33 else ''] if x])} cytogenetic abnormality. This is a recognized exception to the absolute exclusion rule.", icon="ℹ️")
-                elif eosinophil_cytosis and has_eosinophilia_rearrangements:
-                    st.error(f"❌ **ABSOLUTE EXCLUSION - EOSINOPHILIA WITH GENE REARRANGEMENTS**: Eosinophilia with {', '.join(eosinophilia_rearrangements)} detected. This excludes MDS diagnosis. Consider 'myeloid/lymphoid neoplasms with eosinophilia and tyrosine kinase gene fusions'.", icon="❌")
-                else:
-                    # General cytoses exclusion
-                    exclusion_list = []
-                    if wbc_cytosis:
-                        exclusion_list.append("WBC > 13 × 10^9/L (requires MPN pathway)")
-                    if monocyte_cytosis:
-                        exclusion_list.append("Monocytosis ≥ 10% and ≥ 0.5 × 10^9/L (requires CMML pathway)")
-                    if platelet_cytosis and not (has_del5q or has_inv3_t33):
-                        exclusion_list.append("Thrombocytosis ≥ 450 × 10^9/L (requires consideration of MPN pathway)")
-                    # Only add eosinophilia to exclusion list if specific rearrangements are present
-                    if eosinophil_cytosis and has_eosinophilia_rearrangements:
-                        exclusion_list.append(f"Eosinophilia > 0.5 × 10^9/L with {', '.join(eosinophilia_rearrangements)} (requires consideration of myeloid/lymphoid neoplasms with eosinophilia)")
-                    
-                    if exclusion_list:
-                        st.error(f"❌ **ABSOLUTE EXCLUSION - PERSISTENT CYTOSES**: The following unexplained cytoses exclude MDS diagnosis: {', '.join(exclusion_list)}", icon="❌")
-        else:
-            # Create a placeholder to hold the form
-            form_placeholder = st.empty()
-            
-            with form_placeholder.form(f"{session_key}_form"):
-                st.markdown(
-                    "<h4 style='margin-bottom: 0px;'>MDS Diagnostic Criteria & Exclusions</h4>",
-                    unsafe_allow_html=True
-                )
-                
-                # Cytopenia confirmation checkbox
-                cytopenia_confirmed = st.checkbox(
-                    "Confirm persistent cytopenia in at least one lineage for >4 months without clear alternative cause",
-                    value=st.session_state[session_key].get("cytopenia_confirmed", False),
-                    help="Cytopenia must be persistent and not explained by other conditions such as vitamin deficiency, drug effect, or other disease."
-                )
-                
-                # Morphological dysplasia checkbox
-                st.markdown("##### MDS-Defining Features (at least one required)")
-                
-                # Display info on which genetic/cytogenetic changes are already detected
-                if has_mds_defining_genetic_cytogenetic:
-                    mds_defining_changes = []
-                    if has_del5q:
-                        mds_defining_changes.append("del(5q)")
-                    if has_minus_7:
-                        mds_defining_changes.append("-7")
-                    if has_del_7q:
-                        mds_defining_changes.append("del(7q)")
-                    if has_complex_karyotype:
-                        mds_defining_changes.append("complex karyotype")
-                    if has_sf3b1:
-                        mds_defining_changes.append("SF3B1 mutation")
-                    if has_multi_hit_tp53:
-                        mds_defining_changes.append("multi-hit TP53")
-                    
-                    st.info(f"ℹ️ MDS-defining genetic/cytogenetic changes detected: {', '.join(mds_defining_changes)}", icon="ℹ️")
-                
-                # Add checkbox for morphological dysplasia
-                morphological_dysplasia = st.checkbox(
-                    "Please confirm that morphological criteria for dysplasia are met: at least 10% cells of at least one lineage have significant dysplastic features and no alternative cause for dysplasia is present",
-                    value=st.session_state[session_key].get("morphological_dysplasia", False),
-                    help="Dysplasia must be significant and affect at least 10% of cells in at least one lineage, with no alternative explanation."
-                )
-                
-                # Cytoses assessment using individual checkboxes
-                st.markdown("##### Persistent Cytoses (unexplained by other conditions)")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    wbc_cytosis = st.checkbox(
-                        "WBC > 13 × 10^9/L",
-                        value=st.session_state[session_key].get("wbc_cytosis", False),
-                        help="Any WBC > 13 × 10^9/L that cannot be explained by other conditions excludes MDS and requires a myeloproliferative neoplasm (MPN) pathway."
-                    )
-                    
-                    eosinophil_cytosis = st.checkbox(
-                        "Eosinophilia > 0.5 × 10^9/L",
-                        value=st.session_state[session_key].get("eosinophil_cytosis", False),
-                        help="Eosinophilia excludes MDS diagnosis only when specific gene rearrangements are present."
-                    )
-                
-                with col2:
-                    monocyte_cytosis = st.checkbox(
-                        "Monocytosis ≥ 10% and ≥ 0.5 × 10^9/L",
-                        value=st.session_state[session_key].get("monocyte_cytosis", False),
-                        help="Any monocytosis (≥ 10% and absolute ≥ 0.5 × 10^9/L) that is persistent on follow-up excludes MDS and requires a CMML pathway."
-                    )
-                    
-                    platelet_cytosis = st.checkbox(
-                        "Thrombocytosis ≥ 450 × 10^9/L",
-                        value=st.session_state[session_key].get("platelet_cytosis", False),
-                        help="Any thrombocytosis ≥ 450 × 10^9/L generally excludes MDS unless there is cytogenetic change del(5q) or inv(3)/t(3;3). Requires consideration of an MPN pathway."
-                    )
-                
-                # If thrombocytosis is checked, display info about detected cytogenetic abnormalities
-                if platelet_cytosis or st.session_state[session_key].get("platelet_cytosis", False):
-                    if has_del5q or has_inv3_t33:
-                        abnormalities = []
-                        if has_del5q:
-                            abnormalities.append("del(5q)")
-                        if has_inv3_t33:
-                            abnormalities.append("inv(3)/t(3;3)")
-                        
-                        st.info(f"ℹ️ {', '.join(abnormalities)} detected in cytogenetics. MDS diagnosis is still allowed with thrombocytosis.", icon="ℹ️")
-                
-                # If eosinophilia is checked, display info about detected gene rearrangements
-                if eosinophil_cytosis or st.session_state[session_key].get("eosinophil_cytosis", False):
-                    if has_eosinophilia_rearrangements:
-                        st.error(f"⚠️ {', '.join(eosinophilia_rearrangements)} detected. If eosinophilia is present, this EXCLUDES MDS diagnosis and requires consideration of 'myeloid/lymphoid neoplasms with eosinophilia and tyrosine kinase gene fusions'.", icon="⚠️")
-                    else:
-                        st.info("ℹ️ No eosinophilia-related gene rearrangements detected. Eosinophilia alone is not an absolute exclusion for MDS diagnosis.", icon="ℹ️")
-                
-                submit = st.form_submit_button("Confirm MDS Criteria")
-            
-            if submit:
-                # Remove the form from the interface
-                form_placeholder.empty()
-                
-                # Store form data in session state
-                st.session_state[session_key] = {
-                    "cytopenia_confirmed": cytopenia_confirmed,
-                    "morphological_dysplasia": morphological_dysplasia,
-                    "wbc_cytosis": wbc_cytosis,
-                    "eosinophil_cytosis": eosinophil_cytosis,
-                    "monocyte_cytosis": monocyte_cytosis,
-                    "platelet_cytosis": platelet_cytosis,
-                    "submitted": True
-                }
-                
-                # Check if any exclusions apply
-                has_exclusions = False
-                
-                # Evaluate all possible exclusion conditions
-                if not cytopenia_confirmed:
-                    has_exclusions = True
-                
-                # Check if MDS-defining features are present (either morphological dysplasia or specific genetic/cytogenetic changes)
-                has_mds_defining_features = False
-                if st.session_state[session_key].get("morphological_dysplasia", False):
-                    has_mds_defining_features = True
-                if has_mds_defining_genetic_cytogenetic:
-                    has_mds_defining_features = True
-                
-                if not has_mds_defining_features:
-                    has_exclusions = True
-                
-                if wbc_cytosis:
-                    has_exclusions = True
-                
-                if monocyte_cytosis:
-                    has_exclusions = True
-                
-                if platelet_cytosis and not (has_del5q or has_inv3_t33):
-                    has_exclusions = True
-                
-                if eosinophil_cytosis and has_eosinophilia_rearrangements:
-                    has_exclusions = True
-                
-                # Display appropriate classification based on exclusions
-                if has_exclusions:
-                    st.markdown(f"**Classification:** Not MDS - consider other diagnostic pathways")
-                else:
-                    st.markdown(f"**Classification:** {classification}")
-                
-                # Display warnings based on form data
-                if not cytopenia_confirmed:
-                    st.warning("⚠️ **MDS Diagnostic Criteria Not Met**: Persistent cytopenia (>4 months) in at least one lineage without alternative cause is required for MDS diagnosis.", icon="⚠️")
-                
-                # Warning if no MDS-defining features are present
-                if not has_mds_defining_features:
-                    st.warning("⚠️ **MDS Diagnostic Criteria Not Met**: At least one MDS-defining feature must be present - either morphologically defined dysplasia or specific genetic/cytogenetic changes (del 5q-, -7, del 7q, complex karyotype, SF3B1 mutation, or multi-hit TP53).", icon="⚠️")
-                
-                # Cytoses warnings based on whether exceptions apply
-                has_cytosis = wbc_cytosis or monocyte_cytosis or platelet_cytosis or eosinophil_cytosis
-                
-                if has_cytosis:
-                    if platelet_cytosis and (has_del5q or has_inv3_t33):
-                        st.warning("⚠️ **EXCEPTION APPLIES**: Thrombocytosis with del(5q) or inv(3)/t(3;3) can still be classified as MDS, but consideration of a myeloproliferative pathway is recommended.", icon="⚠️")
-                        
-                        # Add a new message to explicitly state we're allowing MDS diagnosis despite thrombocytosis
-                        st.info(f"ℹ️ **MDS Diagnosis Allowed**: Despite thrombocytosis ≥ 450 × 10^9/L being present, MDS diagnosis is still permitted due to the presence of {' and '.join([x for x in ['del(5q)' if has_del5q else '', 'inv(3)/t(3;3)' if has_inv3_t33 else ''] if x])} cytogenetic abnormality. This is a recognized exception to the absolute exclusion rule.", icon="ℹ️")
-                    elif eosinophil_cytosis and has_eosinophilia_rearrangements:
-                        st.error(f"❌ **ABSOLUTE EXCLUSION - EOSINOPHILIA WITH GENE REARRANGEMENTS**: Eosinophilia with {', '.join(eosinophilia_rearrangements)} detected. This excludes MDS diagnosis. Consider 'myeloid/lymphoid neoplasms with eosinophilia and tyrosine kinase gene fusions'.", icon="❌")
-                    else:
-                        # General cytoses exclusion
-                        exclusion_list = []
-                        if wbc_cytosis:
-                            exclusion_list.append("WBC > 13 × 10^9/L (requires MPN pathway)")
-                        if monocyte_cytosis:
-                            exclusion_list.append("Monocytosis ≥ 10% and ≥ 0.5 × 10^9/L (requires CMML pathway)")
-                        if platelet_cytosis and not (has_del5q or has_inv3_t33):
-                            exclusion_list.append("Thrombocytosis ≥ 450 × 10^9/L (requires consideration of MPN pathway)")
-                        
-                        # Only add eosinophilia to exclusion list if specific rearrangements are present
-                        if eosinophil_cytosis and has_eosinophilia_rearrangements:
-                            exclusion_list.append(f"Eosinophilia > 0.5 × 10^9/L with {', '.join(eosinophilia_rearrangements)} (requires consideration of myeloid/lymphoid neoplasms with eosinophilia)")
-                        
-                        if exclusion_list:
-                            st.error(f"❌ **ABSOLUTE EXCLUSION - PERSISTENT CYTOSES**: The following unexplained cytoses exclude MDS diagnosis: {', '.join(exclusion_list)}", icon="❌")
-    else:
-        # If not MDS, just display the classification
-        st.markdown(f"**Classification:** {classification}")
-
-def display_aml_classification_results(
-    parsed_fields,
-    classification_who,
-    who_derivation,
-    classification_icc,
-    icc_derivation,
-    classification_eln,  # if needed elsewhere; not shown in these two columns
-    mode="manual",
-    show_parsed_fields: bool = False
-):
-    """
-    Displays AML classification results in Streamlit.
-
-    Args:
-        parsed_fields (dict): The raw parsed data values.
-        classification_who (str): WHO 2022 classification result.
-        who_derivation (list): Step-by-step derivation for WHO 2022.
-        classification_icc (str): ICC 2022 classification result.
-        icc_derivation (list): Step-by-step derivation for ICC 2022.
-        classification_eln (str): ELN classification result.
-        mode (str): Typically 'manual' or other mode.
-        show_parsed_fields (bool): Whether to show the "View Parsed AML Values" expander.
-    """
-    ##########################################
-    # 0. Check for missing cytogenetic data and display warning
-    ##########################################
-    if parsed_fields.get("no_cytogenetics_data", False):
-        st.warning("""
-        ⚠️ **No cytogenetic data was detected in your report.** 
-        
-        Cytogenetic information is critical for accurate AML/MDS classification. 
-        For more accurate results, please provide a complete report that includes cytogenetic data 
-        (karyotype, FISH analysis, or specific cytogenetic abnormalities).
-        """)
-    
-    ##########################################
-    # 1. Display WHO & ICC Classifications Side-by-Side
-    ##########################################
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("### **WHO 2022 Classification**")
-        # Determine WHO disease type if available in session state
-        who_disease_type = "Unknown"
-        if "aml_manual_result" in st.session_state:
-            who_disease_type = st.session_state["aml_manual_result"].get("who_disease_type", "Unknown")
-        elif "aml_ai_result" in st.session_state:
-            who_disease_type = st.session_state["aml_ai_result"].get("who_disease_type", "Unknown")
-        
-        # If classification mentions erythroid, show the evaluation form
-        if "erythroid" in classification_who.lower():
-            display_erythroid_form_for_classification(classification_who, parsed_fields)
-        # If disease type is MDS, show the MDS confirmation form
-        elif who_disease_type == "MDS":
-            display_mds_confirmation_form(classification_who, who_disease_type, "mds_who_confirmation")
-        else:
-            st.markdown(f"**Classification:** {classification_who}")
-    with col2:
-        st.markdown("### **ICC 2022 Classification**")
-        # Determine ICC disease type if available in session state
-        icc_disease_type = "Unknown"
-        if "aml_manual_result" in st.session_state:
-            icc_disease_type = st.session_state["aml_manual_result"].get("icc_disease_type", "Unknown")
-        elif "aml_ai_result" in st.session_state:
-            icc_disease_type = st.session_state["aml_ai_result"].get("icc_disease_type", "Unknown")
-        
-        if "erythroid" in classification_icc.lower():
-            display_erythroid_form_for_classification(classification_icc, parsed_fields)
-        # If disease type is MDS, show the MDS confirmation form
-        elif icc_disease_type == "MDS":
-            display_mds_confirmation_form(classification_icc, icc_disease_type, "mds_icc_confirmation")
-        else:
-            st.markdown(f"**Classification:** {classification_icc}")
-    
-    ##########################################
-    # 2. Display Derivations Side-by-Side
-    ##########################################
-    col_who, col_icc = st.columns(2)
-    with col_who:
-        with st.expander("View WHO 2022 Derivation", expanded=False):
-            who_derivation_markdown = "\n\n".join(
-                [f"**Step {idx}:** {step}" for idx, step in enumerate(who_derivation, start=1)]
-            )
-            st.markdown(who_derivation_markdown)
-    with col_icc:
-        with st.expander("View ICC 2022 Derivation", expanded=False):
-            icc_derivation_markdown = "\n\n".join(
-                [f"**Step {idx}:** {step}" for idx, step in enumerate(icc_derivation, start=1)]
-            )
-            st.markdown(icc_derivation_markdown)
-    
-    ##########################################
-    # 3. Display All Form Inputs
-    ##########################################
-    with st.expander("View All Form Inputs", expanded=False):
-        st.markdown("### Form Input Data")
-        st.markdown("Below is all the data that was used for classification:")
-        
-        # Create a nicely formatted display of all inputs
-        if parsed_fields:
-            # Display clinical parameters first
-            clinical_params = ["blast_percentage", "fibrotic", "hypoplasia", "number_of_dysplastic_lineages"]
-            clinical_values = {k: v for k, v in parsed_fields.items() if k in clinical_params}
-            
-            if clinical_values:
-                st.markdown("#### Clinical Parameters")
-                for key, value in clinical_values.items():
-                    formatted_key = key.replace("_", " ").title()
-                    st.markdown(f"- **{formatted_key}**: {value}")
-            
-            # Display genetic abnormalities
-            genetic_params = [k for k in parsed_fields.keys() if any(term in k.lower() for term in 
-                             ["mutation", "translocation", "inversion", "rearrangement", "deletion", "gene"])]
-            genetic_values = {k: v for k, v in parsed_fields.items() if k in genetic_params}
-            
-            if genetic_values:
-                st.markdown("#### Genetic Parameters")
-                for key, value in genetic_values.items():
-                    formatted_key = key.replace("_", " ").title()
-                    st.markdown(f"- **{formatted_key}**: {value}")
-            
-            # Display all other parameters
-            other_params = {k: v for k, v in parsed_fields.items() 
-                          if k not in clinical_values and k not in genetic_values}
-            
-            if other_params:
-                st.markdown("#### Other Parameters")
-                for key, value in other_params.items():
-                    formatted_key = key.replace("_", " ").title()
-                    st.markdown(f"- **{formatted_key}**: {value}")
-        else:
-            st.info("No input data available for display.")
-    
-    ##########################################
-    # 4. (Optional) Show JSON of parsed fields
-    ##########################################
-    if show_parsed_fields:
-        with st.expander("View Parsed AML Values", expanded=False):
-            st.json(parsed_fields)
+            # Refresh the page to show the results
+            st.experimental_rerun()
 
 def display_mds_classification_results(parsed_fields, classification_who, derivation_who,
                                        classification_icc, derivation_icc, mode="manual"):
