@@ -101,10 +101,12 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "FLT3": False
         },
         "Biallelic_TP53_mutation": {
+            "tp53_mentioned": False,                 # TRUE if TP53 is mentioned anywhere in report
             "2_x_TP53_mutations": False,
             "1_x_TP53_mutation_del_17p": False,
             "1_x_TP53_mutation_LOH": False,
-            "1_x_TP53_mutation_10_percent_vaf": False
+            "1_x_TP53_mutation_10_percent_vaf": False,
+            "1_x_TP53_mutation_50_percent_vaf": False
         },
         "MDS_related_mutation": {
             "ASXL1": False,
@@ -258,15 +260,17 @@ Here is the free-text haematological report to parse:
     # Prompt #2b: Biallelic_TP53_mutation
     first_prompt_2b = f"""
 The user has pasted a free-text haematological report.
-Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
+Please extract the following information about TP53 mutations from the text and format it into a valid JSON object.
 For boolean fields, use true/false.
 
 Extract this nested field:
 "Biallelic_TP53_mutation": {{
-    "2_x_TP53_mutations": false,
-    "1_x_TP53_mutation_del_17p": false,
-    "1_x_TP53_mutation_LOH": false,
-    "1_x_TP53_mutation_10_percent_vaf": false
+    "tp53_mentioned": false,                      # TRUE if TP53 is mentioned ANYWHERE in the report (even just "TP53 normal" or "TP53 tested")
+    "2_x_TP53_mutations": false,                  # TRUE if TWO SEPARATE TP53 mutations are mentioned
+    "1_x_TP53_mutation_del_17p": false,           # TRUE if ONE TP53 mutation AND deletion of 17p (where TP53 is located)
+    "1_x_TP53_mutation_LOH": false,               # TRUE if ONE TP53 mutation WITH loss of heterozygosity (LOH)
+    "1_x_TP53_mutation_10_percent_vaf": false,    # TRUE if ONE TP53 mutation with VAF (variant allele frequency) ≥ 10%
+    "1_x_TP53_mutation_50_percent_vaf": false     # TRUE if ONE TP53 mutation with VAF (variant allele frequency) ≥ 50%
 }}
 
 Return valid JSON only with these keys and no extra text.
