@@ -18,8 +18,11 @@ def classify_MDS_WHO2022(parsed_data: dict) -> tuple:
     cond1 = biallelic_tp53.get("2_x_TP53_mutations", False)
     cond2 = biallelic_tp53.get("1_x_TP53_mutation_del_17p", False)
     cond3 = biallelic_tp53.get("1_x_TP53_mutation_LOH", False)
+    cond4 = biallelic_tp53.get("1_x_TP53_mutation_50_percent_vaf", False)
+    cond5 = biallelic_tp53.get("1_x_TP53_mutation_10_percent_vaf", False) and parsed_data.get("MDS_related_cytogenetics", {}).get("Complex_karyotype", False)
     derivation.append(f"Checking for biallelic TP53: {biallelic_tp53}")
-    if cond1 or cond2 or cond3:
+    derivation.append(f"TP53 conditions: 2 mutations: {cond1}, with del17p: {cond2}, with LOH: {cond3}, with ≥50% VAF: {cond4}, with ≥10% VAF + complex karyotype: {cond5}")
+    if cond1 or cond2 or cond3 or cond4 or cond5:
         classification = "MDS with biallelic TP53 inactivation"
         derivation.append("Biallelic TP53 detected => " + classification)
         return classification + " (WHO 2022)", derivation
@@ -126,7 +129,10 @@ def classify_MDS_ICC2022(parsed_data: dict) -> tuple:
     cond1 = biallelic_tp53.get("2_x_TP53_mutations", False)
     cond2 = biallelic_tp53.get("1_x_TP53_mutation_del_17p", False)
     cond3 = biallelic_tp53.get("1_x_TP53_mutation_LOH", False)
-    if cond1 or cond2 or cond3:
+    cond4 = biallelic_tp53.get("1_x_TP53_mutation_50_percent_vaf", False)
+    cond5 = biallelic_tp53.get("1_x_TP53_mutation_10_percent_vaf", False) and parsed_data.get("MDS_related_cytogenetics", {}).get("Complex_karyotype", False)
+    derivation.append(f"TP53 conditions: 2 mutations: {cond1}, with del17p: {cond2}, with LOH: {cond3}, with ≥50% VAF: {cond4}, with ≥10% VAF + complex karyotype: {cond5}")
+    if cond1 or cond2 or cond3 or cond4 or cond5:
         classification = "MDS with mutated TP53"
         derivation.append("Biallelic TP53 detected => " + classification)
         return classification + " (ICC 2022)", derivation
