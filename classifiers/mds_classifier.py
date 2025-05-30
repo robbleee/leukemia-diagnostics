@@ -111,7 +111,6 @@ def classify_MDS_WHO2022(parsed_data: dict) -> tuple:
     derivation.append("Final classification => " + classification)
     return classification, derivation
 
-
 def classify_MDS_ICC2022(parsed_data: dict) -> tuple:
     """
     Classifies MDS subtypes based on ICC 2022 criteria.
