@@ -584,7 +584,7 @@ def create_base_pdf(user_comments: str = None) -> bytes:
             clinical_overview = generate_final_overview(parsed_data_for_overview, original_report_text)
         
         # Add Clinical Overview section at the top
-        add_section_title(pdf, "Clinical Overview")
+        add_section_title(pdf, "Overview")
         pdf.set_font("Arial", "", 11)
         pdf.multi_cell(0, 6, clinical_overview, align="L")
         pdf.ln(6)
