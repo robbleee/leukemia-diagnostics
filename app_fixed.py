@@ -722,6 +722,106 @@ def data_entry_page():
                 
                 if st.button("Confirm TP53 Information and Proceed", type="primary"):
                     # Update the TP53 data in the parsed data
+
+                    parsed_data = st.session_state["parsed_data_pre_tp53_confirm"]
+
+                    parsed_data["Biallelic_TP53_mutation"] = {
+
+                        "tp53_mentioned": tp53_mentioned,
+                        "2_x_TP53_mutations": multiple_mutations,
+                        "1_x_TP53_mutation_del_17p": mutation_with_del17p,
+                        "1_x_TP53_mutation_LOH": mutation_with_loh,
+                        "1_x_TP53_mutation_10_percent_vaf": mutation_with_10pct_vaf,
+                        "1_x_TP53_mutation_50_percent_vaf": mutation_with_50pct_vaf
+                    }
+
+                    # Now proceed with classification using the updated data
+                    with st.spinner("Classifying with confirmed TP53 data..."):
+
+                        st.session_state["blast_percentage_known"] = True
+
+                    who_class, who_deriv, who_disease_type = classify_combined_WHO2022(parsed_data, not_erythroid=False)
+
+                    icc_class, icc_deriv, icc_disease_type = classify_combined_ICC2022(parsed_data)
+
+
+                        # Check if this is from manual mode or AI mode
+
+                        is_manual = st.session_state.get("is_manual_mode", False)
+
+
+                        if is_manual:
+
+                            # Store in manual result state
+
+                            st.session_state["aml_manual_result"] = {
+
+                    "parsed_data": parsed_data,
+
+                        "who_class": who_class,
+
+                                "who_derivation": who_deriv,
+
+                                "who_disease_type": who_disease_type,
+
+                        "icc_class": icc_class,
+
+                                "icc_derivation": icc_deriv,
+
+                                "icc_disease_type": icc_disease_type,
+
+                                "free_text_input": ""  # Empty for manual mode
+
+                            }
+                            # Clear manual mode flag
+
+                        st.session_state.pop("is_manual_mode", None)
+
+                        else:
+
+                            # Store in AI result state
+
+                            st.session_state["aml_ai_result"] = {
+
+                    "parsed_data": parsed_data,
+
+                        "who_class": who_class,
+
+                                "who_derivation": who_deriv,
+
+                                "who_disease_type": who_disease_type,
+
+                        "icc_class": icc_class,
+
+                                "icc_derivation": icc_deriv,
+
+                                "icc_disease_type": icc_disease_type,
+
+                                "free_text_input": st.session_state.get("full_text_input", "")
+
+                            }
+
+                        st.session_state["expanded_aml_section"] = "classification"
+
+                        st.session_state["aml_busy"] = False
+
+
+                        # Clear the confirmation flags
+
+                        st.session_state.pop("tp53_confirmation_needed", None)
+
+                        st.session_state.pop("tp53_data_to_confirm", None)
+
+                    st.session_state.pop("parsed_data_pre_tp53_confirm", None)
+
+
+                        # Go to results page
+
+                        st.session_state["page"] = "results"
+
+                        st.rerun()
+
+                    # Update the TP53 data in the parsed data
                     parsed_data = st.session_state["parsed_data_pre_tp53_confirm"]
                     parsed_data["Biallelic_TP53_mutation"] = {
                         "tp53_mentioned": tp53_mentioned,

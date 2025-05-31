@@ -3,6 +3,7 @@ import datetime
 import streamlit as st
 from fpdf import FPDF
 from classifiers.aml_risk_classifier import eln2024_non_intensive_risk, classify_ELN2022
+from parsers.final_review_parser import generate_final_overview
 
 ##################################
 # PDF CONVERTER HELPERS
@@ -562,8 +563,33 @@ def create_base_pdf(user_comments: str = None) -> bytes:
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Add AML diagnostics.
+    # Generate and add clinical overview at the top of the report
     aml_result = st.session_state.get("aml_manual_result") or st.session_state.get("aml_ai_result")
+    mds_result = st.session_state.get("mds_manual_result") or st.session_state.get("mds_ai_result")
+    
+    # Determine which parsed data to use for the overview
+    parsed_data_for_overview = None
+    original_report_text = ""
+    
+    if aml_result:
+        parsed_data_for_overview = aml_result["parsed_data"]
+        original_report_text = aml_result.get("free_text_input", "")
+    elif mds_result:
+        parsed_data_for_overview = mds_result["parsed_data"]
+        original_report_text = mds_result.get("free_text_input", "")
+    
+    # Generate clinical overview if we have parsed data
+    if parsed_data_for_overview:
+        with st.spinner("Generating clinical overview..."):
+            clinical_overview = generate_final_overview(parsed_data_for_overview, original_report_text)
+        
+        # Add Clinical Overview section at the top
+        add_section_title(pdf, "Overview")
+        pdf.set_font("Arial", "", 11)
+        pdf.multi_cell(0, 6, clinical_overview, align="L")
+        pdf.ln(6)
+
+    # Add AML diagnostics.
     if aml_result:
         add_diagnostic_section(pdf, "AML")
         # Compute ELN2022 risk classification on the fly
@@ -576,7 +602,6 @@ def create_base_pdf(user_comments: str = None) -> bytes:
         add_risk_section(pdf, risk_data, aml_result["parsed_data"])
 
     # Append MDS diagnostics if available.
-    mds_result = st.session_state.get("mds_manual_result") or st.session_state.get("mds_ai_result")
     if mds_result:
         add_section_title(pdf, "MDS Diagnostics")
         add_diagnostic_section(pdf, "MDS")

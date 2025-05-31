@@ -93,13 +93,20 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "PICALM::MLLT10": False,
             "FUS::ERG": False,
             "RUNX1::CBFA2T3": False,
-            "CBFA2T3::GLIS2": False
+            "CBFA2T3::GLIS2": False,
+            "FIP1L1::PDGFRA": False,
+            "ETV6::ABL1": False,
+            "ETV6::SYK": False,
+            "FGR1": False,
+            "FLT3": False
         },
         "Biallelic_TP53_mutation": {
+            "tp53_mentioned": False,                 # TRUE if TP53 is mentioned anywhere in report
             "2_x_TP53_mutations": False,
             "1_x_TP53_mutation_del_17p": False,
             "1_x_TP53_mutation_LOH": False,
-            "1_x_TP53_mutation_10_percent_vaf": False
+            "1_x_TP53_mutation_10_percent_vaf": False,
+            "1_x_TP53_mutation_50_percent_vaf": False
         },
         "MDS_related_mutation": {
             "ASXL1": False,
@@ -110,7 +117,9 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "SRSF2": False,
             "STAG2": False,
             "U2AF1": False,
-            "ZRSR2": False
+            "ZRSR2": False,
+            "UBA1": False,
+            "JAK2": False
         },
         "MDS_related_cytogenetics": {
             "Complex_karyotype": False,
@@ -130,7 +139,8 @@ def parse_genetics_report_aml(report_text: str) -> dict:
             "add_17p": False,
             "del_17p": False,
             "del_20q": False,
-            "idic_X_q13": False
+            "idic_X_q13": False,
+            "inv3_t33": False
         },
         "AML_differentiation": None,
         "differentiation_reasoning": None,
@@ -228,7 +238,12 @@ Extract this nested field:
     "PICALM::MLLT10": false,
     "FUS::ERG": false,
     "RUNX1::CBFA2T3": false,
-    "CBFA2T3::GLIS2": false
+    "CBFA2T3::GLIS2": false,
+    "FIP1L1::PDGFRA": false,
+    "ETV6::ABL1": false,
+    "ETV6::SYK": false,
+    "FGR1": false,
+    "FLT3": false
 }}
 
 Return valid JSON only with these keys and no extra text.
@@ -245,15 +260,17 @@ Here is the free-text haematological report to parse:
     # Prompt #2b: Biallelic_TP53_mutation
     first_prompt_2b = f"""
 The user has pasted a free-text haematological report.
-Please extract the following information from the text and format it into a valid JSON object exactly as specified below.
+Please extract the following information about TP53 mutations from the text and format it into a valid JSON object.
 For boolean fields, use true/false.
 
 Extract this nested field:
 "Biallelic_TP53_mutation": {{
-    "2_x_TP53_mutations": false,
-    "1_x_TP53_mutation_del_17p": false,
-    "1_x_TP53_mutation_LOH": false,
-    "1_x_TP53_mutation_10_percent_vaf": false
+    "tp53_mentioned": false,                      # TRUE if TP53 is mentioned ANYWHERE in the report (even just "TP53 normal" or "TP53 tested")
+    "2_x_TP53_mutations": false,                  # TRUE if TWO SEPARATE TP53 mutations are mentioned
+    "1_x_TP53_mutation_del_17p": false,           # TRUE if ONE TP53 mutation AND deletion of 17p (where TP53 is located)
+    "1_x_TP53_mutation_LOH": false,               # TRUE if ONE TP53 mutation WITH loss of heterozygosity (LOH)
+    "1_x_TP53_mutation_10_percent_vaf": false,    # TRUE if ONE TP53 mutation with VAF (variant allele frequency) ≥ 10%
+    "1_x_TP53_mutation_50_percent_vaf": false     # TRUE if ONE TP53 mutation with VAF (variant allele frequency) ≥ 50%
 }}
 
 Return valid JSON only with these keys and no extra text.
@@ -283,7 +300,9 @@ Extract these nested fields:
     "SRSF2": false,
     "STAG2": false,
     "U2AF1": false,
-    "ZRSR2": false
+    "ZRSR2": false,
+    "UBA1": false,
+    "JAK2": false
 }},
 "MDS_related_cytogenetics": {{
     "Complex_karyotype": false,
@@ -303,7 +322,8 @@ Extract these nested fields:
     "add_17p": false,
     "del_17p": false,
     "del_20q": false,
-    "idic_X_q13": false
+    "idic_X_q13": false,
+    "inv3_t33": false
 }}
 
 Return valid JSON only with these keys and no extra text.
