@@ -1,7 +1,7 @@
 import streamlit as st
 # IMPORTANT: Call set_page_config as the very first Streamlit command.
 st.set_page_config(
-    page_title="Haematix",
+    page_title="Haem.io",
     layout="wide",
     initial_sidebar_state="expanded",
     page_icon="public/favicon.svg"
@@ -272,7 +272,7 @@ def show_login_page():
         # Logo and branding
         st.markdown("""
         <div class="logo-container">
-            <h1 class="app-title">Haematix</h1>
+            <h1 class="app-title">Haem.io</h1>
             <p class="app-subtitle">Haematology classification Support tool</p>
         </div>
         """, unsafe_allow_html=True)
@@ -3365,7 +3365,7 @@ def app_main():
     # Add sidebar navigation options
     with st.sidebar:
         selected = option_menu(
-            menu_title="Haematix",
+            menu_title="Haem.io",
             options=["AML/MDS Classifier", "IPSS-M/R Risk Tool", "ELN Risk Calculator"],
             icons=["clipboard-data", "calculator", "graph-up"],
             menu_icon=None,
