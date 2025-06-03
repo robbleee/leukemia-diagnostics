@@ -173,14 +173,15 @@ def classify_AML_WHO2022(parsed_data: dict, not_erythroid: bool = False) -> tupl
     else:
         derivation.append("No germline predisposition indicated (review at MDT)")
 
-    # NEW: check if "previous_MDS_diagnosed_over_3_months_ago" or "previous_MDS/MPN_diagnosed_over_3_months_ago" is True
+    # NEW: check if "previous_MDS_diagnosed_over_3_months_ago" or "previous_MDS/MPN_diagnosed_over_3_months_ago" or "previous_MPN_diagnosed_over_3_months_ago" is True
     progressed_from_mds = (
         q.get("previous_MDS_diagnosed_over_3_months_ago", False) or
-        q.get("previous_MDS/MPN_diagnosed_over_3_months_ago", False)
+        q.get("previous_MDS/MPN_diagnosed_over_3_months_ago", False) or
+        q.get("previous_MPN_diagnosed_over_3_months_ago", False)
     )
     if progressed_from_mds:
         qualifier_list.append("progressed from MDS")
-        derivation.append("Either previous_MDS or previous_MDS/MPN is True => 'progressed from MDS'")
+        derivation.append("Either previous_MDS, previous_MDS/MPN, or previous_MPN is True => 'progressed from MDS'")
 
     if qualifier_list:
         classification += ", " + ", ".join(qualifier_list)
@@ -389,14 +390,15 @@ def classify_AML_ICC2022(parsed_data: dict) -> tuple:
     else:
         derivation.append("No germline predisposition indicated (review at MDT)")
 
-    # NEW: check if "previous_MDS_diagnosed_over_3_months_ago" or "previous_MDS/MPN_diagnosed_over_3_months_ago" is True
+    # NEW: check if "previous_MDS_diagnosed_over_3_months_ago" or "previous_MDS/MPN_diagnosed_over_3_months_ago" or "previous_MPN_diagnosed_over_3_months_ago" is True
     progressed_from_mds = (
         qualifiers.get("previous_MDS_diagnosed_over_3_months_ago", False)
         or qualifiers.get("previous_MDS/MPN_diagnosed_over_3_months_ago", False)
+        or qualifiers.get("previous_MPN_diagnosed_over_3_months_ago", False)
     )
     if progressed_from_mds:
         q_list.append("arising post MDS")
-        derivation.append("Either previous_MDS or previous_MDS/MPN => 'arising post MDS'")
+        derivation.append("Either previous_MDS, previous_MDS/MPN, or previous_MPN => 'arising post MDS'")
 
     if q_list and "Not AML" not in classification:
         classification += ", " + ", ".join(q_list) + " (ICC 2022)"

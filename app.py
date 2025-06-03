@@ -530,15 +530,18 @@ def data_entry_page():
                     # Use saved value if available
                     default_mds = st.session_state.get("saved_previous_mds", "None")
                     previous_mds = st.selectbox(
-                        "Previous MDS/MDS-MPN", 
-                        options=["None", "Previous MDS", "Previous MDS/MPN"],
-                        index=["None", "Previous MDS", "Previous MDS/MPN"].index(default_mds),
+                        "Previous MDS/MPN History", 
+                        options=["None", "Previous MDS", "Previous MDS/MPN", "Previous MPN"],
+                        index=["None", "Previous MDS", "Previous MDS/MPN", "Previous MPN"].index(default_mds) if default_mds in ["None", "Previous MDS", "Previous MDS/MPN", "Previous MPN"] else 0,
                         key="previous_mds"
                     )
                     # Save the value for future use
                     st.session_state["saved_previous_mds"] = previous_mds
+                    
+                # Show warning for Previous MPN selection (outside the column to avoid interference)
+                if st.session_state.get("previous_mds") == "Previous MPN":
+                    st.error("⚠️ **WARNING**: Do not use this classification system for patients with previous MPN. Please refer to specialist MPN guidelines for classification.")
             
-
             if germline_status == "Yes":
                 # Use saved selected germline mutations if available
                 default_germline_selections = st.session_state.get("saved_selected_germline", [])
@@ -625,7 +628,7 @@ def data_entry_page():
                             opt_text += "Previous cytotoxic chemotherapy: None. "
                         
                         if previous_mds != "None":
-                            opt_text += f"Previous MDS/MDS-MPN: {previous_mds}. "
+                            opt_text += f"Previous hematologic malignancy: {previous_mds}. "
 
                         full_text_combined = opt_text + "\n" + full_report_text
 
