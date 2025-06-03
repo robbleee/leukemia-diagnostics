@@ -254,6 +254,7 @@ def build_manual_aml_data() -> dict:
         with qc1:
             prev_mds_3mo = st.checkbox("Previous MDS diagnosed >3 months ago", key="aml_prev_mds_3mo")
             prev_mds_mpn_3mo = st.checkbox("Previous MDS/MPN diagnosed >3 months ago", key="aml_prev_mds_mpn_3mo")
+            prev_mpn_3mo = st.checkbox("Previous MPN diagnosed >3 months ago", key="aml_prev_mpn_3mo")
         with qc2:
             prev_cytotx = st.checkbox("Previous cytotoxic therapy?", key="aml_prev_cytotx")
             germ_variant = st.text_input("Predisposing germline variant (if any)", value="None", key="aml_germ_variant")
@@ -351,6 +352,7 @@ def build_manual_aml_data() -> dict:
         "qualifiers": {
             "previous_MDS_diagnosed_over_3_months_ago": prev_mds_3mo,
             "previous_MDS/MPN_diagnosed_over_3_months_ago": prev_mds_mpn_3mo,
+            "previous_MPN_diagnosed_over_3_months_ago": prev_mpn_3mo,
             "previous_cytotoxic_therapy": prev_cytotx,
             "predisposing_germline_variant": germ_variant.strip() if germ_variant.strip() else "None"
         }
