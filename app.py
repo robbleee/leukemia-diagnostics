@@ -35,6 +35,7 @@ import jwt
 import math
 import pandas as pd
 import matplotlib.pyplot as plt
+import yaml
 from streamlit_option_menu import option_menu
 import streamlit.components.v1 as components
 
@@ -3349,6 +3350,369 @@ def ipss_risk_calculator_page():
 
 
 ##################################
+# TEST RESULTS PAGE
+##################################
+def test_results_page():
+    """
+    Display test results from the detailed_test_results.yaml file in a searchable table.
+    """
+    st.title("🧪 Test Results Viewer")
+    st.markdown("### Comprehensive Test Suite Results")
+    
+    # Load test results
+    yaml_file_path = "tests/detailed_test_results.yaml"
+    
+    if not os.path.exists(yaml_file_path):
+        st.error(f"Test results file not found at {yaml_file_path}")
+        st.info("Please run the test suite first using the test runner to generate results.")
+        
+        with st.expander("How to generate test results"):
+            st.code("""
+# Navigate to the tests directory
+cd tests
+
+# Run the comprehensive test runner
+python test_runner_with_logging.py
+            """)
+        return
+    
+    try:
+        with open(yaml_file_path, 'r') as f:
+            test_data = yaml.safe_load(f)
+    except Exception as e:
+        st.error(f"Error loading test results: {str(e)}")
+        return
+    
+    # Display summary statistics
+    summary = test_data.get('summary', {})
+    aml_summary = summary.get('aml', {})
+    mds_summary = summary.get('mds', {})
+    
+    # Calculate totals
+    total_tests = aml_summary.get('total_tests', 0) + mds_summary.get('total_tests', 0)
+    total_passed = (aml_summary.get('who_2022_passed', 0) + aml_summary.get('icc_2022_passed', 0) + 
+                   mds_summary.get('who_2022_passed', 0) + mds_summary.get('icc_2022_passed', 0))
+    total_possible = (aml_summary.get('who_2022_total', 0) + aml_summary.get('icc_2022_total', 0) + 
+                     mds_summary.get('who_2022_total', 0) + mds_summary.get('icc_2022_total', 0))
+    
+    success_rate = (total_passed / total_possible * 100) if total_possible > 0 else 0
+    
+    # Summary metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Total Test Cases", total_tests)
+    with col2:
+        st.metric("Classifications Run", total_possible)
+    with col3:
+        st.metric("Successful", total_passed)
+    with col4:
+        st.metric("Success Rate", f"{success_rate:.1f}%")
+    
+    # Detailed breakdown
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### AML Classification Tests")
+        st.metric("Total AML Tests", aml_summary.get('total_tests', 0))
+        st.metric("WHO 2022 Passed", f"{aml_summary.get('who_2022_passed', 0)}/{aml_summary.get('who_2022_total', 0)}")
+        st.metric("ICC 2022 Passed", f"{aml_summary.get('icc_2022_passed', 0)}/{aml_summary.get('icc_2022_total', 0)}")
+    
+    with col2:
+        st.markdown("#### MDS Classification Tests")
+        st.metric("Total MDS Tests", mds_summary.get('total_tests', 0))
+        st.metric("WHO 2022 Passed", f"{mds_summary.get('who_2022_passed', 0)}/{mds_summary.get('who_2022_total', 0)}")
+        st.metric("ICC 2022 Passed", f"{mds_summary.get('icc_2022_passed', 0)}/{mds_summary.get('icc_2022_total', 0)}")
+    
+    st.markdown("---")
+    
+    # Prepare test cases for display
+    all_test_cases = []
+    
+    # Process AML tests
+    aml_tests = test_data.get('test_suites', {}).get('aml_classification', {}).get('test_cases', [])
+    for test_case in aml_tests:
+        who_result = test_case.get('who_2022')
+        icc_result = test_case.get('icc_2022')
+        
+        # Add WHO result if it exists
+        if who_result:
+            all_test_cases.append({
+                'Test Name': test_case['test_name'],
+                'Test Class': test_case['test_class'],
+                'Test Method': test_case['test_method'],
+                'Disease Type': 'AML',
+                'Classification System': 'WHO 2022',
+                'Expected': who_result.get('expected', 'N/A'),
+                'Actual': who_result.get('actual', 'N/A'),
+                'Success': '✅' if who_result.get('matches_expected') else '❌',
+                'Blasts %': test_case.get('input_data', {}).get('blasts_percentage', 'N/A'),
+                'Has Derivation': '📋' if who_result.get('derivation') else '🚫',
+                'Full Data': test_case
+            })
+        
+        # Add ICC result if it exists
+        if icc_result:
+            all_test_cases.append({
+                'Test Name': test_case['test_name'],
+                'Test Class': test_case['test_class'],
+                'Test Method': test_case['test_method'],
+                'Disease Type': 'AML',
+                'Classification System': 'ICC 2022',
+                'Expected': icc_result.get('expected', 'N/A'),
+                'Actual': icc_result.get('actual', 'N/A'),
+                'Success': '✅' if icc_result.get('matches_expected') else '❌',
+                'Blasts %': test_case.get('input_data', {}).get('blasts_percentage', 'N/A'),
+                'Has Derivation': '📋' if icc_result.get('derivation') else '🚫',
+                'Full Data': test_case
+            })
+    
+    # Process MDS tests
+    mds_tests = test_data.get('test_suites', {}).get('mds_classification', {}).get('test_cases', [])
+    for test_case in mds_tests:
+        who_result = test_case.get('who_2022')
+        icc_result = test_case.get('icc_2022')
+        
+        # Add WHO result if it exists
+        if who_result:
+            all_test_cases.append({
+                'Test Name': test_case['test_name'],
+                'Test Class': test_case['test_class'],
+                'Test Method': test_case['test_method'],
+                'Disease Type': 'MDS',
+                'Classification System': 'WHO 2022',
+                'Expected': who_result.get('expected', 'N/A'),
+                'Actual': who_result.get('actual', 'N/A'),
+                'Success': '✅' if who_result.get('matches_expected') else '❌',
+                'Blasts %': test_case.get('input_data', {}).get('blasts_percentage', 'N/A'),
+                'Has Derivation': '📋' if who_result.get('derivation') else '🚫',
+                'Full Data': test_case
+            })
+        
+        # Add ICC result if it exists
+        if icc_result:
+            all_test_cases.append({
+                'Test Name': test_case['test_name'],
+                'Test Class': test_case['test_class'],
+                'Test Method': test_case['test_method'],
+                'Disease Type': 'MDS',
+                'Classification System': 'ICC 2022',
+                'Expected': icc_result.get('expected', 'N/A'),
+                'Actual': icc_result.get('actual', 'N/A'),
+                'Success': '✅' if icc_result.get('matches_expected') else '❌',
+                'Blasts %': test_case.get('input_data', {}).get('blasts_percentage', 'N/A'),
+                'Has Derivation': '📋' if icc_result.get('derivation') else '🚫',
+                'Full Data': test_case
+            })
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(all_test_cases)
+    
+    if df.empty:
+        st.warning("No test cases found in the results file.")
+        return
+    
+    # Search and filter controls
+    st.markdown("### 🔍 Search and Filter Test Results")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        search_term = st.text_input("🔎 Search test names", placeholder="Enter search term...")
+    
+    with col2:
+        disease_filter = st.selectbox("🩺 Filter by Disease Type", 
+                                    options=['All'] + list(df['Disease Type'].unique()))
+    
+    with col3:
+        system_filter = st.selectbox("🔬 Filter by Classification System", 
+                                   options=['All'] + list(df['Classification System'].unique()))
+    
+    col4, col5 = st.columns(2)
+    
+    with col4:
+        success_filter = st.selectbox("✅ Filter by Success Status", 
+                                    options=['All', 'Passed (✅)', 'Failed (❌)'])
+    
+    with col5:
+        class_filter = st.selectbox("📚 Filter by Test Class", 
+                                  options=['All'] + sorted(list(df['Test Class'].unique())))
+    
+    # Apply filters
+    filtered_df = df.copy()
+    
+    if search_term:
+        filtered_df = filtered_df[filtered_df['Test Name'].str.contains(search_term, case=False, na=False)]
+    
+    if disease_filter != 'All':
+        filtered_df = filtered_df[filtered_df['Disease Type'] == disease_filter]
+    
+    if system_filter != 'All':
+        filtered_df = filtered_df[filtered_df['Classification System'] == system_filter]
+    
+    if success_filter == 'Passed (✅)':
+        filtered_df = filtered_df[filtered_df['Success'] == '✅']
+    elif success_filter == 'Failed (❌)':
+        filtered_df = filtered_df[filtered_df['Success'] == '❌']
+    
+    if class_filter != 'All':
+        filtered_df = filtered_df[filtered_df['Test Class'] == class_filter]
+    
+    st.markdown(f"### 📊 Test Results Table ({len(filtered_df)} of {len(df)} results)")
+    
+    # Display the table with clickable rows
+    if not filtered_df.empty:
+        # Display table without Full Data column
+        display_df = filtered_df.drop(columns=['Full Data']).reset_index(drop=True)
+        
+        # Use dataframe with selection
+        event = st.dataframe(
+            display_df,
+            use_container_width=True,
+            on_select="rerun",
+            selection_mode="single-row",
+            column_config={
+                "Test Name": st.column_config.TextColumn("Test Name", width="large"),
+                "Expected": st.column_config.TextColumn("Expected Result", width="large"),
+                "Actual": st.column_config.TextColumn("Actual Result", width="large"),
+                "Success": st.column_config.TextColumn("✅", width="small"),
+                "Blasts %": st.column_config.NumberColumn("Blasts %", format="%.1f"),
+                "Has Derivation": st.column_config.TextColumn("📋", width="small")
+            }
+        )
+        
+        # Show detailed information if a row is selected
+        if event.selection.rows:
+            selected_idx = event.selection.rows[0]
+            selected_row = filtered_df.iloc[selected_idx]
+            
+            st.markdown("---")
+            st.markdown("### 🔍 Detailed Test Information")
+            
+            # Get the full test data
+            full_data = selected_row['Full Data']
+            classification_system = selected_row['Classification System']
+            
+            # Determine which classification result to show
+            if classification_system == 'WHO 2022':
+                result_data = full_data.get('who_2022', {})
+            else:
+                result_data = full_data.get('icc_2022', {})
+            
+            # Display test metadata
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("#### Test Metadata")
+                st.write(f"**Test Name:** {selected_row['Test Name']}")
+                st.write(f"**Test Class:** {selected_row['Test Class']}")
+                st.write(f"**Test Method:** {selected_row['Test Method']}")
+                st.write(f"**Disease Type:** {selected_row['Disease Type']}")
+                st.write(f"**Classification System:** {classification_system}")
+                st.write(f"**Success:** {selected_row['Success']}")
+            
+            with col2:
+                st.markdown("#### Classification Results")
+                st.write(f"**Expected:** {result_data.get('expected', 'N/A')}")
+                st.write(f"**Actual:** {result_data.get('actual', 'N/A')}")
+                if result_data.get('error'):
+                    st.error(f"**Error:** {result_data.get('error')}")
+            
+            # Display input data
+            st.markdown("#### Input Data")
+            input_data = full_data.get('input_data', {})
+            if input_data:
+                # Format input data nicely
+                formatted_input = {}
+                for key, value in input_data.items():
+                    if isinstance(value, dict):
+                        # For nested dictionaries, show only non-False values
+                        filtered_dict = {k: v for k, v in value.items() if v}
+                        if filtered_dict:
+                            formatted_input[key] = filtered_dict
+                    elif value not in [False, None, {}, []]:
+                        formatted_input[key] = value
+                
+                if formatted_input:
+                    st.json(formatted_input)
+                else:
+                    st.info("No significant input data to display")
+            else:
+                st.info("No input data available")
+            
+            # Display derivation logic
+            derivation = result_data.get('derivation', [])
+            if derivation:
+                st.markdown("#### 🧠 Classification Derivation Logic")
+                st.markdown("Step-by-step reasoning:")
+                
+                for i, step in enumerate(derivation, 1):
+                    st.markdown(f"**{i}.** {step}")
+            else:
+                st.info("No derivation logic available")
+            
+            # Add a button to re-run this specific test
+            if st.button("🔄 Re-run This Test", key=f"rerun_{selected_idx}"):
+                with st.spinner("Re-running test..."):
+                    try:
+                        # Import classification functions
+                        from classifiers.aml_classifier import classify_AML_WHO2022, classify_AML_ICC2022
+                        from classifiers.mds_classifier import classify_MDS_WHO2022, classify_MDS_ICC2022
+                        
+                        # Extract the classification function and data
+                        parsed_data = input_data
+                        
+                        if selected_row['Disease Type'] == 'AML':
+                            if classification_system == 'WHO 2022':
+                                # Handle special M6a case
+                                special_kwargs = {}
+                                if (parsed_data.get('AML_differentiation') == 'M6a' and 
+                                    'define by differentiation' in result_data.get('expected', '')):
+                                    special_kwargs['not_erythroid'] = True
+                                
+                                result, derivation = classify_AML_WHO2022(parsed_data, **special_kwargs)
+                            else:
+                                result, derivation = classify_AML_ICC2022(parsed_data)
+                        else:  # MDS
+                            if classification_system == 'WHO 2022':
+                                result, derivation = classify_MDS_WHO2022(parsed_data)
+                            else:
+                                result, derivation = classify_MDS_ICC2022(parsed_data)
+                        
+                        # Display fresh results
+                        st.success(f"✅ Test re-run completed!")
+                        st.markdown("**Fresh Result:**")
+                        st.code(result)
+                        
+                        # Compare with expected
+                        expected = result_data.get('expected', '')
+                        if result == expected:
+                            st.success("✅ Result matches expected output!")
+                        else:
+                            st.error("❌ Result differs from expected output!")
+                            st.markdown("**Expected:**")
+                            st.code(expected)
+                        
+                        # Show fresh derivation
+                        if derivation:
+                            st.markdown("**Fresh Derivation:**")
+                            for i, step in enumerate(derivation, 1):
+                                st.markdown(f"**{i}.** {step}")
+                        
+                    except Exception as e:
+                        st.error(f"Error re-running test: {str(e)}")
+    
+    else:
+        st.warning("No test results match the current filters.")
+    
+    # Add refresh button
+    st.markdown("---")
+    if st.button("🔄 Refresh Test Results", help="Reload the test results file"):
+        st.rerun()
+
+
+##################################
 # APP MAIN
 ##################################
 def app_main():
@@ -3369,8 +3733,8 @@ def app_main():
     with st.sidebar:
         selected = option_menu(
             menu_title="Haem.io",
-            options=["AML/MDS Classifier", "IPSS-M/R Risk Tool", "ELN Risk Calculator"],
-            icons=["clipboard-data", "calculator", "graph-up"],
+            options=["AML/MDS Classifier", "IPSS-M/R Risk Tool", "ELN Risk Calculator", "Test Results"],
+            icons=["clipboard-data", "calculator", "graph-up", "check2-circle"],
             menu_icon=None,
             default_index=0,
         )
@@ -3393,6 +3757,8 @@ def app_main():
         st.session_state["page"] = "ipss_risk_calculator"
     elif selected == "ELN Risk Calculator":
         st.session_state["page"] = "eln_risk_calculator"
+    elif selected == "Test Results":
+        st.session_state["page"] = "test_results"
     elif selected == "AML/MDS Classifier" and st.session_state["page"] != "results":
         st.session_state["page"] = "data_entry"
 
@@ -3404,8 +3770,8 @@ def app_main():
         ipss_risk_calculator_page()
     elif st.session_state["page"] == "eln_risk_calculator":
         eln_risk_calculator_page()
-
-
+    elif st.session_state["page"] == "test_results":
+        test_results_page()
 
 
 if __name__ == "__main__":

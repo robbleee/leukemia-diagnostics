@@ -563,7 +563,7 @@ def display_combined_mds_confirmation_form(who_classification, icc_classificatio
             st.session_state[session_key]["has_exclusions"] = has_exclusions
             
             # Refresh the page to show the results
-            st.experimental_rerun()
+            st.rerun()
 
 def display_mds_classification_results(parsed_fields, classification_who, derivation_who,
                                        classification_icc, derivation_icc, mode="manual"):
