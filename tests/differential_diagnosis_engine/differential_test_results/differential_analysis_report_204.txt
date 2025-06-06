@@ -1,0 +1,326 @@
+================================================================================
+WHO 2022 vs ICC 2022 DIFFERENTIAL DIAGNOSIS ANALYSIS REPORT
+================================================================================
+
+📊 SUMMARY
+----------------------------------------
+Total tests run: 204
+Equivalent results: 121 (59.3%)
+Different results: 83 (40.7%)
+
+Differences by significance:
+  High impact: 35
+  Medium impact: 48
+  Low impact: 0
+
+🚨 CRITICAL: DISEASE TYPE DISAGREEMENTS (AML vs MDS)
+------------------------------------------------------------
+Total AML vs MDS disagreements: 73
+Disease disagreement rate: 35.8%
+
+WHO classifies as MDS, ICC as AML: 72 cases
+  (ICC allows lower blast thresholds for AML with defining mutations)
+WHO classifies as AML, ICC as MDS: 1 cases
+  (Different handling of dysplastic features vs blast percentage)
+
+Disease disagreements by blast percentage:
+  <10%: 1 cases
+  10-14%: 22 cases
+  15-19%: 50 cases
+
+Examples of AML vs MDS disagreements:
+  1. Test test_000004: 9% blasts
+     WHO: AML - AML with NPM1 mutation (WHO 2022)
+     ICC: MDS - MDS with excess blasts (ICC 2022)
+  2. Test test_000005: 10% blasts
+     WHO: MDS - MDS with increased blasts 2 (WHO 2022)
+     ICC: AML - MDS/AML, NOS (ICC 2022)
+  3. Test test_000006: 10% blasts
+     WHO: MDS - MDS with increased blasts 2 (WHO 2022)
+     ICC: AML - AML with in-frame bZIP mutated CEBPA (ICC 2022)
+  4. Test test_000007: 10% blasts
+     WHO: MDS - MDS with increased blasts 2 (WHO 2022)
+     ICC: AML - AML with t(9;22)(q34.1;q11.2)/BCR::ABL1 (ICC 2022)
+  5. Test test_000009: 15% blasts
+     WHO: MDS - MDS with increased blasts 2 (WHO 2022)
+     ICC: AML - MDS/AML, NOS (ICC 2022)
+
+🎯 DIFFERENCES BY TEST FOCUS AREA
+----------------------------------------
+  blast_thresholds: 12 differences
+  therapy_qualifiers: 1 differences
+  tp53_terminology: 6 differences
+  mds_blast_ranges: 18 differences
+  erythroid_handling: 8 differences
+  combination_scenarios: 2 differences
+  realistic_clinical_scenarios: 2 differences
+  age_dependent_differences: 10 differences
+  complex_cytogenetics: 2 differences
+  comutation_patterns: 4 differences
+  therapy_evolution: 2 differences
+  aml_vs_mds_borderline: 11 differences
+  disease_type_disagreement: 5 differences
+
+⚠️  HIGH IMPACT DIFFERENCES
+----------------------------------------
+1. Test test_000004 (blast_thresholds)
+   WHO: AML with NPM1 mutation (WHO 2022)
+   ICC: MDS with excess blasts (ICC 2022)
+   Input: blasts=9%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=AML, ICC=MDS
+
+2. Test test_000006 (blast_thresholds)
+   WHO: MDS with increased blasts 2 (WHO 2022)
+   ICC: AML with in-frame bZIP mutated CEBPA (ICC 2022)
+   Input: blasts=10%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+3. Test test_000007 (blast_thresholds)
+   WHO: MDS with increased blasts 2 (WHO 2022)
+   ICC: AML with t(9;22)(q34.1;q11.2)/BCR::ABL1 (ICC 2022)
+   Input: blasts=10%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+4. Test test_000010 (blast_thresholds)
+   WHO: MDS with increased blasts 2 (WHO 2022)
+   ICC: AML with in-frame bZIP mutated CEBPA (ICC 2022)
+   Input: blasts=15%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+5. Test test_000011 (blast_thresholds)
+   WHO: MDS with increased blasts 2 (WHO 2022)
+   ICC: AML with t(9;22)(q34.1;q11.2)/BCR::ABL1 (ICC 2022)
+   Input: blasts=15%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+6. Test test_000014 (blast_thresholds)
+   WHO: MDS with increased blasts 2 (WHO 2022)
+   ICC: AML with in-frame bZIP mutated CEBPA (ICC 2022)
+   Input: blasts=19%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+7. Test test_000015 (blast_thresholds)
+   WHO: MDS with increased blasts 2 (WHO 2022)
+   ICC: AML with t(9;22)(q34.1;q11.2)/BCR::ABL1 (ICC 2022)
+   Input: blasts=19%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+8. Test test_000017 (blast_thresholds)
+   WHO: AML with CEBPA mutation (WHO 2022)
+   ICC: AML, NOS (ICC 2022)
+   Input: blasts=20%
+
+9. Test test_000021 (blast_thresholds)
+   WHO: AML with CEBPA mutation (WHO 2022)
+   ICC: AML, NOS (ICC 2022)
+   Input: blasts=25%
+
+10. Test test_000027 (therapy_qualifiers)
+   WHO: Acute myeloid leukaemia, unknown differentiation (WHO 2022)
+   ICC: AML, NOS, therapy related (ICC 2022)
+   Input: blasts=25.0%
+
+11. Test test_000072 (tp53_terminology)
+   WHO: AML, myelodysplasia related (WHO 2022)
+   ICC: AML with mutated TP53 (ICC 2022)
+   Input: blasts=20%
+
+12. Test test_000074 (tp53_terminology)
+   WHO: AML, myelodysplasia related (WHO 2022)
+   ICC: AML with mutated TP53 (ICC 2022)
+   Input: blasts=25%
+
+13. Test test_000103 (mds_blast_ranges)
+   WHO: MDS, fibrotic (WHO 2022)
+   ICC: MDS/AML, NOS (ICC 2022)
+   Input: blasts=10%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+14. Test test_000109 (mds_blast_ranges)
+   WHO: MDS, fibrotic (WHO 2022)
+   ICC: MDS/AML, NOS (ICC 2022)
+   Input: blasts=15%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+15. Test test_000115 (mds_blast_ranges)
+   WHO: MDS, fibrotic (WHO 2022)
+   ICC: MDS/AML, NOS (ICC 2022)
+   Input: blasts=19%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+16. Test test_000123 (erythroid_handling)
+   WHO: Acute Erythroid leukaemia (WHO 2022)
+   ICC: MDS/AML, NOS (ICC 2022)
+   Input: blasts=15%
+
+17. Test test_000124 (erythroid_handling)
+   WHO: Acute Erythroid leukaemia (WHO 2022)
+   ICC: AML, NOS (ICC 2022)
+   Input: blasts=20%
+
+18. Test test_000125 (erythroid_handling)
+   WHO: Acute Erythroid leukaemia (WHO 2022)
+   ICC: AML, NOS (ICC 2022)
+   Input: blasts=25%
+
+19. Test test_000126 (erythroid_handling)
+   WHO: Acute Erythroid leukaemia (WHO 2022)
+   ICC: AML, NOS (ICC 2022)
+   Input: blasts=30%
+
+20. Test test_000127 (erythroid_handling)
+   WHO: Acute Erythroid leukaemia (WHO 2022)
+   ICC: MDS/AML, NOS (ICC 2022)
+   Input: blasts=15%
+
+21. Test test_000128 (erythroid_handling)
+   WHO: Acute Erythroid leukaemia (WHO 2022)
+   ICC: AML, NOS (ICC 2022)
+   Input: blasts=20%
+
+22. Test test_000129 (erythroid_handling)
+   WHO: Acute Erythroid leukaemia (WHO 2022)
+   ICC: AML, NOS (ICC 2022)
+   Input: blasts=25%
+
+23. Test test_000130 (erythroid_handling)
+   WHO: Acute Erythroid leukaemia (WHO 2022)
+   ICC: AML, NOS (ICC 2022)
+   Input: blasts=30%
+
+24. Test test_000147 (realistic_clinical_scenarios)
+   WHO: MDS, fibrotic (WHO 2022)
+   ICC: MDS/AML with myelodysplasia related cytogenetic abnormality (ICC 2022)
+   Input: blasts=15%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+25. Test test_000150 (age_dependent_differences)
+   WHO: Acute myeloid leukaemia, unknown differentiation, associated with germline RUNX1 mutation (WHO 2022)
+   ICC: AML, NOS, in the setting of germline RUNX1 mutation (ICC 2022)
+   Input: blasts=25%
+
+26. Test test_000151 (age_dependent_differences)
+   WHO: Acute myeloid leukaemia, unknown differentiation, associated with germline DDX41 mutation (WHO 2022)
+   ICC: AML, NOS, in the setting of germline DDX41 mutation (ICC 2022)
+   Input: blasts=25%
+
+27. Test test_000154 (age_dependent_differences)
+   WHO: Acute myeloid leukaemia, unknown differentiation, associated with germline RUNX1 mutation (WHO 2022)
+   ICC: AML, NOS, in the setting of germline RUNX1 mutation (ICC 2022)
+   Input: blasts=20%
+
+28. Test test_000155 (age_dependent_differences)
+   WHO: Acute myeloid leukaemia, unknown differentiation, associated with germline DDX41 mutation (WHO 2022)
+   ICC: AML, NOS, in the setting of germline DDX41 mutation (ICC 2022)
+   Input: blasts=20%
+
+29. Test test_000156 (age_dependent_differences)
+   WHO: MDS with increased blasts 2 (WHO 2022)
+   ICC: AML with in-frame bZIP mutated CEBPA (ICC 2022)
+   Input: blasts=18%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+30. Test test_000158 (age_dependent_differences)
+   WHO: MDS with increased blasts 2, associated with germline RUNX1 mutation (WHO 2022)
+   ICC: MDS/AML, NOS, in the setting of germline RUNX1 mutation (ICC 2022)
+   Input: blasts=18%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+31. Test test_000160 (age_dependent_differences)
+   WHO: MDS with increased blasts 2 (WHO 2022)
+   ICC: AML with in-frame bZIP mutated CEBPA (ICC 2022)
+   Input: blasts=15%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+32. Test test_000162 (age_dependent_differences)
+   WHO: MDS with increased blasts 2, associated with germline RUNX1 mutation (WHO 2022)
+   ICC: MDS/AML, NOS, in the setting of germline RUNX1 mutation (ICC 2022)
+   Input: blasts=15%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+33. Test test_000164 (complex_cytogenetics)
+   WHO: AML, myelodysplasia related (WHO 2022)
+   ICC: AML with mutated TP53 (ICC 2022)
+   Input: blasts=22%
+
+34. Test test_000173 (comutation_patterns)
+   WHO: AML, myelodysplasia related (WHO 2022)
+   ICC: AML with mutated TP53 (ICC 2022)
+   Input: blasts=35%
+
+35. Test test_000201 (disease_type_disagreement)
+   WHO: MDS with increased blasts 2 (WHO 2022)
+   ICC: AML with t(9;22)(q34.1;q11.2)/BCR::ABL1 (ICC 2022)
+   Input: blasts=12%
+   🚨 DISEASE TYPE DISAGREEMENT: WHO=MDS, ICC=AML
+
+
+Blast threshold differences:
+  <10%: 1 cases
+  10-14%: 18 cases
+  15-19%: 47 cases
+  20-24%: 7 cases
+  25-29%: 7 cases
+  ≥30%: 3 cases
+
+Mutation patterns:
+  NPM1:
+    count: 1 cases
+    aml_defining: True cases
+  CEBPA:
+    count: 8 cases
+    aml_defining: True cases
+  bZIP:
+    count: 5 cases
+    aml_defining: True cases
+  BCR::ABL1:
+    count: 4 cases
+    aml_defining: True cases
+  SF3B1:
+    count: 5 cases
+    mds_related: True cases
+  ASXL1:
+    count: 7 cases
+    mds_related: True cases
+  RUNX1:
+    count: 1 cases
+    mds_related: True cases
+  SRSF2:
+    count: 3 cases
+    mds_related: True cases
+  TET2:
+    count: 4 cases
+    mds_related: True cases
+  EZH2:
+    count: 1 cases
+    mds_related: True cases
+  CEBPA_bZIP:
+    count: 2 cases
+    aml_defining: True cases
+  NPM1_mutation:
+    count: 3 cases
+    aml_defining: True cases
+  RUNX1_RUNX1T1:
+    count: 1 cases
+    aml_defining: True cases
+  CBFB_MYH11:
+    count: 1 cases
+    aml_defining: True cases
+  U2AF1:
+    count: 1 cases
+    mds_related: True cases
+  DNMT3A:
+    count: 1 cases
+    mds_related: True cases
+  FLT3_ITD:
+    count: 1 cases
+    aml_defining: True cases
+  KMT2A_rearranged:
+    count: 1 cases
+    aml_defining: True cases
+  TP53:
+    count: 1 cases
+    mds_related: True cases
+
+
+================================================================================

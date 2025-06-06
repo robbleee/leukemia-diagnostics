@@ -1,0 +1,1015 @@
+{
+  "summary": {
+    "total_tests": 10,
+    "equivalent_results": 2,
+    "different_results": 8,
+    "high_significance_differences": 0,
+    "medium_significance_differences": 0,
+    "low_significance_differences": 0,
+    "differences_by_focus": {
+      "aml_vs_mds_borderline": 8
+    },
+    "differences_by_category": {
+      "major_clinical_impact": 8
+    }
+  },
+  "test_results": [
+    {
+      "test_id": "test_1_aml_vs_mds_borderline",
+      "input_data": {
+        "test_name": "blast_15_with_cebpa_bzip",
+        "description": "15% blasts with CEBPA bZIP mutation - ICC may call AML, WHO may call MDS",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 15,
+        "AML_defining_recurrent_genetic_abnormalities": {
+          "CEBPA_bZIP": true
+        },
+        "dysplastic_lineages": 1,
+        "bone_marrow_cellularity": "Hypercellular"
+      },
+      "who_classification": "MDS with increased blasts 2",
+      "icc_classification": "MDS/AML, NOS",
+      "who_derivation": [
+        "Retrieved blasts_percentage: 15",
+        "Default classification set to: Acute myeloid leukaemia, [define by differentiation]",
+        "Detected AML-defining abnormality flags: CEBPA_bZIP",
+        "No AML-defining abnormality fully matched, blasts <20 => consider MDS.",
+        "No AML_differentiation provided.",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => Not AML, consider MDS classification",
+        "AML classifier indicated that the case is not AML. Switching to MDS classification...",
+        "Default classification set to: MDS, unclassifiable",
+        "Checking for biallelic TP53: {}",
+        "TP53 conditions: 2 mutations: False, with del17p: False, with LOH: False, with \u226550% VAF: False, with \u226510% VAF + complex karyotype: False",
+        "Retrieved blasts: 15, fibrotic: False",
+        "10-19% blasts => MDS with increased blasts 2",
+        "Current classification: MDS with increased blasts 2",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => MDS with increased blasts 2 (WHO 2022)"
+      ],
+      "icc_derivation": [
+        "Retrieved blasts_percentage: 15",
+        "Default classification set to: AML, NOS",
+        "ICC AML-defining flags => CEBPA_bZIP",
+        "No single ICC AML-def abnormality triggered classification.",
+        "No biallelic TP53 conditions met.",
+        "No MDS-related genes set to True.",
+        "No MDS-related cytogenetics triggered classification.",
+        "Blasts 10\u201319 => replaced 'AML' with 'MDS/AML'. Final classification: MDS/AML, NOS",
+        "No germline predisposition indicated (review at MDT)",
+        "Final => MDS/AML, NOS (ICC 2022)"
+      ],
+      "who_disease_type": "MDS_BLASTS",
+      "icc_disease_type": "MDS_AML_HYBRID",
+      "are_equivalent": false,
+      "difference_analysis": {
+        "who_classification": "MDS with increased blasts 2",
+        "icc_classification": "MDS/AML, NOS",
+        "who_category": "MDS_BLASTS",
+        "icc_category": "MDS_AML_HYBRID",
+        "are_equivalent": false,
+        "category_match": false,
+        "difference_type": "major_clinical_impact",
+        "significance": "critical",
+        "clinical_impact_score": 120,
+        "clinical_consequences": [
+          "Fundamental disease classification disagreement"
+        ],
+        "treatment_implications": [
+          "Intensive chemotherapy vs supportive care",
+          "Stem cell transplant eligibility differs",
+          "Clinical trial eligibility differs"
+        ],
+        "mrd_implications": [],
+        "prognostic_implications": [
+          "Risk category: Unknown vs Intermediate",
+          "Different survival expectations",
+          "Different treatment intensity recommendations"
+        ]
+      },
+      "test_focus": "aml_vs_mds_borderline",
+      "timestamp": "2025-06-06T20:04:33.959862",
+      "significance": "critical",
+      "clinical_impact_score": 120,
+      "clinical_consequences": [
+        "Fundamental disease classification disagreement"
+      ],
+      "treatment_implications": [
+        "Intensive chemotherapy vs supportive care",
+        "Stem cell transplant eligibility differs",
+        "Clinical trial eligibility differs"
+      ],
+      "mrd_implications": [],
+      "prognostic_implications": [
+        "Risk category: Unknown vs Intermediate",
+        "Different survival expectations",
+        "Different treatment intensity recommendations"
+      ],
+      "test_case": {
+        "test_name": "blast_15_with_cebpa_bzip",
+        "description": "15% blasts with CEBPA bZIP mutation - ICC may call AML, WHO may call MDS",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 15,
+        "AML_defining_recurrent_genetic_abnormalities": {
+          "CEBPA_bZIP": true
+        },
+        "dysplastic_lineages": 1,
+        "bone_marrow_cellularity": "Hypercellular"
+      }
+    },
+    {
+      "test_id": "test_2_aml_vs_mds_borderline",
+      "input_data": {
+        "test_name": "blast_12_with_npm1",
+        "description": "12% blasts with NPM1 mutation - borderline case",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 12,
+        "AML_defining_recurrent_genetic_abnormalities": {
+          "NPM1_mutation": true
+        },
+        "dysplastic_lineages": 2,
+        "bone_marrow_cellularity": "Hypercellular"
+      },
+      "who_classification": "MDS with increased blasts 2",
+      "icc_classification": "MDS/AML, NOS",
+      "who_derivation": [
+        "Retrieved blasts_percentage: 12",
+        "Default classification set to: Acute myeloid leukaemia, [define by differentiation]",
+        "Detected AML-defining abnormality flags: NPM1_mutation",
+        "No AML-defining abnormality fully matched, blasts <20 => consider MDS.",
+        "No AML_differentiation provided.",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => Not AML, consider MDS classification",
+        "AML classifier indicated that the case is not AML. Switching to MDS classification...",
+        "Default classification set to: MDS, unclassifiable",
+        "Checking for biallelic TP53: {}",
+        "TP53 conditions: 2 mutations: False, with del17p: False, with LOH: False, with \u226550% VAF: False, with \u226510% VAF + complex karyotype: False",
+        "Retrieved blasts: 12, fibrotic: False",
+        "10-19% blasts => MDS with increased blasts 2",
+        "Current classification: MDS with increased blasts 2",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => MDS with increased blasts 2 (WHO 2022)"
+      ],
+      "icc_derivation": [
+        "Retrieved blasts_percentage: 12",
+        "Default classification set to: AML, NOS",
+        "ICC AML-defining flags => NPM1_mutation",
+        "No single ICC AML-def abnormality triggered classification.",
+        "No biallelic TP53 conditions met.",
+        "No MDS-related genes set to True.",
+        "No MDS-related cytogenetics triggered classification.",
+        "Blasts 10\u201319 => replaced 'AML' with 'MDS/AML'. Final classification: MDS/AML, NOS",
+        "No germline predisposition indicated (review at MDT)",
+        "Final => MDS/AML, NOS (ICC 2022)"
+      ],
+      "who_disease_type": "MDS_BLASTS",
+      "icc_disease_type": "MDS_AML_HYBRID",
+      "are_equivalent": false,
+      "difference_analysis": {
+        "who_classification": "MDS with increased blasts 2",
+        "icc_classification": "MDS/AML, NOS",
+        "who_category": "MDS_BLASTS",
+        "icc_category": "MDS_AML_HYBRID",
+        "are_equivalent": false,
+        "category_match": false,
+        "difference_type": "major_clinical_impact",
+        "significance": "critical",
+        "clinical_impact_score": 120,
+        "clinical_consequences": [
+          "Fundamental disease classification disagreement"
+        ],
+        "treatment_implications": [
+          "Intensive chemotherapy vs supportive care",
+          "Stem cell transplant eligibility differs",
+          "Clinical trial eligibility differs"
+        ],
+        "mrd_implications": [],
+        "prognostic_implications": [
+          "Risk category: Unknown vs Intermediate",
+          "Different survival expectations",
+          "Different treatment intensity recommendations"
+        ]
+      },
+      "test_focus": "aml_vs_mds_borderline",
+      "timestamp": "2025-06-06T20:04:33.959980",
+      "significance": "critical",
+      "clinical_impact_score": 120,
+      "clinical_consequences": [
+        "Fundamental disease classification disagreement"
+      ],
+      "treatment_implications": [
+        "Intensive chemotherapy vs supportive care",
+        "Stem cell transplant eligibility differs",
+        "Clinical trial eligibility differs"
+      ],
+      "mrd_implications": [],
+      "prognostic_implications": [
+        "Risk category: Unknown vs Intermediate",
+        "Different survival expectations",
+        "Different treatment intensity recommendations"
+      ],
+      "test_case": {
+        "test_name": "blast_12_with_npm1",
+        "description": "12% blasts with NPM1 mutation - borderline case",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 12,
+        "AML_defining_recurrent_genetic_abnormalities": {
+          "NPM1_mutation": true
+        },
+        "dysplastic_lineages": 2,
+        "bone_marrow_cellularity": "Hypercellular"
+      }
+    },
+    {
+      "test_id": "test_3_aml_vs_mds_borderline",
+      "input_data": {
+        "test_name": "blast_18_with_runx1_runx1t1",
+        "description": "18% blasts with RUNX1-RUNX1T1 fusion",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 18,
+        "AML_defining_recurrent_genetic_abnormalities": {
+          "RUNX1_RUNX1T1": true
+        },
+        "dysplastic_lineages": 1,
+        "bone_marrow_cellularity": "Hypercellular"
+      },
+      "who_classification": "MDS with increased blasts 2",
+      "icc_classification": "MDS/AML, NOS",
+      "who_derivation": [
+        "Retrieved blasts_percentage: 18",
+        "Default classification set to: Acute myeloid leukaemia, [define by differentiation]",
+        "Detected AML-defining abnormality flags: RUNX1_RUNX1T1",
+        "No AML-defining abnormality fully matched, blasts <20 => consider MDS.",
+        "No AML_differentiation provided.",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => Not AML, consider MDS classification",
+        "AML classifier indicated that the case is not AML. Switching to MDS classification...",
+        "Default classification set to: MDS, unclassifiable",
+        "Checking for biallelic TP53: {}",
+        "TP53 conditions: 2 mutations: False, with del17p: False, with LOH: False, with \u226550% VAF: False, with \u226510% VAF + complex karyotype: False",
+        "Retrieved blasts: 18, fibrotic: False",
+        "10-19% blasts => MDS with increased blasts 2",
+        "Current classification: MDS with increased blasts 2",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => MDS with increased blasts 2 (WHO 2022)"
+      ],
+      "icc_derivation": [
+        "Retrieved blasts_percentage: 18",
+        "Default classification set to: AML, NOS",
+        "ICC AML-defining flags => RUNX1_RUNX1T1",
+        "No single ICC AML-def abnormality triggered classification.",
+        "No biallelic TP53 conditions met.",
+        "No MDS-related genes set to True.",
+        "No MDS-related cytogenetics triggered classification.",
+        "Blasts 10\u201319 => replaced 'AML' with 'MDS/AML'. Final classification: MDS/AML, NOS",
+        "No germline predisposition indicated (review at MDT)",
+        "Final => MDS/AML, NOS (ICC 2022)"
+      ],
+      "who_disease_type": "MDS_BLASTS",
+      "icc_disease_type": "MDS_AML_HYBRID",
+      "are_equivalent": false,
+      "difference_analysis": {
+        "who_classification": "MDS with increased blasts 2",
+        "icc_classification": "MDS/AML, NOS",
+        "who_category": "MDS_BLASTS",
+        "icc_category": "MDS_AML_HYBRID",
+        "are_equivalent": false,
+        "category_match": false,
+        "difference_type": "major_clinical_impact",
+        "significance": "critical",
+        "clinical_impact_score": 120,
+        "clinical_consequences": [
+          "Fundamental disease classification disagreement"
+        ],
+        "treatment_implications": [
+          "Intensive chemotherapy vs supportive care",
+          "Stem cell transplant eligibility differs",
+          "Clinical trial eligibility differs"
+        ],
+        "mrd_implications": [],
+        "prognostic_implications": [
+          "Risk category: Unknown vs Intermediate",
+          "Different survival expectations",
+          "Different treatment intensity recommendations"
+        ]
+      },
+      "test_focus": "aml_vs_mds_borderline",
+      "timestamp": "2025-06-06T20:04:33.960033",
+      "significance": "critical",
+      "clinical_impact_score": 120,
+      "clinical_consequences": [
+        "Fundamental disease classification disagreement"
+      ],
+      "treatment_implications": [
+        "Intensive chemotherapy vs supportive care",
+        "Stem cell transplant eligibility differs",
+        "Clinical trial eligibility differs"
+      ],
+      "mrd_implications": [],
+      "prognostic_implications": [
+        "Risk category: Unknown vs Intermediate",
+        "Different survival expectations",
+        "Different treatment intensity recommendations"
+      ],
+      "test_case": {
+        "test_name": "blast_18_with_runx1_runx1t1",
+        "description": "18% blasts with RUNX1-RUNX1T1 fusion",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 18,
+        "AML_defining_recurrent_genetic_abnormalities": {
+          "RUNX1_RUNX1T1": true
+        },
+        "dysplastic_lineages": 1,
+        "bone_marrow_cellularity": "Hypercellular"
+      }
+    },
+    {
+      "test_id": "test_4_aml_vs_mds_borderline",
+      "input_data": {
+        "test_name": "blast_16_with_inv16",
+        "description": "16% blasts with inv(16) - core binding factor",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 16,
+        "AML_defining_recurrent_genetic_abnormalities": {
+          "CBFB_MYH11": true
+        },
+        "dysplastic_lineages": 0,
+        "bone_marrow_cellularity": "Hypercellular"
+      },
+      "who_classification": "MDS with increased blasts 2",
+      "icc_classification": "MDS/AML, NOS",
+      "who_derivation": [
+        "Retrieved blasts_percentage: 16",
+        "Default classification set to: Acute myeloid leukaemia, [define by differentiation]",
+        "Detected AML-defining abnormality flags: CBFB_MYH11",
+        "No AML-defining abnormality fully matched, blasts <20 => consider MDS.",
+        "No AML_differentiation provided.",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => Not AML, consider MDS classification",
+        "AML classifier indicated that the case is not AML. Switching to MDS classification...",
+        "Default classification set to: MDS, unclassifiable",
+        "Checking for biallelic TP53: {}",
+        "TP53 conditions: 2 mutations: False, with del17p: False, with LOH: False, with \u226550% VAF: False, with \u226510% VAF + complex karyotype: False",
+        "Retrieved blasts: 16, fibrotic: False",
+        "10-19% blasts => MDS with increased blasts 2",
+        "Current classification: MDS with increased blasts 2",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => MDS with increased blasts 2 (WHO 2022)"
+      ],
+      "icc_derivation": [
+        "Retrieved blasts_percentage: 16",
+        "Default classification set to: AML, NOS",
+        "ICC AML-defining flags => CBFB_MYH11",
+        "No single ICC AML-def abnormality triggered classification.",
+        "No biallelic TP53 conditions met.",
+        "No MDS-related genes set to True.",
+        "No MDS-related cytogenetics triggered classification.",
+        "Blasts 10\u201319 => replaced 'AML' with 'MDS/AML'. Final classification: MDS/AML, NOS",
+        "No germline predisposition indicated (review at MDT)",
+        "Final => MDS/AML, NOS (ICC 2022)"
+      ],
+      "who_disease_type": "MDS_BLASTS",
+      "icc_disease_type": "MDS_AML_HYBRID",
+      "are_equivalent": false,
+      "difference_analysis": {
+        "who_classification": "MDS with increased blasts 2",
+        "icc_classification": "MDS/AML, NOS",
+        "who_category": "MDS_BLASTS",
+        "icc_category": "MDS_AML_HYBRID",
+        "are_equivalent": false,
+        "category_match": false,
+        "difference_type": "major_clinical_impact",
+        "significance": "critical",
+        "clinical_impact_score": 120,
+        "clinical_consequences": [
+          "Fundamental disease classification disagreement"
+        ],
+        "treatment_implications": [
+          "Intensive chemotherapy vs supportive care",
+          "Stem cell transplant eligibility differs",
+          "Clinical trial eligibility differs"
+        ],
+        "mrd_implications": [],
+        "prognostic_implications": [
+          "Risk category: Unknown vs Intermediate",
+          "Different survival expectations",
+          "Different treatment intensity recommendations"
+        ]
+      },
+      "test_focus": "aml_vs_mds_borderline",
+      "timestamp": "2025-06-06T20:04:33.960083",
+      "significance": "critical",
+      "clinical_impact_score": 120,
+      "clinical_consequences": [
+        "Fundamental disease classification disagreement"
+      ],
+      "treatment_implications": [
+        "Intensive chemotherapy vs supportive care",
+        "Stem cell transplant eligibility differs",
+        "Clinical trial eligibility differs"
+      ],
+      "mrd_implications": [],
+      "prognostic_implications": [
+        "Risk category: Unknown vs Intermediate",
+        "Different survival expectations",
+        "Different treatment intensity recommendations"
+      ],
+      "test_case": {
+        "test_name": "blast_16_with_inv16",
+        "description": "16% blasts with inv(16) - core binding factor",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 16,
+        "AML_defining_recurrent_genetic_abnormalities": {
+          "CBFB_MYH11": true
+        },
+        "dysplastic_lineages": 0,
+        "bone_marrow_cellularity": "Hypercellular"
+      }
+    },
+    {
+      "test_id": "test_5_aml_vs_mds_borderline",
+      "input_data": {
+        "test_name": "blast_19_with_sf3b1_asxl1",
+        "description": "19% blasts with SF3B1 and ASXL1 mutations",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 19,
+        "MDS_related_mutation": {
+          "SF3B1": true,
+          "ASXL1": true
+        },
+        "dysplastic_lineages": 3,
+        "bone_marrow_cellularity": "Hypercellular"
+      },
+      "who_classification": "MDS with increased blasts 2",
+      "icc_classification": "MDS/AML with myelodysplasia related gene mutation",
+      "who_derivation": [
+        "Retrieved blasts_percentage: 19",
+        "Default classification set to: Acute myeloid leukaemia, [define by differentiation]",
+        "All AML-defining recurrent genetic abnormality flags are false.",
+        "No AML-defining abnormalities and blasts <20 => consider reclassification as MDS.",
+        "No AML_differentiation provided.",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => Not AML, consider MDS classification",
+        "AML classifier indicated that the case is not AML. Switching to MDS classification...",
+        "Default classification set to: MDS, unclassifiable",
+        "Checking for biallelic TP53: {}",
+        "TP53 conditions: 2 mutations: False, with del17p: False, with LOH: False, with \u226550% VAF: False, with \u226510% VAF + complex karyotype: False",
+        "Retrieved blasts: 19, fibrotic: False",
+        "10-19% blasts => MDS with increased blasts 2",
+        "Current classification: MDS with increased blasts 2",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => MDS with increased blasts 2 (WHO 2022)"
+      ],
+      "icc_derivation": [
+        "Retrieved blasts_percentage: 19",
+        "Default classification set to: AML, NOS",
+        "No ICC AML-defining abnormality is True.",
+        "No biallelic TP53 conditions met.",
+        "MDS-related genes => AML with myelodysplasia related gene mutation",
+        "Blasts 10\u201319 => replaced 'AML' with 'MDS/AML'. Final classification: MDS/AML with myelodysplasia related gene mutation",
+        "No germline predisposition indicated (review at MDT)",
+        "Final => MDS/AML with myelodysplasia related gene mutation (ICC 2022)"
+      ],
+      "who_disease_type": "MDS_BLASTS",
+      "icc_disease_type": "AML_MDS_RELATED",
+      "are_equivalent": false,
+      "difference_analysis": {
+        "who_classification": "MDS with increased blasts 2",
+        "icc_classification": "MDS/AML with myelodysplasia related gene mutation",
+        "who_category": "MDS_BLASTS",
+        "icc_category": "AML_MDS_RELATED",
+        "are_equivalent": false,
+        "category_match": false,
+        "difference_type": "major_clinical_impact",
+        "significance": "critical",
+        "clinical_impact_score": 120,
+        "clinical_consequences": [
+          "Fundamental disease classification disagreement"
+        ],
+        "treatment_implications": [
+          "Intensive chemotherapy vs supportive care",
+          "Stem cell transplant eligibility differs",
+          "Clinical trial eligibility differs"
+        ],
+        "mrd_implications": [],
+        "prognostic_implications": [
+          "Risk category: Unknown vs Intermediate",
+          "Different survival expectations",
+          "Different treatment intensity recommendations"
+        ]
+      },
+      "test_focus": "aml_vs_mds_borderline",
+      "timestamp": "2025-06-06T20:04:33.960138",
+      "significance": "critical",
+      "clinical_impact_score": 120,
+      "clinical_consequences": [
+        "Fundamental disease classification disagreement"
+      ],
+      "treatment_implications": [
+        "Intensive chemotherapy vs supportive care",
+        "Stem cell transplant eligibility differs",
+        "Clinical trial eligibility differs"
+      ],
+      "mrd_implications": [],
+      "prognostic_implications": [
+        "Risk category: Unknown vs Intermediate",
+        "Different survival expectations",
+        "Different treatment intensity recommendations"
+      ],
+      "test_case": {
+        "test_name": "blast_19_with_sf3b1_asxl1",
+        "description": "19% blasts with SF3B1 and ASXL1 mutations",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 19,
+        "MDS_related_mutation": {
+          "SF3B1": true,
+          "ASXL1": true
+        },
+        "dysplastic_lineages": 3,
+        "bone_marrow_cellularity": "Hypercellular"
+      }
+    },
+    {
+      "test_id": "test_6_aml_vs_mds_borderline",
+      "input_data": {
+        "test_name": "blast_21_with_tet2_dnmt3a",
+        "description": "21% blasts with TET2 and DNMT3A mutations",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 21,
+        "MDS_related_mutation": {
+          "TET2": true,
+          "DNMT3A": true
+        },
+        "dysplastic_lineages": 2,
+        "bone_marrow_cellularity": "Hypercellular"
+      },
+      "who_classification": "AML, myelodysplasia related",
+      "icc_classification": "AML with myelodysplasia related gene mutation",
+      "who_derivation": [
+        "Retrieved blasts_percentage: 21",
+        "Default classification set to: Acute myeloid leukaemia, [define by differentiation]",
+        "All AML-defining recurrent genetic abnormality flags are false.",
+        "MDS-related mutation(s): TET2, DNMT3A => AML, myelodysplasia related",
+        "No AML_differentiation provided.",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => AML, myelodysplasia related (WHO 2022)"
+      ],
+      "icc_derivation": [
+        "Retrieved blasts_percentage: 21",
+        "Default classification set to: AML, NOS",
+        "No ICC AML-defining abnormality is True.",
+        "No biallelic TP53 conditions met.",
+        "MDS-related genes => AML with myelodysplasia related gene mutation",
+        "Blasts >=20 => remain AML",
+        "No germline predisposition indicated (review at MDT)",
+        "Final => AML with myelodysplasia related gene mutation (ICC 2022)"
+      ],
+      "who_disease_type": "AML_MDS_RELATED",
+      "icc_disease_type": "AML_MDS_RELATED",
+      "are_equivalent": true,
+      "difference_analysis": {
+        "who_classification": "AML, myelodysplasia related",
+        "icc_classification": "AML with myelodysplasia related gene mutation",
+        "who_category": "AML_MDS_RELATED",
+        "icc_category": "AML_MDS_RELATED",
+        "are_equivalent": true,
+        "category_match": true,
+        "difference_type": "terminology_only",
+        "significance": "minimal",
+        "clinical_impact_score": 0,
+        "clinical_consequences": [],
+        "treatment_implications": [],
+        "mrd_implications": [
+          "Flow cytometry MRD only for both classifications"
+        ],
+        "prognostic_implications": []
+      },
+      "test_focus": "aml_vs_mds_borderline",
+      "timestamp": "2025-06-06T20:04:33.960186",
+      "significance": "minimal",
+      "clinical_impact_score": 0,
+      "clinical_consequences": [],
+      "treatment_implications": [],
+      "mrd_implications": [
+        "Flow cytometry MRD only for both classifications"
+      ],
+      "prognostic_implications": [],
+      "test_case": {
+        "test_name": "blast_21_with_tet2_dnmt3a",
+        "description": "21% blasts with TET2 and DNMT3A mutations",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 21,
+        "MDS_related_mutation": {
+          "TET2": true,
+          "DNMT3A": true
+        },
+        "dysplastic_lineages": 2,
+        "bone_marrow_cellularity": "Hypercellular"
+      }
+    },
+    {
+      "test_id": "test_7_aml_vs_mds_borderline",
+      "input_data": {
+        "test_name": "blast_18_with_srsf2_u2af1",
+        "description": "18% blasts with SRSF2 and U2AF1 mutations",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 18,
+        "MDS_related_mutation": {
+          "SRSF2": true,
+          "U2AF1": true
+        },
+        "dysplastic_lineages": 2,
+        "bone_marrow_cellularity": "Hypercellular"
+      },
+      "who_classification": "MDS with increased blasts 2",
+      "icc_classification": "MDS/AML with myelodysplasia related gene mutation",
+      "who_derivation": [
+        "Retrieved blasts_percentage: 18",
+        "Default classification set to: Acute myeloid leukaemia, [define by differentiation]",
+        "All AML-defining recurrent genetic abnormality flags are false.",
+        "No AML-defining abnormalities and blasts <20 => consider reclassification as MDS.",
+        "No AML_differentiation provided.",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => Not AML, consider MDS classification",
+        "AML classifier indicated that the case is not AML. Switching to MDS classification...",
+        "Default classification set to: MDS, unclassifiable",
+        "Checking for biallelic TP53: {}",
+        "TP53 conditions: 2 mutations: False, with del17p: False, with LOH: False, with \u226550% VAF: False, with \u226510% VAF + complex karyotype: False",
+        "Retrieved blasts: 18, fibrotic: False",
+        "10-19% blasts => MDS with increased blasts 2",
+        "Current classification: MDS with increased blasts 2",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => MDS with increased blasts 2 (WHO 2022)"
+      ],
+      "icc_derivation": [
+        "Retrieved blasts_percentage: 18",
+        "Default classification set to: AML, NOS",
+        "No ICC AML-defining abnormality is True.",
+        "No biallelic TP53 conditions met.",
+        "MDS-related genes => AML with myelodysplasia related gene mutation",
+        "Blasts 10\u201319 => replaced 'AML' with 'MDS/AML'. Final classification: MDS/AML with myelodysplasia related gene mutation",
+        "No germline predisposition indicated (review at MDT)",
+        "Final => MDS/AML with myelodysplasia related gene mutation (ICC 2022)"
+      ],
+      "who_disease_type": "MDS_BLASTS",
+      "icc_disease_type": "AML_MDS_RELATED",
+      "are_equivalent": false,
+      "difference_analysis": {
+        "who_classification": "MDS with increased blasts 2",
+        "icc_classification": "MDS/AML with myelodysplasia related gene mutation",
+        "who_category": "MDS_BLASTS",
+        "icc_category": "AML_MDS_RELATED",
+        "are_equivalent": false,
+        "category_match": false,
+        "difference_type": "major_clinical_impact",
+        "significance": "critical",
+        "clinical_impact_score": 120,
+        "clinical_consequences": [
+          "Fundamental disease classification disagreement"
+        ],
+        "treatment_implications": [
+          "Intensive chemotherapy vs supportive care",
+          "Stem cell transplant eligibility differs",
+          "Clinical trial eligibility differs"
+        ],
+        "mrd_implications": [],
+        "prognostic_implications": [
+          "Risk category: Unknown vs Intermediate",
+          "Different survival expectations",
+          "Different treatment intensity recommendations"
+        ]
+      },
+      "test_focus": "aml_vs_mds_borderline",
+      "timestamp": "2025-06-06T20:04:33.960270",
+      "significance": "critical",
+      "clinical_impact_score": 120,
+      "clinical_consequences": [
+        "Fundamental disease classification disagreement"
+      ],
+      "treatment_implications": [
+        "Intensive chemotherapy vs supportive care",
+        "Stem cell transplant eligibility differs",
+        "Clinical trial eligibility differs"
+      ],
+      "mrd_implications": [],
+      "prognostic_implications": [
+        "Risk category: Unknown vs Intermediate",
+        "Different survival expectations",
+        "Different treatment intensity recommendations"
+      ],
+      "test_case": {
+        "test_name": "blast_18_with_srsf2_u2af1",
+        "description": "18% blasts with SRSF2 and U2AF1 mutations",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 18,
+        "MDS_related_mutation": {
+          "SRSF2": true,
+          "U2AF1": true
+        },
+        "dysplastic_lineages": 2,
+        "bone_marrow_cellularity": "Hypercellular"
+      }
+    },
+    {
+      "test_id": "test_8_aml_vs_mds_borderline",
+      "input_data": {
+        "test_name": "tr_blast_15_with_tp53",
+        "description": "Therapy-related case with 15% blasts and TP53 mutation",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 15,
+        "Biallelic_TP53_mutation": {
+          "1_x_TP53_mutation_50_percent_vaf": true
+        },
+        "therapy_qualifier": "Cytotoxic chemotherapy",
+        "dysplastic_lineages": 2,
+        "bone_marrow_cellularity": "Hypercellular"
+      },
+      "who_classification": "MDS with biallelic TP53 inactivation",
+      "icc_classification": "MDS/AML, NOS",
+      "who_derivation": [
+        "Retrieved blasts_percentage: 15",
+        "Default classification set to: Acute myeloid leukaemia, [define by differentiation]",
+        "All AML-defining recurrent genetic abnormality flags are false.",
+        "No AML-defining abnormalities and blasts <20 => consider reclassification as MDS.",
+        "No AML_differentiation provided.",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => Not AML, consider MDS classification",
+        "AML classifier indicated that the case is not AML. Switching to MDS classification...",
+        "Default classification set to: MDS, unclassifiable",
+        "Checking for biallelic TP53: {'1_x_TP53_mutation_50_percent_vaf': True}",
+        "TP53 conditions: 2 mutations: False, with del17p: False, with LOH: False, with \u226550% VAF: True, with \u226510% VAF + complex karyotype: False",
+        "Biallelic TP53 detected => MDS with biallelic TP53 inactivation"
+      ],
+      "icc_derivation": [
+        "Retrieved blasts_percentage: 15",
+        "Default classification set to: AML, NOS",
+        "No ICC AML-defining abnormality is True.",
+        "No biallelic TP53 conditions met.",
+        "No MDS-related genes set to True.",
+        "No MDS-related cytogenetics triggered classification.",
+        "Blasts 10\u201319 => replaced 'AML' with 'MDS/AML'. Final classification: MDS/AML, NOS",
+        "No germline predisposition indicated (review at MDT)",
+        "Final => MDS/AML, NOS (ICC 2022)"
+      ],
+      "who_disease_type": "MDS_TP53",
+      "icc_disease_type": "MDS_AML_HYBRID",
+      "are_equivalent": false,
+      "difference_analysis": {
+        "who_classification": "MDS with biallelic TP53 inactivation",
+        "icc_classification": "MDS/AML, NOS",
+        "who_category": "MDS_TP53",
+        "icc_category": "MDS_AML_HYBRID",
+        "are_equivalent": false,
+        "category_match": false,
+        "difference_type": "major_clinical_impact",
+        "significance": "critical",
+        "clinical_impact_score": 230,
+        "clinical_consequences": [
+          "Fundamental disease classification disagreement",
+          "Targeted therapy eligibility differs: {'tp53'}"
+        ],
+        "treatment_implications": [
+          "Intensive chemotherapy vs supportive care",
+          "Stem cell transplant eligibility differs",
+          "Clinical trial eligibility differs",
+          "TP53-directed therapy considerations"
+        ],
+        "mrd_implications": [],
+        "prognostic_implications": [
+          "Risk category: High vs Intermediate",
+          "Different survival expectations",
+          "Different treatment intensity recommendations"
+        ]
+      },
+      "test_focus": "aml_vs_mds_borderline",
+      "timestamp": "2025-06-06T20:04:33.960367",
+      "significance": "critical",
+      "clinical_impact_score": 230,
+      "clinical_consequences": [
+        "Fundamental disease classification disagreement",
+        "Targeted therapy eligibility differs: {'tp53'}"
+      ],
+      "treatment_implications": [
+        "Intensive chemotherapy vs supportive care",
+        "Stem cell transplant eligibility differs",
+        "Clinical trial eligibility differs",
+        "TP53-directed therapy considerations"
+      ],
+      "mrd_implications": [],
+      "prognostic_implications": [
+        "Risk category: High vs Intermediate",
+        "Different survival expectations",
+        "Different treatment intensity recommendations"
+      ],
+      "test_case": {
+        "test_name": "tr_blast_15_with_tp53",
+        "description": "Therapy-related case with 15% blasts and TP53 mutation",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 15,
+        "Biallelic_TP53_mutation": {
+          "1_x_TP53_mutation_50_percent_vaf": true
+        },
+        "therapy_qualifier": "Cytotoxic chemotherapy",
+        "dysplastic_lineages": 2,
+        "bone_marrow_cellularity": "Hypercellular"
+      }
+    },
+    {
+      "test_id": "test_9_aml_vs_mds_borderline",
+      "input_data": {
+        "test_name": "tr_blast_22_complex_karyotype",
+        "description": "Therapy-related case with 22% blasts and complex karyotype",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 22,
+        "complex_karyotype": true,
+        "therapy_qualifier": "Ionising radiation",
+        "dysplastic_lineages": 3,
+        "bone_marrow_cellularity": "Hypercellular"
+      },
+      "who_classification": "Acute myeloid leukaemia, unknown differentiation",
+      "icc_classification": "AML, NOS",
+      "who_derivation": [
+        "Retrieved blasts_percentage: 22",
+        "Default classification set to: Acute myeloid leukaemia, [define by differentiation]",
+        "All AML-defining recurrent genetic abnormality flags are false.",
+        "No MDS-related mutations found.",
+        "No MDS-related cytogenetic flags found.",
+        "No AML_differentiation provided.",
+        "No valid AML_differentiation => unknown differentiation",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => Acute myeloid leukaemia, unknown differentiation (WHO 2022)"
+      ],
+      "icc_derivation": [
+        "Retrieved blasts_percentage: 22",
+        "Default classification set to: AML, NOS",
+        "No ICC AML-defining abnormality is True.",
+        "No biallelic TP53 conditions met.",
+        "No MDS-related genes set to True.",
+        "No MDS-related cytogenetics triggered classification.",
+        "Blasts >=20 => remain AML",
+        "No germline predisposition indicated (review at MDT)",
+        "Final => AML, NOS (ICC 2022)"
+      ],
+      "who_disease_type": "UNCLASSIFIABLE",
+      "icc_disease_type": "AML_NOS",
+      "are_equivalent": true,
+      "difference_analysis": {
+        "who_classification": "Acute myeloid leukaemia, unknown differentiation",
+        "icc_classification": "AML, NOS",
+        "who_category": "UNCLASSIFIABLE",
+        "icc_category": "AML_NOS",
+        "are_equivalent": true,
+        "category_match": false,
+        "difference_type": "terminology_only",
+        "significance": "minimal",
+        "clinical_impact_score": 0,
+        "clinical_consequences": [],
+        "treatment_implications": [],
+        "mrd_implications": [
+          "Flow cytometry MRD only for both classifications"
+        ],
+        "prognostic_implications": []
+      },
+      "test_focus": "aml_vs_mds_borderline",
+      "timestamp": "2025-06-06T20:04:33.960503",
+      "significance": "minimal",
+      "clinical_impact_score": 0,
+      "clinical_consequences": [],
+      "treatment_implications": [],
+      "mrd_implications": [
+        "Flow cytometry MRD only for both classifications"
+      ],
+      "prognostic_implications": [],
+      "test_case": {
+        "test_name": "tr_blast_22_complex_karyotype",
+        "description": "Therapy-related case with 22% blasts and complex karyotype",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 22,
+        "complex_karyotype": true,
+        "therapy_qualifier": "Ionising radiation",
+        "dysplastic_lineages": 3,
+        "bone_marrow_cellularity": "Hypercellular"
+      }
+    },
+    {
+      "test_id": "test_10_aml_vs_mds_borderline",
+      "input_data": {
+        "test_name": "erythroid_blast_18_dysplastic",
+        "description": "18% blasts with erythroid predominance and dysplasia",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 18,
+        "AML_differentiation": "M6",
+        "dysplastic_lineages": 2,
+        "bone_marrow_cellularity": "Hypercellular"
+      },
+      "who_classification": "MDS with increased blasts 2",
+      "icc_classification": "MDS/AML, NOS",
+      "who_derivation": [
+        "Retrieved blasts_percentage: 18",
+        "Default classification set to: Acute myeloid leukaemia, [define by differentiation]",
+        "All AML-defining recurrent genetic abnormality flags are false.",
+        "No AML-defining abnormalities and blasts <20 => consider reclassification as MDS.",
+        "AML_differentiation: M6",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => Not AML, consider MDS classification",
+        "AML classifier indicated that the case is not AML. Switching to MDS classification...",
+        "Default classification set to: MDS, unclassifiable",
+        "Checking for biallelic TP53: {}",
+        "TP53 conditions: 2 mutations: False, with del17p: False, with LOH: False, with \u226550% VAF: False, with \u226510% VAF + complex karyotype: False",
+        "Retrieved blasts: 18, fibrotic: False",
+        "10-19% blasts => MDS with increased blasts 2",
+        "Current classification: MDS with increased blasts 2",
+        "No germline predisposition indicated (review at MDT)",
+        "Final classification => MDS with increased blasts 2 (WHO 2022)"
+      ],
+      "icc_derivation": [
+        "Retrieved blasts_percentage: 18",
+        "Default classification set to: AML, NOS",
+        "No ICC AML-defining abnormality is True.",
+        "No biallelic TP53 conditions met.",
+        "No MDS-related genes set to True.",
+        "No MDS-related cytogenetics triggered classification.",
+        "Blasts 10\u201319 => replaced 'AML' with 'MDS/AML'. Final classification: MDS/AML, NOS",
+        "No germline predisposition indicated (review at MDT)",
+        "Final => MDS/AML, NOS (ICC 2022)"
+      ],
+      "who_disease_type": "MDS_BLASTS",
+      "icc_disease_type": "MDS_AML_HYBRID",
+      "are_equivalent": false,
+      "difference_analysis": {
+        "who_classification": "MDS with increased blasts 2",
+        "icc_classification": "MDS/AML, NOS",
+        "who_category": "MDS_BLASTS",
+        "icc_category": "MDS_AML_HYBRID",
+        "are_equivalent": false,
+        "category_match": false,
+        "difference_type": "major_clinical_impact",
+        "significance": "critical",
+        "clinical_impact_score": 120,
+        "clinical_consequences": [
+          "Fundamental disease classification disagreement"
+        ],
+        "treatment_implications": [
+          "Intensive chemotherapy vs supportive care",
+          "Stem cell transplant eligibility differs",
+          "Clinical trial eligibility differs"
+        ],
+        "mrd_implications": [],
+        "prognostic_implications": [
+          "Risk category: Unknown vs Intermediate",
+          "Different survival expectations",
+          "Different treatment intensity recommendations"
+        ]
+      },
+      "test_focus": "aml_vs_mds_borderline",
+      "timestamp": "2025-06-06T20:04:33.960564",
+      "significance": "critical",
+      "clinical_impact_score": 120,
+      "clinical_consequences": [
+        "Fundamental disease classification disagreement"
+      ],
+      "treatment_implications": [
+        "Intensive chemotherapy vs supportive care",
+        "Stem cell transplant eligibility differs",
+        "Clinical trial eligibility differs"
+      ],
+      "mrd_implications": [],
+      "prognostic_implications": [
+        "Risk category: Unknown vs Intermediate",
+        "Different survival expectations",
+        "Different treatment intensity recommendations"
+      ],
+      "test_case": {
+        "test_name": "erythroid_blast_18_dysplastic",
+        "description": "18% blasts with erythroid predominance and dysplasia",
+        "expected_difference": true,
+        "significance": "high",
+        "blasts_percentage": 18,
+        "AML_differentiation": "M6",
+        "dysplastic_lineages": 2,
+        "bone_marrow_cellularity": "Hypercellular"
+      }
+    }
+  ],
+  "timestamp": "2025-06-06T20:04:33.961650",
+  "total_tests": 10
+}
