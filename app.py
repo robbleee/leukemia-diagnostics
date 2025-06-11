@@ -937,10 +937,14 @@ def results_page():
     # Set up the options menu based on which risk assessments to show
     if show_eln and show_ipss:
         # If both AML and MDS were diagnosed, show separate risk options
-        options = ["Classification", "ELN Risk (AML)", "IPSS Risk (MDS)", "MRD Review", "Gene Review", "AI Comments", "Differentiation"]
-        icons = ["clipboard", "graph-up-arrow", "calculator", "recycle", "bar-chart", "chat-left-text", "funnel"]
+        options = ["Classification", "ELN Risk (AML)", "IPSS Risk (MDS)", "Treatment", "MRD Review", "Gene Review", "AI Comments", "Differentiation"]
+        icons = ["clipboard", "graph-up-arrow", "calculator", "prescription2", "recycle", "bar-chart", "chat-left-text", "funnel"]
+    elif show_eln:
+        # Show AML-specific options including treatment
+        options = ["Classification", "Risk", "Treatment", "MRD Review", "Gene Review", "AI Comments", "Differentiation"]
+        icons = ["clipboard", "graph-up-arrow", "prescription2", "recycle", "bar-chart", "chat-left-text", "funnel"]
     else:
-        # Just show a single Risk option
+        # Just show a single Risk option (MDS only - no treatment tab)
         options = ["Classification", "Risk", "MRD Review", "Gene Review", "AI Comments", "Differentiation"]
         icons = ["clipboard", "graph-up-arrow", "recycle", "bar-chart", "chat-left-text", "funnel"]
 
@@ -1167,6 +1171,33 @@ def results_page():
             show_ipss_risk_assessment(res, free_text_input_value)
         else:
             st.warning("No risk assessment models are applicable for this classification.")
+
+    elif sub_tab == "Treatment":
+        # Import treatment recommendation functions
+        from utils.aml_treatment_recommendations import display_treatment_recommendations
+        from classifiers.aml_risk_classifier import eln2022_intensive_risk
+        
+        # Check if this is an AML case
+        if not show_eln:
+            st.warning("Treatment recommendations are only available for AML diagnoses.")
+        else:
+            # Get ELN risk classification
+            try:
+                eln_risk, _, _ = eln2022_intensive_risk(res["parsed_data"])
+            except Exception as e:
+                st.error(f"Error calculating ELN risk: {e}")
+                eln_risk = "Unknown"
+            
+            # Get patient age if available
+            patient_age = st.session_state.get("treatment_age")
+            if "age" in res["parsed_data"]:
+                try:
+                    patient_age = int(res["parsed_data"]["age"])
+                except (ValueError, TypeError):
+                    patient_age = None
+            
+            # Display treatment recommendations
+            display_treatment_recommendations(res["parsed_data"], eln_risk, patient_age)
 
     elif sub_tab == "MRD Review":
         st.markdown("### Minimal Residual Disease (MRD) Monitoring Recommendations")
