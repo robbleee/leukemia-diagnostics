@@ -2,7 +2,7 @@ import re
 import datetime
 import streamlit as st
 from fpdf import FPDF
-from classifiers.aml_risk_classifier import eln2024_non_intensive_risk, classify_ELN2022
+from classifiers.aml_risk_classifier import eln2024_non_intensive_risk, eln2022_intensive_risk
 from parsers.final_review_parser import generate_final_overview
 
 ##################################
@@ -593,7 +593,7 @@ def create_base_pdf(user_comments: str = None) -> bytes:
     if aml_result:
         add_diagnostic_section(pdf, "AML")
         # Compute ELN2022 risk classification on the fly
-        risk_eln2022, median_os_eln2022, derivation_eln2022 = classify_ELN2022(aml_result["parsed_data"])
+        risk_eln2022, median_os_eln2022, derivation_eln2022 = eln2022_intensive_risk(aml_result["parsed_data"])
         risk_data = {
             "eln_class": risk_eln2022,
             "eln_median_os": median_os_eln2022,

@@ -44,8 +44,8 @@ def generate_final_overview(parsed_data: dict, original_report_text: str = "") -
         
         # Add ELN risk if available
         try:
-            from classifiers.aml_risk_classifier import classify_ELN2022
-            risk_eln2022, median_os_eln2022, _ = classify_ELN2022(aml_result["parsed_data"])
+            from classifiers.aml_risk_classifier import eln2022_intensive_risk
+            risk_eln2022, median_os_eln2022, _ = eln2022_intensive_risk(aml_result["parsed_data"])
             comprehensive_data["eln_risk"] = {
                 "risk_category": risk_eln2022,
                 "median_os": median_os_eln2022

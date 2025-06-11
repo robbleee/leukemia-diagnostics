@@ -50,14 +50,14 @@ cookies = EncryptedCookieManager(
 if not cookies.ready():
     st.stop()
 
-from classifiers.aml_risk_classifier import classify_full_eln2022, eln2024_non_intensive_risk
+from classifiers.aml_risk_classifier import eln2022_intensive_risk, eln2024_non_intensive_risk
 from parsers.aml_eln_parser import parse_eln_report
 from utils.forms import build_manual_eln_data
 from parsers.aml_parser import parse_genetics_report_aml
 from parsers.mds_parser import parse_genetics_report_mds
 from parsers.mds_ipss_parser import parse_ipss_report
 from classifiers.aml_mds_combined import classify_combined_WHO2022, classify_combined_ICC2022
-from classifiers.aml_risk_classifier import classify_ELN2022, eln2024_non_intensive_risk
+from classifiers.aml_risk_classifier import eln2022_intensive_risk, eln2024_non_intensive_risk
 from classifiers.mds_risk_classifier import RESIDUAL_GENES, get_ipssm_survival_data
 from reviewers.aml_reviewer import (
     get_gpt4_review_aml_classification,
@@ -1051,7 +1051,7 @@ def results_page():
 
     elif sub_tab == "ELN Risk (AML)":
         # Import necessary functions for risk assessment
-        from classifiers.aml_risk_classifier import classify_full_eln2022, eln2024_non_intensive_risk
+        from classifiers.aml_risk_classifier import eln2022_intensive_risk, eln2024_non_intensive_risk
         from parsers.aml_eln_parser import parse_eln_report
         
 
@@ -1536,7 +1536,7 @@ def results_page():
 
 # Function to display ELN risk assessment for AML
 def show_eln_risk_assessment(res, free_text_input_value):
-    from classifiers.aml_risk_classifier import classify_full_eln2022, eln2024_non_intensive_risk, classify_ELN2022
+    from classifiers.aml_risk_classifier import eln2022_intensive_risk, eln2024_non_intensive_risk
     from parsers.aml_eln_parser import parse_eln_report
     
     st.markdown("## ELN Risk Assessment")
@@ -1565,7 +1565,7 @@ def show_eln_risk_assessment(res, free_text_input_value):
                 }
                 
                 # Calculate ELN 2022 risk
-                risk_eln2022, eln22_median_os, derivation_eln2022 = classify_full_eln2022(parsed_eln_data)
+                risk_eln2022, eln22_median_os, derivation_eln2022 = eln2022_intensive_risk(parsed_eln_data)
                 
                 # Calculate ELN 2024 non-intensive risk
                 risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
@@ -1575,13 +1575,13 @@ def show_eln_risk_assessment(res, free_text_input_value):
                 st.session_state['eln24_derivation'] = eln24_derivation
                 st.session_state['original_eln_data'] = parsed_eln_data.copy()
             else:
-                # Fall back to using the parsed data from the AML parser
-                risk_eln2022, eln22_median_os, derivation_eln2022 = classify_ELN2022(res["parsed_data"])
+                # Fall back to using the parsed data from the AML parser - use ELN intensive classifier
+                risk_eln2022, eln22_median_os, derivation_eln2022 = eln2022_intensive_risk(res["parsed_data"])
                 eln24_genes = res["parsed_data"].get("ELN2024_risk_genes", {})
                 risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
     else:
-        # Fall back to using the parsed data from the AML parser
-        risk_eln2022, eln22_median_os, derivation_eln2022 = classify_ELN2022(res["parsed_data"])
+        # Fall back to using the parsed data from the AML parser - use ELN intensive classifier
+        risk_eln2022, eln22_median_os, derivation_eln2022 = eln2022_intensive_risk(res["parsed_data"])
         eln24_genes = res["parsed_data"].get("ELN2024_risk_genes", {})
         risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
     
@@ -2469,7 +2469,7 @@ def eln_risk_calculator_page():
     if triggered_calculation and input_data:
         try:
             eln24_genes = { k: input_data.get(k, False) for k in ["tp53_mutation", "kras", "ptpn11", "nras", "flt3_itd", "npm1_mutation", "idh1", "idh2", "ddx41"] }
-            risk_eln2022, eln22_median_os, derivation_eln2022 = classify_full_eln2022(input_data)
+            risk_eln2022, eln22_median_os, derivation_eln2022 = eln2022_intensive_risk(input_data)
             risk_eln24, median_os_eln24, eln24_derivation = eln2024_non_intensive_risk(eln24_genes)
             st.session_state['eln_results'] = {
                 'risk_eln2022': risk_eln2022, 'eln22_median_os': eln22_median_os, 'derivation_eln2022': derivation_eln2022,
