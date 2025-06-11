@@ -562,8 +562,133 @@ def display_combined_mds_confirmation_form(who_classification, icc_classificatio
             # Store exclusion result in session state
             st.session_state[session_key]["has_exclusions"] = has_exclusions
             
+            # Update derivations in the main session state with MDS confirmation information
+            _update_session_state_derivations_with_mds_confirmation(st.session_state[session_key])
+            
             # Refresh the page to show the results
             st.rerun()
+
+def _update_session_state_derivations_with_mds_confirmation(mds_confirmation: dict):
+    """
+    Update the derivations in session state with MDS confirmation information.
+    
+    Args:
+        mds_confirmation (dict): MDS confirmation form data
+    """
+    # Generate the MDS confirmation derivation steps
+    confirmation_steps = _generate_mds_confirmation_derivation_steps(mds_confirmation)
+    
+    # Update AML results if they exist and contain MDS classifications
+    if "aml_manual_result" in st.session_state:
+        data = st.session_state["aml_manual_result"]
+        who_is_mds = "MDS" in (data.get("who_class", "") or "")
+        icc_is_mds = "MDS" in (data.get("icc_class", "") or "")
+        
+        if who_is_mds:
+            st.session_state["aml_manual_result"]["who_derivation"].extend(confirmation_steps)
+            if mds_confirmation.get("has_exclusions", False):
+                st.session_state["aml_manual_result"]["who_derivation"].append("Final result: MDS diagnosis excluded due to above criteria.")
+            else:
+                st.session_state["aml_manual_result"]["who_derivation"].append("Final result: MDS diagnosis confirmed by clinical review.")
+        
+        if icc_is_mds:
+            st.session_state["aml_manual_result"]["icc_derivation"].extend(confirmation_steps)
+            if mds_confirmation.get("has_exclusions", False):
+                st.session_state["aml_manual_result"]["icc_derivation"].append("Final result: MDS diagnosis excluded due to above criteria.")
+            else:
+                st.session_state["aml_manual_result"]["icc_derivation"].append("Final result: MDS diagnosis confirmed by clinical review.")
+    
+    elif "aml_ai_result" in st.session_state:
+        data = st.session_state["aml_ai_result"]
+        who_is_mds = "MDS" in (data.get("who_class", "") or "")
+        icc_is_mds = "MDS" in (data.get("icc_class", "") or "")
+        
+        if who_is_mds:
+            st.session_state["aml_ai_result"]["who_derivation"].extend(confirmation_steps)
+            if mds_confirmation.get("has_exclusions", False):
+                st.session_state["aml_ai_result"]["who_derivation"].append("Final result: MDS diagnosis excluded due to above criteria.")
+            else:
+                st.session_state["aml_ai_result"]["who_derivation"].append("Final result: MDS diagnosis confirmed by clinical review.")
+        
+        if icc_is_mds:
+            st.session_state["aml_ai_result"]["icc_derivation"].extend(confirmation_steps)
+            if mds_confirmation.get("has_exclusions", False):
+                st.session_state["aml_ai_result"]["icc_derivation"].append("Final result: MDS diagnosis excluded due to above criteria.")
+            else:
+                st.session_state["aml_ai_result"]["icc_derivation"].append("Final result: MDS diagnosis confirmed by clinical review.")
+    
+    # Update MDS results if they exist
+    if "mds_manual_result" in st.session_state:
+        st.session_state["mds_manual_result"]["who_derivation"].extend(confirmation_steps)
+        st.session_state["mds_manual_result"]["icc_derivation"].extend(confirmation_steps)
+        if mds_confirmation.get("has_exclusions", False):
+            st.session_state["mds_manual_result"]["who_derivation"].append("Final result: MDS diagnosis excluded due to above criteria.")
+            st.session_state["mds_manual_result"]["icc_derivation"].append("Final result: MDS diagnosis excluded due to above criteria.")
+        else:
+            st.session_state["mds_manual_result"]["who_derivation"].append("Final result: MDS diagnosis confirmed by clinical review.")
+            st.session_state["mds_manual_result"]["icc_derivation"].append("Final result: MDS diagnosis confirmed by clinical review.")
+    
+    elif "mds_ai_result" in st.session_state:
+        st.session_state["mds_ai_result"]["who_derivation"].extend(confirmation_steps)
+        st.session_state["mds_ai_result"]["icc_derivation"].extend(confirmation_steps)
+        if mds_confirmation.get("has_exclusions", False):
+            st.session_state["mds_ai_result"]["who_derivation"].append("Final result: MDS diagnosis excluded due to above criteria.")
+            st.session_state["mds_ai_result"]["icc_derivation"].append("Final result: MDS diagnosis excluded due to above criteria.")
+        else:
+            st.session_state["mds_ai_result"]["who_derivation"].append("Final result: MDS diagnosis confirmed by clinical review.")
+            st.session_state["mds_ai_result"]["icc_derivation"].append("Final result: MDS diagnosis confirmed by clinical review.")
+
+def _generate_mds_confirmation_derivation_steps(mds_confirmation: dict) -> list:
+    """
+    Generate derivation steps based on MDS confirmation form results.
+    
+    Args:
+        mds_confirmation (dict): MDS confirmation form data from session state
+        
+    Returns:
+        list: List of derivation step strings describing the confirmation process
+    """
+    steps = []
+    
+    # Add header for MDS confirmation review
+    steps.append("MDS Diagnostic Criteria Review:")
+    
+    # Check cytopenia confirmation
+    cytopenia_confirmed = mds_confirmation.get("cytopenia_confirmed", False)
+    if cytopenia_confirmed:
+        steps.append("✓ Persistent cytopenia (>4 months) in at least one lineage confirmed")
+    else:
+        steps.append("✗ Persistent cytopenia requirement NOT met - lacking cytopenia >4 months without alternative cause")
+    
+    # Check morphological dysplasia
+    morphological_dysplasia = mds_confirmation.get("morphological_dysplasia", False)
+    if morphological_dysplasia:
+        steps.append("✓ Morphologically defined dysplasia confirmed")
+    else:
+        steps.append("✗ Morphologically defined dysplasia NOT confirmed")
+    
+    # Check for cytoses
+    wbc_cytosis = mds_confirmation.get("wbc_cytosis", False)
+    monocyte_cytosis = mds_confirmation.get("monocyte_cytosis", False)
+    platelet_cytosis = mds_confirmation.get("platelet_cytosis", False)
+    eosinophil_cytosis = mds_confirmation.get("eosinophil_cytosis", False)
+    
+    cytoses = []
+    if wbc_cytosis:
+        cytoses.append("WBC > 13 × 10^9/L")
+    if monocyte_cytosis:
+        cytoses.append("Monocytosis ≥ 10% and ≥ 0.5 × 10^9/L")
+    if platelet_cytosis:
+        cytoses.append("Thrombocytosis ≥ 450 × 10^9/L")
+    if eosinophil_cytosis:
+        cytoses.append("Eosinophilia > 0.5 × 10^9/L")
+    
+    if cytoses:
+        steps.append(f"✗ Exclusionary cytoses present: {', '.join(cytoses)}")
+    else:
+        steps.append("✓ No exclusionary cytoses detected")
+    
+    return steps
 
 def display_mds_classification_results(parsed_fields, classification_who, derivation_who,
                                        classification_icc, derivation_icc, mode="manual"):

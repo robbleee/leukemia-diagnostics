@@ -1,8 +1,8 @@
 import json
 
-def classify_full_eln2022(params: dict) -> tuple:
+def eln2022_intensive_risk(params: dict) -> tuple:
     """
-    Classify an AML case according to the ELN 2022 risk stratification.
+    Classify an AML case according to the ELN 2022 risk stratification for intensive therapy.
     
     Parameters:
         params (dict): A dictionary containing cytogenetic and molecular markers.
@@ -212,7 +212,7 @@ def classify_full_eln2022(params: dict) -> tuple:
 
 def eln2024_non_intensive_risk(mut_dict: dict) -> tuple:
     """
-    Classify AML risk according to the revised ELN24 (non-intensive cohort),
+    Classify AML risk according to the revised ELN 2024 (non-intensive cohort),
     returning the risk level, median OS, and derivation steps.
 
     The classification hierarchy:
@@ -306,126 +306,3 @@ def eln2024_non_intensive_risk(mut_dict: dict) -> tuple:
     derivation.append(f"Step {step}: No adverse, intermediate, or favorable markers detected.")
     derivation.append("  ➔ Defaulting to Intermediate Risk.")
     return "Intermediate", 13.0, derivation
-
-
-def classify_ELN2022(parsed_data: dict) -> tuple:
-    """
-    Classifies AML risk based on ELN2022 criteria and returns the risk category, median OS, and derivation.
-    
-    ELN Risk Category and Median OS:
-      - Favorable Risk: Not reached or >60 months
-      - Intermediate Risk: Approximately 16–24 months
-      - Adverse Risk: Approximately 8–10 months
-
-    Args:
-        parsed_data (dict): Extracted report data.
-
-    Returns:
-        tuple: (risk (str), median_os (str), derivation (list of str))
-    """
-    derivation = []
-    step = 1
-
-    risk = "Intermediate Risk"
-
-    ################################
-    # Step 1: Check for Adverse
-    ################################
-    adverse = False
-    derivation.append(f"Step {step}: Checking for adverse risk markers...")
-    
-    tp53 = parsed_data.get("Biallelic_TP53_mutation", {})
-    if any(tp53.get(key, False) for key in tp53):
-        adverse = True
-        derivation.append("  ➔ Found TP53 mutation. [Adverse]")
-    mds_mut = parsed_data.get("MDS_related_mutation", {})
-    mds_mut_list = [gene for gene, val in mds_mut.items() if val]
-    if mds_mut_list:
-        adverse = True
-        derivation.append(f"  ➔ Found MDS-related mutations: {', '.join(mds_mut_list)} [Adverse]")
-    mds_cyto = parsed_data.get("MDS_related_cytogenetics", {})
-    if mds_cyto.get("Complex_karyotype", False):
-        adverse = True
-        derivation.append("  ➔ Found Complex karyotype. [Adverse]")
-    if mds_cyto.get("del(17p)", False):
-        adverse = True
-        derivation.append("  ➔ Found del(17p). [Adverse]")
-    
-    step += 1
-
-    ################################
-    # Step 2: Check for Favorable
-    ################################
-    derivation.append(f"Step {step}: Checking for favorable markers...")
-    favorable = False
-    favorable_markers = []
-    ad_abn = parsed_data.get("AML_defining_recurrent_genetic_abnormalities", {})
-
-    if ad_abn.get("NPM1", False):
-        favorable = True
-        favorable_markers.append("NPM1")
-    if ad_abn.get("bZIP", False):
-        favorable = True
-        favorable_markers.append("bZIP (CEBPA)")
-    if ad_abn.get("RUNX1::RUNX1T1", False):
-        favorable = True
-        favorable_markers.append("RUNX1::RUNX1T1")
-    if ad_abn.get("CBFB::MYH11", False):
-        favorable = True
-        favorable_markers.append("CBFB::MYH11")
-    if ad_abn.get("PML::RARA", False):
-        favorable = True
-        favorable_markers.append("PML::RARA")
-
-    if favorable:
-        derivation.append(f"  ➔ Found favorable markers: {', '.join(favorable_markers)}")
-    else:
-        derivation.append("  ➔ No favorable markers found.")
-    
-    step += 1
-
-    ################################
-    # Step 3: Final Risk Category
-    ################################
-    derivation.append(f"Step {step}: Determining final risk category...")
-    if adverse:
-        risk = "Adverse Risk"
-        derivation.append("  ➔ Adverse overrides favorable => Adverse Risk.")
-    elif favorable:
-        risk = "Favorable Risk"
-        derivation.append("  ➔ Favorable risk set.")
-    else:
-        risk = "Intermediate Risk"
-        derivation.append("  ➔ Neither adverse nor favorable => Intermediate Risk.")
-    step += 1
-
-    ################################
-    # Step 4: Check Qualifiers
-    ################################
-    derivation.append(f"Step {step}: Checking qualifiers...")
-    qualifiers = parsed_data.get("qualifiers", {})
-    qual_list = []
-    for key, val in qualifiers.items():
-        if isinstance(val, str):
-            if val.strip().lower() == "none":
-                continue
-            else:
-                qual_list.append(key.replace("_", " "))
-        else:
-            if val:
-                qual_list.append(key.replace("_", " "))
-    if qual_list:
-        derivation.append(f"  ➔ Additional qualifiers: {', '.join(qual_list)}")
-        risk += " with qualifiers"
-    else:
-        derivation.append("  ➔ No additional qualifiers found.")
-
-    # Determine median OS based on risk category.
-    if "Adverse" in risk:
-        median_os = "Approximately 8–10 months"
-    elif "Favorable" in risk:
-        median_os = "Not reached or >60 months"
-    else:
-        median_os = "Approximately 16–24 months"
-
-    return risk, median_os, derivation
