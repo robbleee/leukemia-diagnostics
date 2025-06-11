@@ -1,0 +1,317 @@
+(* Type definitions for parsed data structure *)
+type biallelic_tp53 = {
+  two_x_tp53_mutations : bool;
+  one_x_tp53_mutation_del_17p : bool;
+  one_x_tp53_mutation_loh : bool;
+  one_x_tp53_mutation_50_percent_vaf : bool;
+  one_x_tp53_mutation_10_percent_vaf : bool;
+}
+
+type mds_related_mutation = {
+  sf3b1 : bool;
+}
+
+type mds_related_cytogenetics = {
+  del_5q : bool;
+  complex_karyotype : bool;
+  monosomy_7 : bool;
+}
+
+type qualifiers = {
+  previous_cytotoxic_therapy : string;
+  predisposing_germline_variant : string;
+}
+
+type parsed_data = {
+  biallelic_tp53_mutation : biallelic_tp53;
+  blasts_percentage : int option;
+  fibrotic : bool;
+  mds_related_mutation : mds_related_mutation;
+  mds_related_cytogenetics : mds_related_cytogenetics;
+  hypoplasia : bool;
+  number_of_dysplastic_lineages : int option;
+  qualifiers : qualifiers;
+}
+
+(* Helper functions for string operations *)
+let string_contains (s : string) (substr : string) : bool = 
+  String.contains s substr
+
+let string_split (s : string) (delimiter : string) : string list =
+  [s] (* Simplified implementation - in real IML would need proper string splitting *)
+
+let string_trim (s : string) : string = s (* Simplified *)
+let string_to_lower (s : string) : string = s (* Simplified *)
+
+(* Helper function to check if therapy is accepted for WHO *)
+let is_who_accepted_therapy (therapy : string) : bool =
+  therapy = "Ionising radiation" || 
+  therapy = "Cytotoxic chemotherapy" || 
+  therapy = "Any combination"
+
+(* Helper function to check if therapy is accepted for ICC *)
+let is_icc_accepted_therapy (therapy : string) : bool =
+  therapy = "Ionising radiation" || 
+  therapy = "Cytotoxic chemotherapy" || 
+  therapy = "Immune interventions" || 
+  therapy = "Any combination"
+
+(* Helper function to filter variants for WHO (exclude Diamond-Blackfan anemia) *)
+let filter_variants_who (variants : string list) : string list =
+  List.filter (fun v -> string_to_lower v <> "diamond-blackfan anemia") variants
+
+(* Helper function to filter variants for ICC (exclude germline BLM mutation) *)
+let filter_variants_icc (variants : string list) : string list =
+  List.filter (fun v -> string_to_lower v <> "germline blm mutation") variants
+
+(* Check for biallelic TP53 inactivation *)
+let has_biallelic_tp53 (data : parsed_data) : bool =
+  let tp53 = data.biallelic_tp53_mutation in
+  let cond1 = tp53.two_x_tp53_mutations in
+  let cond2 = tp53.one_x_tp53_mutation_del_17p in
+  let cond3 = tp53.one_x_tp53_mutation_loh in
+  let cond4 = tp53.one_x_tp53_mutation_50_percent_vaf in
+  let cond5 = tp53.one_x_tp53_mutation_10_percent_vaf && 
+              data.mds_related_cytogenetics.complex_karyotype in
+  cond1 || cond2 || cond3 || cond4 || cond5
+
+(* Classify MDS based on WHO 2022 criteria *)
+let classify_mds_who2022 (data : parsed_data) : string * string list =
+  let derivation = ["Default classification set to: MDS, unclassifiable"] in
+  
+  (* Step 1: Check for biallelic TP53 *)
+  if has_biallelic_tp53 data then
+    let classification = "MDS with biallelic TP53 inactivation (WHO 2022)" in
+    let new_derivation = "Biallelic TP53 detected => MDS with biallelic TP53 inactivation" :: derivation in
+    (classification, List.rev new_derivation)
+  else
+    let classification = "MDS, unclassifiable" in
+    let updated_derivation = derivation in
+    
+    (* Step 2: Check blasts percentage and fibrotic status *)
+    let (classification, updated_derivation) = 
+      match data.blasts_percentage with
+      | None -> 
+          let new_deriv = "No blasts_percentage provided; skipping blast-based classification." :: updated_derivation in
+          (classification, new_deriv)
+      | Some blasts ->
+          let new_deriv = ("Retrieved blasts: " ^ String.of_int blasts ^ ", fibrotic: " ^ (if data.fibrotic then "true" else "false")) :: updated_derivation in
+          if blasts >= 5 && blasts <= 19 && data.fibrotic then
+            let final_class = "MDS, fibrotic" in
+            let final_deriv = "Blasts 5-19% with fibrotic marrow => MDS, fibrotic" :: new_deriv in
+            (final_class, final_deriv)
+          else if blasts >= 10 && blasts <= 19 then
+            let final_class = "MDS with increased blasts 2" in
+            let final_deriv = "10-19% blasts => MDS with increased blasts 2" :: new_deriv in
+            (final_class, final_deriv)
+          else if blasts >= 5 && blasts <= 9 then
+            let final_class = "MDS with increased blasts 1" in
+            let final_deriv = "5-9% blasts => MDS with increased blasts 1" :: new_deriv in
+            (final_class, final_deriv)
+          else
+            (classification, new_deriv)
+    in
+    
+    (* Step 3: Check SF3B1 mutation if still unclassifiable *)
+    let (classification, updated_derivation) = 
+      if classification = "MDS, unclassifiable" && data.mds_related_mutation.sf3b1 then
+        let final_class = "MDS with low blasts and SF3B1" in
+        let final_deriv = "SF3B1 mutation detected => MDS with low blasts and SF3B1" :: updated_derivation in
+        (final_class, final_deriv)
+      else
+        (classification, updated_derivation)
+    in
+    
+    (* Step 4: Check del(5q) *)
+    let (classification, updated_derivation) = 
+      if classification = "MDS, unclassifiable" && data.mds_related_cytogenetics.del_5q then
+        let final_class = "MDS with low blasts and isolated 5q-" in
+        let final_deriv = "del(5q) detected => MDS with low blasts and isolated 5q-" :: updated_derivation in
+        (final_class, final_deriv)
+      else
+        (classification, updated_derivation)
+    in
+    
+    (* Step 5: Check hypoplasia *)
+    let (classification, updated_derivation) = 
+      if classification = "MDS, unclassifiable" && data.hypoplasia then
+        let final_class = "MDS, hypoplastic" in
+        let final_deriv = "Hypoplasia detected => MDS, hypoplastic" :: updated_derivation in
+        (final_class, final_deriv)
+      else
+        (classification, updated_derivation)
+    in
+    
+    (* Step 6: Check dysplastic lineages *)
+    let (classification, updated_derivation) = 
+      if classification = "MDS, unclassifiable" then
+        match data.number_of_dysplastic_lineages with
+        | None -> (classification, updated_derivation)
+        | Some 1 ->
+            let final_class = "MDS with low blasts" in
+            let final_deriv = "Single dysplastic lineage => MDS with low blasts" :: updated_derivation in
+            (final_class, final_deriv)
+        | Some lineages when lineages > 1 ->
+            let final_class = "MDS with low blasts" in
+            let final_deriv = "Multiple dysplastic lineages => MDS with low blasts" :: updated_derivation in
+            (final_class, final_deriv)
+        | Some _ -> (classification, updated_derivation)
+      else
+        (classification, updated_derivation)
+    in
+    
+    (* Step 7: Add qualifiers *)
+    let qualifier_list = [] in
+    
+    (* Check therapy qualifier *)
+    let qualifier_list = 
+      if is_who_accepted_therapy data.qualifiers.previous_cytotoxic_therapy then
+        "previous cytotoxic therapy" :: qualifier_list
+      else
+        qualifier_list
+    in
+    
+    (* Check germline predisposition *)
+    let qualifier_list = 
+      if data.qualifiers.predisposing_germline_variant <> "" && 
+         string_to_lower (string_trim data.qualifiers.predisposing_germline_variant) <> "none" then
+        let variants = string_split data.qualifiers.predisposing_germline_variant "," in
+        let filtered_variants = filter_variants_who variants in
+        if List.length filtered_variants > 0 then
+          ("associated with " ^ String.concat ", " filtered_variants) :: qualifier_list
+        else
+          qualifier_list
+      else
+        qualifier_list
+    in
+    
+    (* Combine classification with qualifiers *)
+    let final_classification = 
+      if List.length qualifier_list > 0 then
+        classification ^ ", " ^ String.concat ", " qualifier_list ^ " (WHO 2022)"
+      else
+        classification ^ " (WHO 2022)"
+    in
+    
+    let final_derivation = ("Final classification => " ^ final_classification) :: updated_derivation in
+    (final_classification, List.rev final_derivation)
+
+(* Classify MDS based on ICC 2022 criteria *)
+let classify_mds_icc2022 (data : parsed_data) : string * string list =
+  let derivation = ["Default classification set to: MDS, NOS"] in
+  
+  (* Step 1: Check for biallelic TP53 *)
+  if has_biallelic_tp53 data then
+    let classification = "MDS with mutated TP53 (ICC 2022)" in
+    let new_derivation = "Biallelic TP53 detected => MDS with mutated TP53" :: derivation in
+    (classification, List.rev new_derivation)
+  else
+    let classification = "MDS, NOS" in
+    let updated_derivation = derivation in
+    
+    (* Step 2: Check blasts percentage *)
+    let (classification, updated_derivation) = 
+      match data.blasts_percentage with
+      | None -> 
+          let new_deriv = "blasts_percentage: None" :: updated_derivation in
+          (classification, new_deriv)
+      | Some blasts ->
+          let new_deriv = ("blasts_percentage: " ^ String.of_int blasts) :: updated_derivation in
+          if blasts >= 10 && blasts <= 19 then
+            let final_class = "MDS/AML" in
+            let final_deriv = "10-19% blasts => MDS/AML" :: new_deriv in
+            (final_class, final_deriv)
+          else if blasts >= 5 && blasts <= 9 then
+            let final_class = "MDS with excess blasts" in
+            let final_deriv = "5-9% blasts => MDS with excess blasts" :: new_deriv in
+            (final_class, final_deriv)
+          else
+            (classification, new_deriv)
+    in
+    
+    (* Step 3: Check SF3B1 mutation *)
+    let (classification, updated_derivation) = 
+      if classification = "MDS, NOS" && data.mds_related_mutation.sf3b1 then
+        let final_class = "MDS with mutated SF3B1" in
+        let final_deriv = "SF3B1 mutation detected => MDS with mutated SF3B1" :: updated_derivation in
+        (final_class, final_deriv)
+      else
+        (classification, updated_derivation)
+    in
+    
+    (* Step 4: Check del(5q) *)
+    let (classification, updated_derivation) = 
+      if classification = "MDS, NOS" && data.mds_related_cytogenetics.del_5q then
+        let final_class = "MDS with del(5q)" in
+        let final_deriv = "del(5q) detected => MDS with del(5q)" :: updated_derivation in
+        (final_class, final_deriv)
+      else
+        (classification, updated_derivation)
+    in
+    
+    (* Step 5: Check dysplastic lineages *)
+    let (classification, updated_derivation) = 
+      if classification = "MDS, NOS" then
+        match data.number_of_dysplastic_lineages with
+        | None -> 
+            let new_deriv = "number_of_dysplastic_lineages: None" :: updated_derivation in
+            (classification, new_deriv)
+        | Some 1 ->
+            let final_class = "MDS, NOS with single lineage dysplasia" in
+            let final_deriv = "Single lineage dysplasia => MDS, NOS with single lineage dysplasia" :: updated_derivation in
+            (final_class, final_deriv)
+        | Some lineages when lineages > 1 ->
+            let final_class = "MDS, NOS with multilineage dysplasia" in
+            let final_deriv = "Multilineage dysplasia => MDS, NOS with multilineage dysplasia" :: updated_derivation in
+            (final_class, final_deriv)
+        | Some _ -> (classification, updated_derivation)
+      else
+        (classification, updated_derivation)
+    in
+    
+    (* Step 6: Check for monosomy_7 or complex karyotype *)
+    let (classification, updated_derivation) = 
+      if classification = "MDS, NOS" && 
+         (data.mds_related_cytogenetics.monosomy_7 || data.mds_related_cytogenetics.complex_karyotype) then
+        let final_class = "MDS, NOS without dysplasia" in
+        let final_deriv = "Monosomy 7 or complex karyotype detected => MDS, NOS without dysplasia" :: updated_derivation in
+        (final_class, final_deriv)
+      else
+        (classification, updated_derivation)
+    in
+    
+    (* Step 7: Add qualifiers *)
+    let qualifier_list = [] in
+    
+    (* Check therapy qualifier *)
+    let qualifier_list = 
+      if is_icc_accepted_therapy data.qualifiers.previous_cytotoxic_therapy then
+        "therapy related" :: qualifier_list
+      else
+        qualifier_list
+    in
+    
+    (* Check germline predisposition *)
+    let qualifier_list = 
+      if data.qualifiers.predisposing_germline_variant <> "" && 
+         string_to_lower (string_trim data.qualifiers.predisposing_germline_variant) <> "none" then
+        let variants = string_split data.qualifiers.predisposing_germline_variant "," in
+        let filtered_variants = filter_variants_icc variants in
+        if List.length filtered_variants > 0 then
+          ("in the setting of " ^ String.concat ", " filtered_variants) :: qualifier_list
+        else
+          qualifier_list
+      else
+        qualifier_list
+    in
+    
+    (* Combine classification with qualifiers *)
+    let final_classification = 
+      if List.length qualifier_list > 0 && not (string_contains classification "Not AML") then
+        classification ^ ", " ^ String.concat ", " qualifier_list ^ " (ICC 2022)"
+      else
+        classification ^ " (ICC 2022)"
+    in
+    
+    let final_derivation = ("Final classification => " ^ final_classification) :: updated_derivation in
+    (final_classification, List.rev final_derivation)
