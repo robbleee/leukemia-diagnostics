@@ -426,15 +426,24 @@ Here is the free-text haematological report to parse:
     # Prompt #6: Check if cytogenetic data is missing
     cytogenetics_check_prompt = f"""
 The user has pasted a free-text haematological report.
-Analyze whether the report contains any cytogenetic data or report. Examples of cytogenetic data include:
-- Karyotype information
-- FISH analysis results
-- Any cytogenetic abnormalities (such as translocations, deletions, inversions)
-- Mention of cytogenetic testing or analysis
+Analyze whether the report contains any cytogenetic data or analysis. 
+
+Cytogenetic data is PRESENT if the report mentions:
+- Specific karyotype results (e.g., "46,XY", "46,XX", or any abnormal karyotype)
+- FISH analysis results (positive or negative)
+- Chromosomal abnormalities (translocations, deletions, inversions, trisomies, monosomies)
+- Cytogenetic testing results or interpretation
+- Statements like "normal karyotype", "no cytogenetic abnormalities detected"
+- References to specific cytogenetic techniques performed
+
+Cytogenetic data is MISSING if:
+- No mention of karyotype, chromosomes, or cytogenetic analysis anywhere
+- Explicit statements like "cytogenetics not performed", "karyotype pending", "no cytogenetic data available"
+- Report focuses only on morphology, flow cytometry, or molecular genetics without any chromosomal analysis
 
 Return a JSON object with a single key "no_cytogenetics_data" set to:
-- true if the report does NOT contain any cytogenetic data or if cytogenetic testing is mentioned as "not performed"
-- false if the report DOES contain cytogenetic data, even if it's just a normal karyotype
+- true if the report clearly lacks any cytogenetic information
+- false if the report contains any form of cytogenetic data (including normal results)
 
 Return valid JSON only with this key and no extra text.
 
@@ -508,34 +517,9 @@ Here is the free-text haematological report to parse:
                 st.error("❌ Invalid blasts_percentage value. Must be a number between 0 and 100.")
                 return {}
         
-        # Secondary detection of missing cytogenetic data
-        # Check if any cytogenetic abnormalities were detected in the report
-        has_cytogenetic_data = False
-        
-        # Check AML defining cytogenetic abnormalities
-        for key, value in parsed_data.get("AML_defining_recurrent_genetic_abnormalities", {}).items():
-            if "::" in key and value == True:  # Only check for fusion genes (contain ::)
-                has_cytogenetic_data = True
-                break
-        
-        # Check MDS related cytogenetics
-        if not has_cytogenetic_data:
-            for key, value in parsed_data.get("MDS_related_cytogenetics", {}).items():
-                if value == True:
-                    has_cytogenetic_data = True
-                    break
-        
-        # If we directly detected no cytogenetic abnormalities and the dedicated field isn't explicitly set to True,
-        # we'll use our secondary detection method as a fallback
-        if not has_cytogenetic_data and parsed_data.get("no_cytogenetics_data") is not True:
-            # Only set to True if we have strong evidence cytogenetics are missing
-            # Count how many cytogenetic keys were analyzed
-            cyto_keys_total = len(parsed_data.get("AML_defining_recurrent_genetic_abnormalities", {})) + \
-                              len(parsed_data.get("MDS_related_cytogenetics", {}))
-            
-            # If we have a significant number of keys and all are false, likely no cytogenetics data
-            if cyto_keys_total > 30:  # We have over 50 cytogenetic keys total, so this is a reasonable threshold
-                parsed_data["no_cytogenetics_data"] = True
+        # Note: We rely primarily on the dedicated OpenAI prompt for detecting missing cytogenetic data
+        # The prompt is specifically designed to identify when cytogenetic information is absent from reports
+        # This approach is more accurate than trying to infer missing data from negative results
 
         # Debug print
         print("Parsed Haematology Report JSON:")
