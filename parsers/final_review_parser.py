@@ -35,9 +35,25 @@ def generate_final_overview(parsed_data: dict, original_report_text: str = "") -
     # Add AML results if available
     aml_result = st.session_state.get("aml_manual_result") or st.session_state.get("aml_ai_result")
     if aml_result:
+        who_classification = aml_result.get("who_class", "")
+        icc_classification = aml_result.get("icc_class", "")
+        
+        # Check if MDS confirmation form has been submitted and resulted in exclusions
+        who_is_mds = "MDS" in who_classification if who_classification else False
+        icc_is_mds = "MDS" in icc_classification if icc_classification else False
+        
+        if (who_is_mds or icc_is_mds) and "mds_confirmation" in st.session_state:
+            mds_confirmation = st.session_state["mds_confirmation"]
+            if mds_confirmation.get("submitted", False) and mds_confirmation.get("has_exclusions", False):
+                # Override MDS classifications with exclusion result
+                if who_is_mds:
+                    who_classification = "Not MDS - consider other diagnostic pathways"
+                if icc_is_mds:
+                    icc_classification = "Not MDS - consider other diagnostic pathways"
+        
         comprehensive_data["aml_classifications"] = {
-            "who_classification": aml_result.get("who_class", ""),
-            "icc_classification": aml_result.get("icc_class", ""),
+            "who_classification": who_classification,
+            "icc_classification": icc_classification,
             "who_disease_type": aml_result.get("who_disease_type", ""),
             "icc_disease_type": aml_result.get("icc_disease_type", "")
         }
@@ -56,9 +72,20 @@ def generate_final_overview(parsed_data: dict, original_report_text: str = "") -
     # Add MDS results if available
     mds_result = st.session_state.get("mds_manual_result") or st.session_state.get("mds_ai_result")
     if mds_result:
+        mds_who_classification = mds_result.get("who_class", "")
+        mds_icc_classification = mds_result.get("icc_class", "")
+        
+        # Check if MDS confirmation form has been submitted and resulted in exclusions
+        if "mds_confirmation" in st.session_state:
+            mds_confirmation = st.session_state["mds_confirmation"]
+            if mds_confirmation.get("submitted", False) and mds_confirmation.get("has_exclusions", False):
+                # Override MDS classifications with exclusion result
+                mds_who_classification = "Not MDS - consider other diagnostic pathways"
+                mds_icc_classification = "Not MDS - consider other diagnostic pathways"
+        
         comprehensive_data["mds_classifications"] = {
-            "who_classification": mds_result.get("who_class", ""),
-            "icc_classification": mds_result.get("icc_class", ""),
+            "who_classification": mds_who_classification,
+            "icc_classification": mds_icc_classification,
             "who_disease_type": mds_result.get("who_disease_type", ""),
             "icc_disease_type": mds_result.get("icc_disease_type", "")
         }

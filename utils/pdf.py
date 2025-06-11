@@ -303,6 +303,58 @@ def add_risk_section(pdf: FPDF, risk_data: dict, parsed_data: dict):
         pdf.multi_cell(0, 8, f"{i}. {clean_text(step)}", align="L")
     pdf.ln(4)
 
+def _generate_mds_confirmation_derivation_steps(mds_confirmation: dict) -> list:
+    """
+    Generate derivation steps based on MDS confirmation form results.
+    
+    Args:
+        mds_confirmation (dict): MDS confirmation form data from session state
+        
+    Returns:
+        list: List of derivation step strings describing the confirmation process
+    """
+    steps = []
+    
+    # Add header for MDS confirmation review
+    steps.append("MDS Diagnostic Criteria Review:")
+    
+    # Check cytopenia confirmation
+    cytopenia_confirmed = mds_confirmation.get("cytopenia_confirmed", False)
+    if cytopenia_confirmed:
+        steps.append("✓ Persistent cytopenia (>4 months) in at least one lineage confirmed")
+    else:
+        steps.append("✗ Persistent cytopenia requirement NOT met - lacking cytopenia >4 months without alternative cause")
+    
+    # Check morphological dysplasia
+    morphological_dysplasia = mds_confirmation.get("morphological_dysplasia", False)
+    if morphological_dysplasia:
+        steps.append("✓ Morphologically defined dysplasia confirmed")
+    else:
+        steps.append("✗ Morphologically defined dysplasia NOT confirmed")
+    
+    # Check for cytoses
+    wbc_cytosis = mds_confirmation.get("wbc_cytosis", False)
+    monocyte_cytosis = mds_confirmation.get("monocyte_cytosis", False)
+    platelet_cytosis = mds_confirmation.get("platelet_cytosis", False)
+    eosinophil_cytosis = mds_confirmation.get("eosinophil_cytosis", False)
+    
+    cytoses = []
+    if wbc_cytosis:
+        cytoses.append("WBC > 13 × 10^9/L")
+    if monocyte_cytosis:
+        cytoses.append("Monocytosis ≥ 10% and ≥ 0.5 × 10^9/L")
+    if platelet_cytosis:
+        cytoses.append("Thrombocytosis ≥ 450 × 10^9/L")
+    if eosinophil_cytosis:
+        cytoses.append("Eosinophilia > 0.5 × 10^9/L")
+    
+    if cytoses:
+        steps.append(f"✗ Exclusionary cytoses present: {', '.join(cytoses)}")
+    else:
+        steps.append("✓ No exclusionary cytoses detected")
+    
+    return steps
+
 def add_ipss_risk_section(pdf: FPDF, mds_result: dict):
     """
     Adds IPSS-M and IPSS-R risk classification sections to the PDF.
@@ -531,14 +583,50 @@ def add_diagnostic_section(pdf: FPDF, diag_type: str):
     else:
         return
 
+    # Check if MDS confirmation form has been submitted and resulted in exclusions
+    who_classification = data["who_class"]
+    icc_classification = data["icc_class"]
+    who_derivation = data["who_derivation"].copy() if data["who_derivation"] else []
+    icc_derivation = data["icc_derivation"].copy() if data["icc_derivation"] else []
+    
+    # Check if this is an MDS case and if the confirmation form has been submitted
+    if diag_type.upper() == "AML":  # AML can have MDS classifications too
+        who_is_mds = "MDS" in who_classification if who_classification else False
+        icc_is_mds = "MDS" in icc_classification if icc_classification else False
+        
+        if (who_is_mds or icc_is_mds) and "mds_confirmation" in st.session_state:
+            mds_confirmation = st.session_state["mds_confirmation"]
+            if mds_confirmation.get("submitted", False):
+                # Append MDS confirmation information to derivations
+                confirmation_info = _generate_mds_confirmation_derivation_steps(mds_confirmation)
+                
+                if mds_confirmation.get("has_exclusions", False):
+                    # Override MDS classifications with exclusion result
+                    if who_is_mds:
+                        who_classification = "Not MDS - consider other diagnostic pathways"
+                        who_derivation.extend(confirmation_info)
+                        who_derivation.append("Final result: MDS diagnosis excluded due to above criteria.")
+                    if icc_is_mds:
+                        icc_classification = "Not MDS - consider other diagnostic pathways"
+                        icc_derivation.extend(confirmation_info)
+                        icc_derivation.append("Final result: MDS diagnosis excluded due to above criteria.")
+                else:
+                    # MDS confirmed - add confirmation info to derivation
+                    if who_is_mds:
+                        who_derivation.extend(confirmation_info)
+                        who_derivation.append("Final result: MDS diagnosis confirmed by clinical review.")
+                    if icc_is_mds:
+                        icc_derivation.extend(confirmation_info)
+                        icc_derivation.append("Final result: MDS diagnosis confirmed by clinical review.")
+
     classification_data = {
         "WHO": {
-            "classification": data["who_class"],
-            "derivation": data["who_derivation"]
+            "classification": who_classification,
+            "derivation": who_derivation
         },
         "ICC": {
-            "classification": data["icc_class"],
-            "derivation": data["icc_derivation"]
+            "classification": icc_classification,
+            "derivation": icc_derivation
         }
     }
 
