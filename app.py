@@ -1471,57 +1471,121 @@ def results_page():
                     st.info("💡 **Tip:** This appears to be manual entry mode. For best treatment recommendations, use the free-text report entry mode.")
                 return
             
-            # Process treatment data (always use specialized parser)
-            treatment_data = None
-            patient_data_for_treatment = None
-            
-            # Check if we already have cached treatment data
-            cache_key = f"treatment_data_{hash(original_report)}"
-            if cache_key in st.session_state:
-                treatment_data = st.session_state[cache_key]
-            else:
-                with st.spinner("🔄 Analyzing report for treatment-specific factors..."):
-                    treatment_data = parse_treatment_data(original_report)
-                    if treatment_data:
-                        st.session_state[cache_key] = treatment_data
-            
-            if not treatment_data:
-                st.error("❌ Failed to extract treatment data. Falling back to classification data.")
-                from utils.transformation_utils import transform_main_parser_to_treatment_format
-                patient_data_for_treatment = transform_main_parser_to_treatment_format(res["parsed_data"])
-            else:
-                patient_data_for_treatment = treatment_data
-            
-            # Get ELN risk classification
-            try:
-                source_data = treatment_data if treatment_data else res["parsed_data"]
-                eln_risk, _, _ = eln2022_intensive_risk(source_data)
-            except Exception as e:
-                eln_risk = "Unknown"
-            
-            # Get patient age (handle missing age gracefully)
+            # Simple data collection
+            # Get patient age
             patient_age = st.session_state.get("treatment_age")
             if "age" in res["parsed_data"]:
                 try:
-                    patient_age = int(res["parsed_data"]["age"])
+                    extracted_age = int(res["parsed_data"]["age"])
+                    if patient_age is None:
+                        patient_age = extracted_age
                 except (ValueError, TypeError):
                     pass
             
-            # Age input if still missing
-            if patient_age is None:
-                st.markdown("#### Patient Age Required")
-                col1, col2 = st.columns([2, 1])
-                with col1:
-                    age_input = st.number_input("Enter patient age:", min_value=18, max_value=100, value=65, step=1, key="age_input")
-                with col2:
-                    if st.button("Submit Age", type="primary"):
-                        st.session_state["treatment_age"] = age_input
-                        patient_age = age_input
-                        st.rerun()
-                
+            # Age input
+            age_input = st.number_input(
+                "Patient Age:", 
+                min_value=18, 
+                max_value=100, 
+                value=patient_age if patient_age else 65, 
+                step=1
+            )
+            
+            if age_input != patient_age:
+                st.session_state["treatment_age"] = age_input
+                patient_age = age_input
+            
+            # Optional CD33 data
+            additional_flow_data = {}
+            cd33_percentage = st.number_input(
+                "CD33 percentage (optional):",
+                min_value=0.0,
+                max_value=100.0,
+                value=0.0,
+                step=0.1,
+                help="Leave at 0 if unknown. CD33 ≥20% may qualify for gemtuzumab ozogamicin."
+            )
+            
+            if cd33_percentage > 0:
+                additional_flow_data["cd33_percentage"] = cd33_percentage
+                additional_flow_data["cd33_positive"] = cd33_percentage >= 20
+            
+            # Proceed button
+            if st.button("Get Treatment Recommendations", type="primary", use_container_width=True):
                 if patient_age is None:
-                    st.info("Please enter patient age to generate treatment recommendations.")
-                    return
+                    st.error("Please enter patient age to continue.")
+                else:
+                    # Store the flow data for use in parsing
+                    if additional_flow_data:
+                        st.session_state["additional_flow_data"] = additional_flow_data
+                    
+                    # Process treatment data (always use specialized parser)
+                    treatment_data = None
+                    patient_data_for_treatment = None
+                    
+                    # Create cache key that includes additional data
+                    cache_components = [original_report]
+                    if additional_flow_data:
+                        cache_components.append(str(additional_flow_data))
+                    cache_key = f"treatment_data_{hash(''.join(cache_components))}"
+                    
+                    if cache_key in st.session_state:
+                        treatment_data = st.session_state[cache_key]
+                        st.info("✅ Using cached treatment analysis")
+                    else:
+                        with st.spinner("🔄 Analyzing report for treatment-specific factors..."):
+                            treatment_data = parse_treatment_data(original_report)
+                            
+                            # Override with additional flow data if provided
+                            if treatment_data and additional_flow_data:
+                                treatment_data.update(additional_flow_data)
+                            
+                            if treatment_data:
+                                st.session_state[cache_key] = treatment_data
+                    
+                    if not treatment_data:
+                        st.error("❌ Failed to extract treatment data. Falling back to classification data.")
+                        from utils.transformation_utils import transform_main_parser_to_treatment_format
+                        patient_data_for_treatment = transform_main_parser_to_treatment_format(res["parsed_data"])
+                        
+                        # Add additional flow data to fallback data
+                        if additional_flow_data:
+                            patient_data_for_treatment.update(additional_flow_data)
+                    else:
+                        patient_data_for_treatment = treatment_data
+                    
+                    # Get ELN risk classification
+                    try:
+                        source_data = treatment_data if treatment_data else res["parsed_data"]
+                        eln_risk, _, _ = eln2022_intensive_risk(source_data)
+                    except Exception as e:
+                        eln_risk = "Unknown"
+                    
+                    # Store results for display
+                    st.session_state["treatment_results"] = {
+                        "patient_data": patient_data_for_treatment,
+                        "eln_risk": eln_risk,
+                        "patient_age": patient_age,
+                        "additional_flow_data": additional_flow_data
+                    }
+                    
+                    st.success("✅ Treatment analysis complete!")
+                    st.rerun()
+            
+            # Display results if available
+            if "treatment_results" in st.session_state:
+                results = st.session_state["treatment_results"]
+                patient_data_for_treatment = results["patient_data"]
+                eln_risk = results["eln_risk"]
+                patient_age = results["patient_age"]
+                additional_flow_data = results.get("additional_flow_data", {})
+                
+                # Show CD33 data if provided
+                if additional_flow_data and "cd33_percentage" in additional_flow_data:
+                    st.info(f"ℹ️ Using provided CD33 data: {additional_flow_data['cd33_percentage']}%")
+            else:
+                st.info("Please enter patient age and click 'Get Treatment Recommendations' to proceed.")
+                return
             
             # Add data explorer panel
             with st.expander("🔍 Data Explorer - View Parsed Treatment Data", expanded=False):
