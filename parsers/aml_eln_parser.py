@@ -88,7 +88,24 @@ def parse_eln_report(report_text: str) -> Dict[str, Any]:
         "ddx41": False,
         
         # Additional classification flags
-        "secondary_aml": False  # Missing in original
+        "secondary_aml": False,  # Missing in original
+        
+        # Flow cytometry/immunophenotype markers
+        "cd33_positive": False,     # CD33 expression for DA+GO eligibility
+        "cd33_percentage": None,    # Percentage of blasts expressing CD33
+        "cd34_positive": False,     # CD34 expression
+        "cd117_positive": False,    # CD117 (c-KIT) expression
+        "cd13_positive": False,     # CD13 expression
+        "cd11b_positive": False,    # CD11b expression
+        "cd14_positive": False,     # CD14 expression (monocytic markers)
+        "cd64_positive": False,     # CD64 expression (monocytic markers)
+        "cd56_positive": False,     # CD56 expression (NK marker, can be aberrant in AML)
+        "cd7_positive": False,      # CD7 expression (T-cell marker, can be aberrant)
+        "cd19_positive": False,     # CD19 expression (B-cell marker, can be aberrant)
+        "tdt_positive": False,      # TdT (terminal deoxynucleotidyl transferase)
+        "mpo_positive": False,      # Myeloperoxidase
+        "lysozyme_positive": False, # Lysozyme (monocytic marker)
+        "nse_positive": False       # Non-specific esterase (monocytic marker)
     }
     
     # Build the OpenAI prompt
@@ -151,7 +168,23 @@ def parse_eln_report(report_text: str) -> Dict[str, Any]:
         "idh2": false,                # IDH2 mutation (for ELN 2024)
         "ddx41": false,               # DDX41 mutation (for ELN 2024)
         
-        "secondary_aml": false        # Secondary or therapy-related AML
+        "secondary_aml": false,       # Secondary or therapy-related AML
+        
+        "cd33_positive": false,       # CD33 expression (>20% blasts positive)
+        "cd33_percentage": null,      # Percentage of blasts expressing CD33 (0-100)
+        "cd34_positive": false,       # CD34 expression (>20% blasts positive)
+        "cd117_positive": false,      # CD117/c-KIT expression (>20% blasts positive)
+        "cd13_positive": false,       # CD13 expression (myeloid marker)
+        "cd11b_positive": false,      # CD11b expression (myeloid marker)
+        "cd14_positive": false,       # CD14 expression (monocytic marker)
+        "cd64_positive": false,       # CD64 expression (monocytic marker)
+        "cd56_positive": false,       # CD56 expression (aberrant NK marker)
+        "cd7_positive": false,        # CD7 expression (aberrant T-cell marker)
+        "cd19_positive": false,       # CD19 expression (aberrant B-cell marker)
+        "tdt_positive": false,        # TdT (terminal deoxynucleotidyl transferase)
+        "mpo_positive": false,        # Myeloperoxidase positivity
+        "lysozyme_positive": false,   # Lysozyme positivity (monocytic)
+        "nse_positive": false         # Non-specific esterase (monocytic)
     }}
     
     **IMPORTANT**:
@@ -161,6 +194,12 @@ def parse_eln_report(report_text: str) -> Dict[str, Any]:
     - For cytogenetic findings, recognize common notations (e.g., "46,XX" = normal karyotype).
     - For molecular findings, consider various notations (e.g., "NPM1+" = NPM1 mutation).
     - For FLT3-ITD, check if an allelic ratio is mentioned; if >0.5, set flt3_itd_high to true.
+    - For flow cytometry markers:
+      * Look for immunophenotype data, flow cytometry results, or antigen expression
+      * CD33 is critical for treatment decisions - look for CD33+, CD33 positive, or percentage expressions
+      * Consider markers positive if >20% of blasts express them (unless specified otherwise)
+      * Look for various notations: "CD33+", "CD33 positive", "90% CD33+", etc.
+      * If a specific percentage is given (e.g., "85% CD33+"), record both positive status and percentage
     
     Here is the clinical report:
     

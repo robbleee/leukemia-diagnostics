@@ -101,17 +101,23 @@ def _is_untreated(patient_data: dict) -> bool:
 
 def _is_cd33_positive(patient_data: dict) -> bool:
     """
-    Determine if CD33 is positive. In most AML cases, CD33 is positive.
-    This is a simplification - in practice this would require flow cytometry data.
+    Determine if CD33 is positive based on parsed flow cytometry data.
+    CD33 expression is critical for DA+GO eligibility.
     """
-    # CD33 is positive in approximately 85-90% of AML cases
-    # Without specific flow cytometry data, we assume positive unless specified otherwise
+    # First check if CD33 status was parsed from the report
     cd33_status = patient_data.get("cd33_positive")
     if cd33_status is not None:
         return cd33_status
     
-    # Default assumption: CD33 positive (can be overridden with specific data)
-    return True
+    # Check if CD33 percentage was provided
+    cd33_percentage = patient_data.get("cd33_percentage")
+    if cd33_percentage is not None:
+        # Consider positive if ≥20% of blasts express CD33
+        return cd33_percentage >= 20
+    
+    # If no flow cytometry data available, CD33 status is unknown
+    # Do NOT assume positive - this should be determined by actual testing
+    return False
 
 
 def _get_cytogenetic_test_result(patient_data: dict) -> str:
@@ -641,7 +647,16 @@ def display_treatment_recommendations(patient_data: dict, eln_risk: str, patient
             st.markdown("**Eligibility Criteria Applied:**")
             
             # CD33 status
-            cd33_status = "Positive (assumed)" if _is_cd33_positive(patient_data) else "Negative/Unknown"
+            cd33_positive = _is_cd33_positive(patient_data)
+            cd33_percentage = patient_data.get("cd33_percentage")
+            
+            if patient_data.get("cd33_positive") is not None:
+                cd33_status = "Positive" if cd33_positive else "Negative"
+            elif cd33_percentage is not None:
+                cd33_status = f"{'Positive' if cd33_positive else 'Negative'} ({cd33_percentage}%)"
+            else:
+                cd33_status = "Unknown - Flow cytometry required"
+            
             st.markdown(f"• **CD33 Status:** {cd33_status}")
             
             # FLT3 status
