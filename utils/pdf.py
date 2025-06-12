@@ -4,6 +4,7 @@ import streamlit as st
 from fpdf import FPDF
 from classifiers.aml_risk_classifier import eln2024_non_intensive_risk, eln2022_intensive_risk
 from parsers.final_review_parser import generate_final_overview
+from utils.aml_treatment_recommendations import get_consensus_treatment_recommendation, determine_treatment_eligibility
 
 ##################################
 # PDF CONVERTER HELPERS
@@ -355,6 +356,120 @@ def _generate_mds_confirmation_derivation_steps(mds_confirmation: dict) -> list:
     
     return steps
 
+def add_treatment_recommendations_section(pdf: FPDF, aml_result: dict, eln_risk: str):
+    """
+    Add AML treatment recommendations section to the PDF based on Coats algorithm.
+    
+    Args:
+        pdf (FPDF): PDF object
+        aml_result (dict): AML classification result with parsed data
+        eln_risk (str): ELN 2022 risk classification
+    """
+    parsed_data = aml_result.get("parsed_data", {})
+    
+    # Try to get patient age from parsed data or use a default
+    patient_age = None
+    if "age" in parsed_data:
+        try:
+            patient_age = int(parsed_data["age"])
+        except (ValueError, TypeError):
+            pass
+    
+    # If age not available, use the one from session state (treatment tab) or default to 65
+    if patient_age is None:
+        patient_age = st.session_state.get("treatment_age", 65)
+    
+    # Get treatment recommendation
+    try:
+        recommendation = get_consensus_treatment_recommendation(parsed_data, patient_age, eln_risk)
+        
+        add_section_title(pdf, "Treatment Recommendations")
+        
+        # Treatment recommendation box
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 10, f"Consensus Recommendation: {recommendation['recommended_treatment']}", ln=1, border='B')
+        pdf.ln(4)
+        
+        # Rationale
+        pdf.set_font("Arial", "B", 11)
+        pdf.cell(0, 8, "Rationale:", ln=1)
+        pdf.set_font("Arial", "", 10)
+        pdf.multi_cell(0, 6, recommendation['rationale'], align="L")
+        pdf.ln(4)
+        
+        # Clinical considerations
+        if recommendation.get('considerations'):
+            pdf.set_font("Arial", "B", 11)
+            pdf.cell(0, 8, "Key Clinical Considerations:", ln=1)
+            pdf.set_font("Arial", "", 10)
+            for consideration in recommendation['considerations']:
+                pdf.cell(0, 6, f"• {consideration}", ln=1)
+            pdf.ln(4)
+        
+        # Treatment eligibility analysis
+        eligible_treatments = recommendation.get('eligible_treatments', [])
+        if eligible_treatments:
+            pdf.set_font("Arial", "B", 11)
+            pdf.cell(0, 8, "Treatment Eligibility Analysis:", ln=1)
+            pdf.set_font("Arial", "", 10)
+            
+            # Eligible treatments
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(0, 6, "Eligible Treatments:", ln=1)
+            pdf.set_font("Arial", "", 10)
+            for treatment in eligible_treatments:
+                pdf.cell(0, 6, f"✓ {treatment}", ln=1)
+            pdf.ln(2)
+            
+            # Key factors
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(0, 6, "Key Eligibility Factors:", ln=1)
+            pdf.set_font("Arial", "", 10)
+            
+            # Age group
+            age_group = "<60 years" if patient_age < 60 else "≥60 years"
+            pdf.cell(0, 6, f"• Age Group: {age_group} ({patient_age} years)", ln=1)
+            
+            # ELN Risk
+            pdf.cell(0, 6, f"• ELN 2022 Risk: {eln_risk}", ln=1)
+            
+            # Clinical scenario if available
+            if 'clinical_scenario' in recommendation:
+                pdf.cell(0, 6, f"• Clinical Scenario: {recommendation['clinical_scenario']}", ln=1)
+        
+        pdf.ln(4)
+        
+        # Citation
+        pdf.set_font("Arial", "B", 11)
+        pdf.cell(0, 8, "Reference:", ln=1)
+        pdf.set_font("Arial", "", 9)
+        citation_text = ("Coats T, Bean D, Basset A, Sirkis T, Brammeld J, Johnson S, et al. "
+                        "A novel algorithmic approach to generate consensus treatment guidelines "
+                        "in adult acute myeloid leukaemia. Br J Haematol. 2022;196:1337-1343. "
+                        "https://doi.org/10.1111/bjh.18013")
+        pdf.multi_cell(0, 5, citation_text, align="L")
+        pdf.ln(4)
+        
+        # Disclaimer
+        pdf.set_font("Arial", "B", 10)
+        pdf.cell(0, 6, "Important Disclaimer:", ln=1)
+        pdf.set_font("Arial", "", 9)
+        disclaimer_text = ("These recommendations are based on a consensus algorithmic approach and should not "
+                          "replace clinical judgment. Treatment decisions should always involve multidisciplinary "
+                          "team discussion, consideration of comorbidities, performance status, patient preferences, "
+                          "and local treatment protocols.")
+        pdf.multi_cell(0, 5, disclaimer_text, align="L")
+        pdf.ln(6)
+        
+    except Exception as e:
+        # If there's an error generating recommendations, add a note
+        add_section_title(pdf, "Treatment Recommendations")
+        pdf.set_font("Arial", "", 10)
+        pdf.cell(0, 8, "Treatment recommendations could not be generated.", ln=1)
+        pdf.cell(0, 8, f"Error: {str(e)}", ln=1)
+        pdf.ln(4)
+
+
 def add_ipss_risk_section(pdf: FPDF, mds_result: dict):
     """
     Adds IPSS-M and IPSS-R risk classification sections to the PDF.
@@ -688,6 +803,21 @@ def create_base_pdf(user_comments: str = None) -> bytes:
             "eln_derivation": derivation_eln2022
         }
         add_risk_section(pdf, risk_data, aml_result["parsed_data"])
+        
+        # Add treatment recommendations section if AML is diagnosed
+        who_classification = aml_result.get("who_class", "")
+        icc_classification = aml_result.get("icc_class", "")
+        
+        # Check if AML is diagnosed in either WHO or ICC classification
+        aml_diagnosed = False
+        if who_classification and "AML" in who_classification.upper():
+            aml_diagnosed = True
+        if icc_classification and "AML" in icc_classification.upper():
+            aml_diagnosed = True
+        
+        # Only add treatment recommendations if AML is actually diagnosed
+        if aml_diagnosed:
+            add_treatment_recommendations_section(pdf, aml_result, risk_eln2022)
 
     # Append MDS diagnostics if available.
     if mds_result:
