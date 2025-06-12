@@ -891,6 +891,269 @@ def data_entry_page():
 ##################################
 # 2. RESULTS PAGE
 ##################################
+def display_treatment_data_explorer(patient_data: dict):
+    """
+    Display parsed treatment data in an organized, exploratory format.
+    """
+    if not patient_data:
+        st.info("No treatment data available.")
+        return
+    
+    # Create tabs for different data categories
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📋 Clinical History", 
+        "🧬 Flow Cytometry", 
+        "🔬 Genetic Features", 
+        "📊 Cytogenetics", 
+        "🔍 All Data"
+    ])
+    
+    with tab1:
+        st.markdown("### Clinical History & Qualifiers")
+        qualifiers = patient_data.get("qualifiers", {})
+        
+        if qualifiers:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**Disease History:**")
+                history_items = []
+                if qualifiers.get("therapy_related"):
+                    history_items.append("✅ Therapy-related AML")
+                if qualifiers.get("previous_chemotherapy"):
+                    history_items.append("✅ Previous chemotherapy")
+                if qualifiers.get("previous_MDS"):
+                    history_items.append("✅ Previous MDS")
+                if qualifiers.get("previous_MPN"):
+                    history_items.append("✅ Previous MPN")
+                if qualifiers.get("previous_CMML"):
+                    history_items.append("✅ Previous CMML")
+                
+                if history_items:
+                    for item in history_items:
+                        st.markdown(f"• {item}")
+                else:
+                    st.markdown("• No significant disease history detected")
+            
+            with col2:
+                st.markdown("**Disease Status:**")
+                status_items = []
+                if qualifiers.get("relapsed_refractory"):
+                    status_items.append("✅ Relapsed/refractory disease")
+                
+                if status_items:
+                    for item in status_items:
+                        st.markdown(f"• {item}")
+                else:
+                    st.markdown("• Newly diagnosed (presumed)")
+        else:
+            st.info("No clinical history qualifiers found.")
+    
+    with tab2:
+        st.markdown("### Flow Cytometry Data")
+        
+        # CD33 status
+        cd33_positive = patient_data.get("cd33_positive")
+        cd33_percentage = patient_data.get("cd33_percentage")
+        
+        if cd33_positive is not None or cd33_percentage is not None:
+            st.markdown("**CD33 Expression:**")
+            if cd33_positive is not None:
+                status = "✅ Positive" if cd33_positive else "❌ Negative"
+                st.markdown(f"• Status: {status}")
+            if cd33_percentage is not None:
+                st.markdown(f"• Percentage: {cd33_percentage}%")
+                # Add interpretation
+                if cd33_percentage >= 20:
+                    st.success(f"CD33 ≥20% - Eligible for gemtuzumab ozogamicin (GO)")
+                else:
+                    st.warning(f"CD33 <20% - May not be optimal for GO therapy")
+        else:
+            st.info("No CD33 flow cytometry data found.")
+    
+    with tab3:
+        st.markdown("### Genetic Features")
+        
+        # AML-defining genetic abnormalities
+        aml_genes = patient_data.get("AML_defining_recurrent_genetic_abnormalities", {})
+        if aml_genes:
+            st.markdown("**AML-Defining Genetic Abnormalities:**")
+            for gene, present in aml_genes.items():
+                if present:
+                    st.markdown(f"✅ {gene}")
+        
+        # MDS-related mutations
+        mds_mutations = patient_data.get("MDS_related_mutation", {})
+        if mds_mutations:
+            positive_mutations = [gene for gene, present in mds_mutations.items() if present]
+            if positive_mutations:
+                st.markdown("**MDS-Related Mutations:**")
+                for gene in positive_mutations:
+                    st.markdown(f"✅ {gene}")
+        
+        if not aml_genes and not mds_mutations:
+            st.info("No genetic abnormalities detected.")
+    
+    with tab4:
+        st.markdown("### Cytogenetic Abnormalities")
+        
+        # MDS-related cytogenetics
+        mds_cyto = patient_data.get("MDS_related_cytogenetics", {})
+        if mds_cyto:
+            positive_cyto = [abnorm for abnorm, present in mds_cyto.items() if present]
+            if positive_cyto:
+                st.markdown("**MDS-Related Cytogenetic Abnormalities:**")
+                for abnorm in positive_cyto:
+                    st.markdown(f"✅ {abnorm}")
+                    
+                # Add risk interpretation
+                adverse_abnormalities = ["Complex_karyotype", "-5", "del_5q", "-7", "del_7q", "-17", "del_17p"]
+                if any(abnorm in adverse_abnormalities for abnorm in positive_cyto):
+                    st.warning("⚠️ Adverse risk cytogenetic abnormalities detected")
+        
+        # Morphologic features
+        dysplastic_lineages = patient_data.get("number_of_dysplastic_lineages")
+        if dysplastic_lineages is not None:
+            st.markdown(f"**Number of Dysplastic Lineages:** {dysplastic_lineages}")
+        
+        # Cytogenetics data availability
+        no_cyto_data = patient_data.get("no_cytogenetics_data")
+        if no_cyto_data:
+            st.warning("⚠️ No cytogenetics data available")
+        
+        if not mds_cyto and dysplastic_lineages is None and not no_cyto_data:
+            st.info("No cytogenetic abnormalities detected.")
+    
+    with tab5:
+        st.markdown("### Complete Data Structure")
+        st.json(patient_data)
+
+
+def display_streamlined_treatment_recommendations(patient_data: dict, eln_risk: str, patient_age: int):
+    """
+    Streamlined treatment recommendations display without nested expanders or button conflicts.
+    """
+    from utils.aml_treatment_recommendations import (
+        get_consensus_treatment_recommendation, 
+        determine_treatment_eligibility,
+        _is_cd33_positive,
+        _has_flt3_mutation,
+        _is_therapy_related_aml,
+        _has_myelodysplasia_related_changes,
+        _get_cytogenetic_risk
+    )
+    
+    # Get treatment recommendation
+    recommendation = get_consensus_treatment_recommendation(patient_data, patient_age, eln_risk)
+    
+    # Treatment recommendation box with improved styling
+    treatment_color = "#e8f5e8" if "ATRA" in recommendation["recommended_treatment"] else \
+                     "#fff3cd" if "CPX-351" in recommendation["recommended_treatment"] else \
+                     "#d1ecf1" if "Midostaurin" in recommendation["recommended_treatment"] else "#f8f9fa"
+    
+    st.markdown(f"""
+    <div style="
+        background: {treatment_color};
+        padding: 25px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        border: 2px solid #0066cc;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    ">
+        <h3 style="margin: 0 0 10px 0; color: #0066cc; font-size: 1.5em;">
+            🎯 {recommendation['recommended_treatment']}
+        </h3>
+        <p style="margin: 0; color: #495057; font-style: italic;">
+            Recommended treatment based on consensus guidelines
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Rationale and considerations in clean layout
+    col1, col2 = st.columns([3, 2])
+    
+    with col1:
+        st.markdown("### 📋 Rationale")
+        st.markdown(recommendation["rationale"])
+        
+        if recommendation["considerations"]:
+            st.markdown("### ⚠️ Key Clinical Considerations")
+            for consideration in recommendation["considerations"]:
+                st.markdown(f"• {consideration}")
+    
+    with col2:
+        # Patient summary with cleaner styling
+        st.markdown("### 👤 Patient Summary")
+        
+        # Patient characteristics in a clean container
+        with st.container():
+            st.markdown(f"**Age:** {patient_age} years ({recommendation['age_group']})")
+            st.markdown(f"**ELN Risk:** {eln_risk}")
+            st.markdown(f"**Cytogenetic Risk:** {_get_cytogenetic_risk(patient_data)}")
+            
+            st.markdown("---")
+            st.markdown("**Key Features:**")
+            
+            # CD33 status
+            cd33_positive = _is_cd33_positive(patient_data)
+            cd33_percentage = patient_data.get("cd33_percentage")
+            if patient_data.get("cd33_positive") is not None:
+                cd33_status = "✅ Positive" if cd33_positive else "❌ Negative"
+                if cd33_percentage:
+                    cd33_status += f" ({cd33_percentage}%)"
+            else:
+                cd33_status = "❓ Unknown"
+            st.markdown(f"**CD33:** {cd33_status}")
+            
+            # FLT3 status
+            flt3_status = "✅ Present" if _has_flt3_mutation(patient_data) else "❌ Not detected"
+            st.markdown(f"**FLT3 Mutation:** {flt3_status}")
+            
+            # Disease characteristics
+            disease_features = []
+            if _is_therapy_related_aml(patient_data):
+                disease_features.append("Therapy-related AML")
+            if _has_myelodysplasia_related_changes(patient_data):
+                disease_features.append("MDS-related changes")
+            
+            if disease_features:
+                st.markdown("**Disease Features:**")
+                for feature in disease_features:
+                    st.markdown(f"• {feature}")
+    
+    # Treatment eligibility in a clean format
+    st.markdown("---")
+    st.markdown("### 🏥 Treatment Eligibility Analysis")
+    
+    eligible_treatments = determine_treatment_eligibility(patient_data)
+    
+    # Display eligible treatments in a simple list format
+    st.markdown("**Eligible Treatments:**")
+    for treatment in eligible_treatments:
+        if treatment == recommendation["recommended_treatment"]:
+            st.markdown(f"⭐ **{treatment}** (Recommended)")
+        else:
+            st.markdown(f"• {treatment}")
+    
+    # Citation and disclaimer
+    st.markdown("---")
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown("""
+        **⚠️ Important Disclaimer:** 
+        These recommendations are based on consensus guidelines and should not replace clinical judgment. 
+        Treatment decisions should always involve multidisciplinary team discussion.
+        """)
+    
+    with col2:
+        with st.container():
+            st.markdown("**📚 Reference:**")
+            st.markdown("""
+            Coats T, et al. *Br J Haematol.* 2022;196:1337–1343.
+            [DOI: 10.1111/bjh.18013](https://doi.org/10.1111/bjh.18013)
+            """)
+
+
 def back_without_clearing():
     """
     Navigates back to the data entry page without clearing any session state.
@@ -1176,28 +1439,102 @@ def results_page():
         # Import treatment recommendation functions
         from utils.aml_treatment_recommendations import display_treatment_recommendations
         from classifiers.aml_risk_classifier import eln2022_intensive_risk
+        from parsers.treatment_parser import parse_treatment_data, display_treatment_parsing_results
         
         # Check if this is an AML case
         if not show_eln:
-            st.warning("Treatment recommendations are only available for AML diagnoses.")
+            st.warning("🔬 **Treatment recommendations are only available for AML diagnoses.**")
+            st.info("This case appears to be classified as MDS. Please refer to the Risk tab for IPSS-M/R risk stratification.")
         else:
+            # Simple header
+            st.markdown("### 💊 AML Treatment Recommendations")
+            
+            # Get the original report text for treatment parsing
+            original_report = ""
+            if res.get("free_text_input"):
+                original_report = res["free_text_input"]
+            elif st.session_state.get("free_text_input"):
+                original_report = st.session_state["free_text_input"]
+            
+            if not original_report.strip():
+                st.error("❌ **No original report text available**")
+                st.markdown("""
+                **Next Steps:**
+                1. Return to the **Data Entry** page
+                2. Re-enter your report in free-text mode
+                3. Navigate back to this Treatment tab
+                
+                *Treatment recommendations require the original report text for optimal accuracy.*
+                """)
+                
+                if mode == "manual":
+                    st.info("💡 **Tip:** This appears to be manual entry mode. For best treatment recommendations, use the free-text report entry mode.")
+                return
+            
+            # Process treatment data (always use specialized parser)
+            treatment_data = None
+            patient_data_for_treatment = None
+            
+            # Check if we already have cached treatment data
+            cache_key = f"treatment_data_{hash(original_report)}"
+            if cache_key in st.session_state:
+                treatment_data = st.session_state[cache_key]
+            else:
+                with st.spinner("🔄 Analyzing report for treatment-specific factors..."):
+                    treatment_data = parse_treatment_data(original_report)
+                    if treatment_data:
+                        st.session_state[cache_key] = treatment_data
+            
+            if not treatment_data:
+                st.error("❌ Failed to extract treatment data. Falling back to classification data.")
+                from utils.transformation_utils import transform_main_parser_to_treatment_format
+                patient_data_for_treatment = transform_main_parser_to_treatment_format(res["parsed_data"])
+            else:
+                patient_data_for_treatment = treatment_data
+            
             # Get ELN risk classification
             try:
-                eln_risk, _, _ = eln2022_intensive_risk(res["parsed_data"])
+                source_data = treatment_data if treatment_data else res["parsed_data"]
+                eln_risk, _, _ = eln2022_intensive_risk(source_data)
             except Exception as e:
-                st.error(f"Error calculating ELN risk: {e}")
                 eln_risk = "Unknown"
             
-            # Get patient age if available
+            # Get patient age (handle missing age gracefully)
             patient_age = st.session_state.get("treatment_age")
             if "age" in res["parsed_data"]:
                 try:
                     patient_age = int(res["parsed_data"]["age"])
                 except (ValueError, TypeError):
-                    patient_age = None
+                    pass
             
-            # Display treatment recommendations
-            display_treatment_recommendations(res["parsed_data"], eln_risk, patient_age)
+            # Age input if still missing
+            if patient_age is None:
+                st.markdown("#### Patient Age Required")
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    age_input = st.number_input("Enter patient age:", min_value=18, max_value=100, value=65, step=1, key="age_input")
+                with col2:
+                    if st.button("Submit Age", type="primary"):
+                        st.session_state["treatment_age"] = age_input
+                        patient_age = age_input
+                        st.rerun()
+                
+                if patient_age is None:
+                    st.info("Please enter patient age to generate treatment recommendations.")
+                    return
+            
+            # Add data explorer panel
+            with st.expander("🔍 Data Explorer - View Parsed Treatment Data", expanded=False):
+                if patient_data_for_treatment:
+                    display_treatment_data_explorer(patient_data_for_treatment)
+                else:
+                    st.warning("No treatment data available to explore.")
+            
+            # Display treatment recommendations with clean separator
+            st.markdown("---")
+            
+            # Create a custom treatment display that doesn't have button conflicts
+            display_streamlined_treatment_recommendations(patient_data_for_treatment, eln_risk, patient_age)
 
     elif sub_tab == "MRD Review":
         st.markdown("### Minimal Residual Disease (MRD) Monitoring Recommendations")
@@ -3383,6 +3720,7 @@ def ipss_risk_calculator_page():
 ##################################
 # APP MAIN
 ##################################
+
 def app_main():
     """
     The main function that manages login checks, sidebar user options,
