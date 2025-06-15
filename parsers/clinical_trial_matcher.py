@@ -124,6 +124,114 @@ Be conservative in your recommendations - only recommend trials where the patien
             except Exception as e:
                 st.error(f"Error calling OpenAI API: {e}")
                 return []
+
+    async def generate_detailed_recommendations(self, patient_data: str, top_trials: List[Dict]) -> List[Dict]:
+        """
+        Generate detailed recommendation explanations for the top matching trials
+        """
+        if not top_trials:
+            return []
+        
+        # Prepare detailed trial information for the top trials
+        trials_text = ""
+        for i, trial in enumerate(top_trials, 1):
+            trials_text += f"""
+TRIAL {i}:
+Title: {trial.get('title', 'Unknown')}
+Description: {trial.get('description', 'No description')}
+Cancer Types: {trial.get('cancer_types', 'Unknown')}
+Eligibility Criteria: {trial.get('who_can_enter', 'No criteria provided')}
+Current Relevance Score: {trial.get('relevance_score', 0)}
+Current Matching Factors: {', '.join(trial.get('matching_factors', []))}
+Locations: {trial.get('locations', 'Unknown')}
+
+---
+"""
+        
+        prompt = f"""
+You are a senior clinical oncologist writing detailed recommendations for clinical trial enrollment. Based on the patient profile and the following clinical trials, provide comprehensive recommendation explanations.
+
+PATIENT PROFILE:
+{patient_data}
+
+TOP MATCHING CLINICAL TRIALS:
+{trials_text}
+
+For each trial, provide a detailed recommendation explanation that includes:
+
+1. **Clinical Rationale**: Why this trial is appropriate for this specific patient
+2. **Molecular Match**: How the patient's genetic/molecular profile aligns with the trial
+3. **Risk-Benefit Assessment**: Potential benefits vs risks for this patient
+4. **Practical Considerations**: Logistics, location, timing considerations
+5. **Alternative Options**: How this compares to standard care or other trials
+
+Please respond in JSON format:
+{{
+    "trial_1": {{
+        "detailed_recommendation": "<comprehensive 3-4 paragraph explanation>",
+        "key_strengths": ["<strength1>", "<strength2>", "<strength3>"],
+        "potential_concerns": ["<concern1>", "<concern2>"],
+        "next_steps": "<what should happen next>",
+        "priority_level": "<high/medium/low>"
+    }},
+    "trial_2": {{ ... }},
+    etc.
+}}
+
+Write as if you're explaining to both the patient and their oncologist. Be thorough but accessible. Include specific medical reasoning while remaining understandable.
+"""
+
+        try:
+            response = await self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a senior clinical oncologist providing detailed, thoughtful clinical trial recommendations. Write comprehensive but accessible explanations."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,
+                max_tokens=3000
+            )
+            
+            response_text = response.choices[0].message.content.strip()
+            
+            # Parse the JSON response
+            try:
+                if "```json" in response_text:
+                    json_start = response_text.find("```json") + 7
+                    json_end = response_text.find("```", json_start)
+                    json_text = response_text[json_start:json_end].strip()
+                else:
+                    json_text = response_text
+                
+                detailed_results = json.loads(json_text)
+                
+                # Enhance the trials with detailed recommendations
+                enhanced_trials = []
+                for i, trial in enumerate(top_trials, 1):
+                    trial_key = f"trial_{i}"
+                    if trial_key in detailed_results:
+                        detail = detailed_results[trial_key]
+                        enhanced_trial = {
+                            **trial,  # Original trial data
+                            "detailed_recommendation": detail.get("detailed_recommendation", ""),
+                            "key_strengths": detail.get("key_strengths", []),
+                            "potential_concerns": detail.get("potential_concerns", []),
+                            "next_steps": detail.get("next_steps", ""),
+                            "priority_level": detail.get("priority_level", "medium")
+                        }
+                        enhanced_trials.append(enhanced_trial)
+                    else:
+                        enhanced_trials.append(trial)
+                
+                return enhanced_trials
+                
+            except json.JSONDecodeError as e:
+                st.warning(f"Could not parse detailed recommendations: {e}")
+                return top_trials
+                
+        except Exception as e:
+            st.warning(f"Error generating detailed recommendations: {e}")
+            return top_trials
     
     async def find_matching_trials(self, patient_data: str, trials_file: str = "trials-aggregator/clinical_trials.json") -> List[Dict]:
         """
@@ -166,6 +274,27 @@ Be conservative in your recommendations - only recommend trials where the patien
         
         # Sort by relevance score (highest first)
         all_matched_trials.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
+        
+        # Generate detailed recommendations for top trials (score >= 60)
+        top_trials = [t for t in all_matched_trials if t.get('relevance_score', 0) >= 60][:5]  # Top 5 high-scoring trials
+        
+        if top_trials:
+            st.info("🔄 Generating detailed recommendations for top matching trials...")
+            enhanced_top_trials = await self.generate_detailed_recommendations(patient_data, top_trials)
+            
+            # Replace the top trials with enhanced versions
+            enhanced_trials = []
+            top_trial_titles = {t.get('title', '') for t in top_trials}
+            
+            for trial in all_matched_trials:
+                if trial.get('title', '') in top_trial_titles:
+                    # Find the enhanced version
+                    enhanced_version = next((et for et in enhanced_top_trials if et.get('title') == trial.get('title')), trial)
+                    enhanced_trials.append(enhanced_version)
+                else:
+                    enhanced_trials.append(trial)
+            
+            return enhanced_trials
         
         return all_matched_trials
 
@@ -350,12 +479,12 @@ def display_trial_matches(matched_trials: List[Dict]):
     - **{len(matched_trials)}** Total Trials Evaluated
     """)
     
-    # Display highly recommended trials
+    # Display highly recommended trials with detailed recommendations
     if recommended_trials:
         st.markdown("### 🌟 Highly Recommended Trials")
         for i, trial in enumerate(recommended_trials, 1):
             with st.expander(f"⭐ {trial.get('title', 'Unknown Trial')} (Score: {trial.get('relevance_score', 0)})", expanded=i<=2):
-                display_single_trial(trial)
+                display_single_trial_with_details(trial)
     
     # Display trials to consider
     if consider_trials:
@@ -384,9 +513,104 @@ def display_trial_matches(matched_trials: List[Dict]):
             df = pd.DataFrame(trial_data)
             st.dataframe(df, use_container_width=True)
 
+def display_single_trial_with_details(trial: Dict):
+    """
+    Display details for a single clinical trial with enhanced recommendations
+    """
+    # Basic trial information
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown(f"**Description:** {trial.get('description', 'No description available')}")
+        st.markdown(f"**Cancer Types:** {trial.get('cancer_types', 'Unknown')}")
+        st.markdown(f"**Status:** {trial.get('status', 'Unknown')}")
+        
+    with col2:
+        # Score visualization
+        score = trial.get('relevance_score', 0)
+        priority = trial.get('priority_level', 'medium')
+        
+        if score >= 80:
+            score_color = "🟢"
+        elif score >= 60:
+            score_color = "🟡"
+        elif score >= 40:
+            score_color = "🟠"
+        else:
+            score_color = "🔴"
+        
+        priority_emoji = {"high": "🔥", "medium": "⚡", "low": "💭"}.get(priority, "⚡")
+        
+        st.markdown(f"**Relevance Score:** {score_color} {score}/100")
+        st.markdown(f"**Priority:** {priority_emoji} {priority.title()}")
+        st.markdown(f"**Recommendation:** {trial.get('recommendation', 'unknown').title()}")
+    
+    # Detailed recommendation (if available)
+    detailed_rec = trial.get('detailed_recommendation', '')
+    if detailed_rec:
+        st.markdown("### 📋 **Detailed Clinical Recommendation**")
+        st.markdown(detailed_rec)
+        
+        # Key strengths
+        strengths = trial.get('key_strengths', [])
+        if strengths:
+            st.markdown("**✅ Key Strengths:**")
+            for strength in strengths:
+                st.markdown(f"• {strength}")
+        
+        # Potential concerns
+        concerns = trial.get('potential_concerns', [])
+        if concerns:
+            st.markdown("**⚠️ Potential Concerns:**")
+            for concern in concerns:
+                st.markdown(f"• {concern}")
+        
+        # Next steps
+        next_steps = trial.get('next_steps', '')
+        if next_steps:
+            st.markdown(f"**🎯 Recommended Next Steps:** {next_steps}")
+    
+    # Standard matching factors
+    matching_factors = trial.get('matching_factors', [])
+    if matching_factors:
+        st.markdown("**✅ Matching Factors:**")
+        for factor in matching_factors:
+            st.markdown(f"• {factor}")
+    
+    # Exclusion factors
+    exclusion_factors = trial.get('exclusion_factors', [])
+    if exclusion_factors:
+        st.markdown("**❌ Potential Exclusion Factors:**")
+        for factor in exclusion_factors:
+            st.markdown(f"• {factor}")
+    
+    # AI explanation (basic)
+    explanation = trial.get('explanation', '')
+    if explanation and not detailed_rec:  # Only show if no detailed recommendation
+        st.markdown(f"**🤖 AI Assessment:** {explanation}")
+    
+    # Trial details
+    st.markdown("**📍 Locations:**")
+    st.markdown(trial.get('locations', 'Unknown'))
+    
+    # Link to trial
+    if trial.get('link'):
+        st.markdown(f"**🔗 More Information:** [View Trial Details]({trial['link']})")
+    
+    # Recruitment dates
+    if trial.get('recruitment_start') or trial.get('recruitment_end'):
+        st.markdown("**📅 Recruitment Period:**")
+        start_date = trial.get('recruitment_start', 'Unknown')
+        end_date = trial.get('recruitment_end', 'Unknown')
+        st.markdown(f"From {start_date} to {end_date}")
+    
+    # Contact information
+    if trial.get('contact_phone'):
+        st.markdown(f"**📞 Contact:** {trial['contact_phone']}")
+
 def display_single_trial(trial: Dict):
     """
-    Display details for a single clinical trial
+    Display details for a single clinical trial (standard version)
     """
     # Basic trial information
     col1, col2 = st.columns([2, 1])
