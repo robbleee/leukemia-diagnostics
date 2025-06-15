@@ -279,7 +279,7 @@ Write as if you're explaining to both the patient and their oncologist. Be thoro
         top_trials = [t for t in all_matched_trials if t.get('relevance_score', 0) >= 60][:5]  # Top 5 high-scoring trials
         
         if top_trials:
-            st.info("🔄 Generating detailed recommendations for top matching trials...")
+            st.info("Generating detailed recommendations for top matching trials...")
             enhanced_top_trials = await self.generate_detailed_recommendations(patient_data, top_trials)
             
             # Replace the top trials with enhanced versions
@@ -470,32 +470,37 @@ def display_trial_matches(matched_trials: List[Dict]):
     consider_trials = [t for t in matched_trials if t.get('recommendation') == 'consider' and t.get('relevance_score', 0) >= 40]
     
     # Display statistics
-    st.markdown(f"""
-    ### 🎯 Clinical Trial Matching Results
+    st.markdown("### Clinical Trial Matching Results")
     
-    **Summary:**
-    - **{len(recommended_trials)}** Highly Recommended Trials (Score ≥70)
-    - **{len(consider_trials)}** Trials to Consider (Score 40-69)
-    - **{len(matched_trials)}** Total Trials Evaluated
-    """)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Highly Recommended", len(recommended_trials), help="Score ≥70")
+    with col2:
+        st.metric("Consider", len(consider_trials), help="Score 40-69")
+    with col3:
+        st.metric("Total Evaluated", len(matched_trials))
     
     # Display highly recommended trials with detailed recommendations
     if recommended_trials:
-        st.markdown("### 🌟 Highly Recommended Trials")
+        st.markdown("### Highly Recommended Trials")
         for i, trial in enumerate(recommended_trials, 1):
-            with st.expander(f"⭐ {trial.get('title', 'Unknown Trial')} (Score: {trial.get('relevance_score', 0)})", expanded=i<=2):
+            score = trial.get('relevance_score', 0)
+            title = trial.get('title', 'Unknown Trial')
+            with st.expander(f"{title} (Score: {score})", expanded=i<=2):
                 display_single_trial_with_details(trial)
     
     # Display trials to consider
     if consider_trials:
-        st.markdown("### 🤔 Trials to Consider")
+        st.markdown("### Trials to Consider")
         for trial in consider_trials[:5]:  # Limit to top 5
-            with st.expander(f"💭 {trial.get('title', 'Unknown Trial')} (Score: {trial.get('relevance_score', 0)})"):
+            score = trial.get('relevance_score', 0)
+            title = trial.get('title', 'Unknown Trial')
+            with st.expander(f"{title} (Score: {score})"):
                 display_single_trial(trial)
     
     # Show all results in a table
     if st.checkbox("Show all trial results", value=False):
-        st.markdown("### 📊 All Trial Results")
+        st.markdown("### All Trial Results")
         
         # Create a summary table
         trial_data = []
@@ -526,87 +531,124 @@ def display_single_trial_with_details(trial: Dict):
         st.markdown(f"**Status:** {trial.get('status', 'Unknown')}")
         
     with col2:
-        # Score visualization
+        # Score and priority information
         score = trial.get('relevance_score', 0)
         priority = trial.get('priority_level', 'medium')
+        recommendation = trial.get('recommendation', 'unknown').title()
         
+        # Score color coding
         if score >= 80:
-            score_color = "🟢"
+            score_color = "#28a745"  # Green
         elif score >= 60:
-            score_color = "🟡"
+            score_color = "#ffc107"  # Yellow
         elif score >= 40:
-            score_color = "🟠"
+            score_color = "#fd7e14"  # Orange
         else:
-            score_color = "🔴"
+            score_color = "#dc3545"  # Red
         
-        priority_emoji = {"high": "🔥", "medium": "⚡", "low": "💭"}.get(priority, "⚡")
-        
-        st.markdown(f"**Relevance Score:** {score_color} {score}/100")
-        st.markdown(f"**Priority:** {priority_emoji} {priority.title()}")
-        st.markdown(f"**Recommendation:** {trial.get('recommendation', 'unknown').title()}")
+        st.markdown(f"**Relevance Score:** <span style='color: {score_color}; font-weight: bold;'>{score}/100</span>", unsafe_allow_html=True)
+        st.markdown(f"**Priority Level:** {priority.title()}")
+        st.markdown(f"**Recommendation:** {recommendation}")
     
     # Detailed recommendation (if available)
     detailed_rec = trial.get('detailed_recommendation', '')
     if detailed_rec:
-        st.markdown("### 📋 **Detailed Clinical Recommendation**")
+        st.markdown("---")
+        st.markdown("#### Detailed Clinical Recommendation")
         st.markdown(detailed_rec)
         
-        # Key strengths
-        strengths = trial.get('key_strengths', [])
-        if strengths:
-            st.markdown("**✅ Key Strengths:**")
-            for strength in strengths:
-                st.markdown(f"• {strength}")
+        # Create two columns for strengths and concerns
+        col_left, col_right = st.columns(2)
         
-        # Potential concerns
-        concerns = trial.get('potential_concerns', [])
-        if concerns:
-            st.markdown("**⚠️ Potential Concerns:**")
-            for concern in concerns:
-                st.markdown(f"• {concern}")
+        with col_left:
+            # Key strengths
+            strengths = trial.get('key_strengths', [])
+            if strengths:
+                st.markdown("**Key Strengths:**")
+                for strength in strengths:
+                    st.markdown(f"• {strength}")
+        
+        with col_right:
+            # Potential concerns
+            concerns = trial.get('potential_concerns', [])
+            if concerns:
+                st.markdown("**Potential Concerns:**")
+                for concern in concerns:
+                    st.markdown(f"• {concern}")
         
         # Next steps
         next_steps = trial.get('next_steps', '')
         if next_steps:
-            st.markdown(f"**🎯 Recommended Next Steps:** {next_steps}")
+            st.markdown("**Recommended Next Steps:**")
+            st.markdown(next_steps)
     
-    # Standard matching factors
+    # Standard matching factors and exclusions
     matching_factors = trial.get('matching_factors', [])
-    if matching_factors:
-        st.markdown("**✅ Matching Factors:**")
-        for factor in matching_factors:
-            st.markdown(f"• {factor}")
-    
-    # Exclusion factors
     exclusion_factors = trial.get('exclusion_factors', [])
-    if exclusion_factors:
-        st.markdown("**❌ Potential Exclusion Factors:**")
-        for factor in exclusion_factors:
-            st.markdown(f"• {factor}")
+    
+    if matching_factors or exclusion_factors:
+        st.markdown("---")
+        
+        # Create columns for matching and exclusion factors
+        if matching_factors and exclusion_factors:
+            col_match, col_exclude = st.columns(2)
+            
+            with col_match:
+                if matching_factors:
+                    st.markdown("**Matching Factors:**")
+                    for factor in matching_factors:
+                        st.markdown(f"• {factor}")
+            
+            with col_exclude:
+                if exclusion_factors:
+                    st.markdown("**Potential Exclusion Factors:**")
+                    for factor in exclusion_factors:
+                        st.markdown(f"• {factor}")
+        else:
+            # Single column if only one type
+            if matching_factors:
+                st.markdown("**Matching Factors:**")
+                for factor in matching_factors:
+                    st.markdown(f"• {factor}")
+            
+            if exclusion_factors:
+                st.markdown("**Potential Exclusion Factors:**")
+                for factor in exclusion_factors:
+                    st.markdown(f"• {factor}")
     
     # AI explanation (basic)
     explanation = trial.get('explanation', '')
     if explanation and not detailed_rec:  # Only show if no detailed recommendation
-        st.markdown(f"**🤖 AI Assessment:** {explanation}")
+        st.markdown("---")
+        st.markdown("**AI Assessment:**")
+        st.markdown(explanation)
     
     # Trial details
-    st.markdown("**📍 Locations:**")
-    st.markdown(trial.get('locations', 'Unknown'))
+    st.markdown("---")
+    st.markdown("#### Trial Information")
     
-    # Link to trial
-    if trial.get('link'):
-        st.markdown(f"**🔗 More Information:** [View Trial Details]({trial['link']})")
+    # Create columns for trial details
+    detail_col1, detail_col2 = st.columns(2)
     
-    # Recruitment dates
-    if trial.get('recruitment_start') or trial.get('recruitment_end'):
-        st.markdown("**📅 Recruitment Period:**")
-        start_date = trial.get('recruitment_start', 'Unknown')
-        end_date = trial.get('recruitment_end', 'Unknown')
-        st.markdown(f"From {start_date} to {end_date}")
+    with detail_col1:
+        st.markdown("**Locations:**")
+        st.markdown(trial.get('locations', 'Unknown'))
+        
+        # Contact information
+        if trial.get('contact_phone'):
+            st.markdown(f"**Contact:** {trial['contact_phone']}")
     
-    # Contact information
-    if trial.get('contact_phone'):
-        st.markdown(f"**📞 Contact:** {trial['contact_phone']}")
+    with detail_col2:
+        # Recruitment dates
+        if trial.get('recruitment_start') or trial.get('recruitment_end'):
+            st.markdown("**Recruitment Period:**")
+            start_date = trial.get('recruitment_start', 'Unknown')
+            end_date = trial.get('recruitment_end', 'Unknown')
+            st.markdown(f"From {start_date} to {end_date}")
+        
+        # Link to trial
+        if trial.get('link'):
+            st.markdown(f"**More Information:** [View Trial Details]({trial['link']})")
 
 def display_single_trial(trial: Dict):
     """
@@ -621,54 +663,87 @@ def display_single_trial(trial: Dict):
         st.markdown(f"**Status:** {trial.get('status', 'Unknown')}")
         
     with col2:
-        # Score visualization
+        # Score and recommendation
         score = trial.get('relevance_score', 0)
-        if score >= 80:
-            score_color = "🟢"
-        elif score >= 60:
-            score_color = "🟡"
-        elif score >= 40:
-            score_color = "🟠"
-        else:
-            score_color = "🔴"
+        recommendation = trial.get('recommendation', 'unknown').title()
         
-        st.markdown(f"**Relevance Score:** {score_color} {score}/100")
-        st.markdown(f"**Recommendation:** {trial.get('recommendation', 'unknown').title()}")
+        # Score color coding
+        if score >= 80:
+            score_color = "#28a745"  # Green
+        elif score >= 60:
+            score_color = "#ffc107"  # Yellow
+        elif score >= 40:
+            score_color = "#fd7e14"  # Orange
+        else:
+            score_color = "#dc3545"  # Red
+        
+        st.markdown(f"**Relevance Score:** <span style='color: {score_color}; font-weight: bold;'>{score}/100</span>", unsafe_allow_html=True)
+        st.markdown(f"**Recommendation:** {recommendation}")
     
-    # Matching factors
+    # Matching factors and exclusions
     matching_factors = trial.get('matching_factors', [])
-    if matching_factors:
-        st.markdown("**✅ Matching Factors:**")
-        for factor in matching_factors:
-            st.markdown(f"• {factor}")
-    
-    # Exclusion factors
     exclusion_factors = trial.get('exclusion_factors', [])
-    if exclusion_factors:
-        st.markdown("**❌ Potential Exclusion Factors:**")
-        for factor in exclusion_factors:
-            st.markdown(f"• {factor}")
+    
+    if matching_factors or exclusion_factors:
+        st.markdown("---")
+        
+        # Create columns for matching and exclusion factors
+        if matching_factors and exclusion_factors:
+            col_match, col_exclude = st.columns(2)
+            
+            with col_match:
+                if matching_factors:
+                    st.markdown("**Matching Factors:**")
+                    for factor in matching_factors:
+                        st.markdown(f"• {factor}")
+            
+            with col_exclude:
+                if exclusion_factors:
+                    st.markdown("**Potential Exclusion Factors:**")
+                    for factor in exclusion_factors:
+                        st.markdown(f"• {factor}")
+        else:
+            # Single column if only one type
+            if matching_factors:
+                st.markdown("**Matching Factors:**")
+                for factor in matching_factors:
+                    st.markdown(f"• {factor}")
+            
+            if exclusion_factors:
+                st.markdown("**Potential Exclusion Factors:**")
+                for factor in exclusion_factors:
+                    st.markdown(f"• {factor}")
     
     # AI explanation
     explanation = trial.get('explanation', '')
     if explanation:
-        st.markdown(f"**🤖 AI Assessment:** {explanation}")
+        st.markdown("---")
+        st.markdown("**AI Assessment:**")
+        st.markdown(explanation)
     
     # Trial details
-    st.markdown("**📍 Locations:**")
-    st.markdown(trial.get('locations', 'Unknown'))
+    st.markdown("---")
+    st.markdown("#### Trial Information")
     
-    # Link to trial
-    if trial.get('link'):
-        st.markdown(f"**🔗 More Information:** [View Trial Details]({trial['link']})")
+    # Create columns for trial details
+    detail_col1, detail_col2 = st.columns(2)
     
-    # Recruitment dates
-    if trial.get('recruitment_start') or trial.get('recruitment_end'):
-        st.markdown("**📅 Recruitment Period:**")
-        start_date = trial.get('recruitment_start', 'Unknown')
-        end_date = trial.get('recruitment_end', 'Unknown')
-        st.markdown(f"From {start_date} to {end_date}")
+    with detail_col1:
+        st.markdown("**Locations:**")
+        st.markdown(trial.get('locations', 'Unknown'))
+        
+        # Contact information
+        if trial.get('contact_phone'):
+            st.markdown(f"**Contact:** {trial['contact_phone']}")
     
-    # Contact information
-    if trial.get('contact_phone'):
-        st.markdown(f"**📞 Contact:** {trial['contact_phone']}")
+    with detail_col2:
+        # Recruitment dates
+        if trial.get('recruitment_start') or trial.get('recruitment_end'):
+            st.markdown("**Recruitment Period:**")
+            start_date = trial.get('recruitment_start', 'Unknown')
+            end_date = trial.get('recruitment_end', 'Unknown')
+            st.markdown(f"From {start_date} to {end_date}")
+        
+        # Link to trial
+        if trial.get('link'):
+            st.markdown(f"**More Information:** [View Trial Details]({trial['link']})")
