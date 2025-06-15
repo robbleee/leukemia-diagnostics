@@ -1200,16 +1200,16 @@ def results_page():
     # Set up the options menu based on which risk assessments to show
     if show_eln and show_ipss:
         # If both AML and MDS were diagnosed, show separate risk options
-        options = ["Classification", "ELN Risk (AML)", "IPSS Risk (MDS)", "Treatment", "MRD Review", "Gene Review", "AI Comments", "Differentiation"]
-        icons = ["clipboard", "graph-up-arrow", "calculator", "prescription2", "recycle", "bar-chart", "chat-left-text", "funnel"]
+        options = ["Classification", "ELN Risk (AML)", "IPSS Risk (MDS)", "Treatment", "Clinical Trials", "MRD Review", "Gene Review", "AI Comments", "Differentiation"]
+        icons = ["clipboard", "graph-up-arrow", "calculator", "prescription2", "search", "recycle", "bar-chart", "chat-left-text", "funnel"]
     elif show_eln:
         # Show AML-specific options including treatment
-        options = ["Classification", "Risk", "Treatment", "MRD Review", "Gene Review", "AI Comments", "Differentiation"]
-        icons = ["clipboard", "graph-up-arrow", "prescription2", "recycle", "bar-chart", "chat-left-text", "funnel"]
+        options = ["Classification", "Risk", "Treatment", "Clinical Trials", "MRD Review", "Gene Review", "AI Comments", "Differentiation"]
+        icons = ["clipboard", "graph-up-arrow", "prescription2", "search", "recycle", "bar-chart", "chat-left-text", "funnel"]
     else:
         # Just show a single Risk option (MDS only - no treatment tab)
-        options = ["Classification", "Risk", "MRD Review", "Gene Review", "AI Comments", "Differentiation"]
-        icons = ["clipboard", "graph-up-arrow", "recycle", "bar-chart", "chat-left-text", "funnel"]
+        options = ["Classification", "Risk", "Clinical Trials", "MRD Review", "Gene Review", "AI Comments", "Differentiation"]
+        icons = ["clipboard", "graph-up-arrow", "search", "recycle", "bar-chart", "chat-left-text", "funnel"]
 
     sub_tab = option_menu(
         menu_title=None,
@@ -1600,6 +1600,155 @@ def results_page():
             # Create a custom treatment display that doesn't have button conflicts
             display_streamlined_treatment_recommendations(patient_data_for_treatment, eln_risk, patient_age)
 
+    elif sub_tab == "Clinical Trials":
+        # Import clinical trial matching functions
+        from parsers.clinical_trial_matcher import (
+            format_patient_data_for_matching, 
+            run_clinical_trial_matching, 
+            display_trial_matches
+        )
+        
+        st.markdown("### 🔬 Clinical Trial Matching")
+        st.markdown("Find relevant clinical trials based on the patient's molecular profile and clinical characteristics.")
+        
+        # Get the original report text
+        original_report = ""
+        if res.get("free_text_input"):
+            original_report = res["free_text_input"]
+        elif st.session_state.get("free_text_input"):
+            original_report = st.session_state["free_text_input"]
+        
+        # Additional patient information form
+        with st.expander("📋 Additional Patient Information (Optional)", expanded=False):
+            st.markdown("Provide additional information to improve trial matching accuracy:")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Basic demographics
+                patient_age_trials = st.number_input(
+                    "Patient Age:", 
+                    min_value=18, 
+                    max_value=100, 
+                    value=st.session_state.get("treatment_age", 65), 
+                    step=1,
+                    key="trials_age"
+                )
+                
+                ecog_status = st.selectbox(
+                    "ECOG Performance Status:",
+                    options=[None, 0, 1, 2, 3, 4],
+                    format_func=lambda x: "Unknown" if x is None else f"ECOG {x}",
+                    key="trials_ecog"
+                )
+                
+                # Disease status
+                disease_status = st.selectbox(
+                    "Disease Status:",
+                    options=["Unknown", "Newly diagnosed", "Relapsed", "Refractory", "In remission"],
+                    key="trials_disease_status"
+                )
+                
+                # Prior treatments
+                prior_chemo_regimens = st.number_input(
+                    "Number of prior chemotherapy regimens:",
+                    min_value=0,
+                    max_value=10,
+                    value=0,
+                    step=1,
+                    key="trials_prior_chemo"
+                )
+                
+            with col2:
+                # Medical conditions
+                st.markdown("**Medical Conditions:**")
+                hiv_positive = st.checkbox("HIV positive", key="trials_hiv")
+                hepatitis_b = st.checkbox("Hepatitis B positive", key="trials_hep_b")
+                hepatitis_c = st.checkbox("Hepatitis C positive", key="trials_hep_c")
+                heart_failure = st.checkbox("Heart failure", key="trials_heart")
+                active_infection = st.checkbox("Active infection", key="trials_infection")
+                other_cancers = st.checkbox("Other active cancers", key="trials_other_cancer")
+                
+                # Reproductive status
+                st.markdown("**Reproductive Status:**")
+                pregnant = st.checkbox("Pregnant", key="trials_pregnant")
+                breastfeeding = st.checkbox("Breastfeeding", key="trials_breastfeeding")
+        
+        # Prepare additional info dictionary
+        additional_info = {
+            "age": patient_age_trials,
+            "ecog_status": ecog_status,
+            "newly_diagnosed": disease_status == "Newly diagnosed",
+            "relapsed": disease_status == "Relapsed", 
+            "refractory": disease_status == "Refractory",
+            "in_remission": disease_status == "In remission",
+            "prior_chemotherapy_regimens": prior_chemo_regimens,
+            "hiv_positive": hiv_positive,
+            "hepatitis_b_positive": hepatitis_b,
+            "hepatitis_c_positive": hepatitis_c,
+            "heart_failure": heart_failure,
+            "active_infection": active_infection,
+            "other_cancers": other_cancers,
+            "pregnant": pregnant,
+            "breastfeeding": breastfeeding
+        }
+        
+        # Determine primary diagnosis from classification results
+        who_disease_type = res.get("who_disease_type", "Unknown")
+        icc_disease_type = res.get("icc_disease_type", "Unknown")
+        
+        if who_disease_type == "AML" or icc_disease_type == "AML":
+            additional_info["primary_diagnosis"] = "Acute Myeloid Leukemia (AML)"
+        elif who_disease_type == "MDS" or icc_disease_type == "MDS":
+            additional_info["primary_diagnosis"] = "Myelodysplastic Syndrome (MDS)"
+        else:
+            additional_info["primary_diagnosis"] = "Blood cancer"
+        
+        # Button to start trial matching
+        if st.button("🔍 Find Matching Clinical Trials", type="primary", use_container_width=True):
+            # Format patient data for matching
+            patient_data_text = format_patient_data_for_matching(
+                parsed_data=res["parsed_data"],
+                free_text_input=original_report,
+                additional_info=additional_info
+            )
+            
+            # Store the formatted data for debugging
+            st.session_state["formatted_patient_data"] = patient_data_text
+            
+            # Run trial matching
+            with st.spinner("🔄 Analyzing patient profile and matching to clinical trials..."):
+                try:
+                    matched_trials = run_clinical_trial_matching(patient_data_text)
+                    st.session_state["matched_trials"] = matched_trials
+                    st.success(f"✅ Found {len(matched_trials)} clinical trials to evaluate!")
+                except Exception as e:
+                    st.error(f"❌ Error during trial matching: {e}")
+                    st.session_state["matched_trials"] = []
+        
+        # Display results if available
+        if "matched_trials" in st.session_state:
+            matched_trials = st.session_state["matched_trials"]
+            display_trial_matches(matched_trials)
+        
+        # Debug section
+        if st.checkbox("🔧 Show Debug Information", value=False):
+            st.markdown("### Debug Information")
+            
+            if "formatted_patient_data" in st.session_state:
+                with st.expander("Formatted Patient Data Sent to AI"):
+                    st.text(st.session_state["formatted_patient_data"])
+            
+            st.markdown("**Parsed Data Summary:**")
+            st.json({
+                "WHO Classification": res.get("who_class", "Unknown"),
+                "ICC Classification": res.get("icc_class", "Unknown"),
+                "Disease Type": additional_info.get("primary_diagnosis", "Unknown"),
+                "Age": additional_info.get("age", "Unknown"),
+                "Disease Status": disease_status,
+                "Prior Treatments": prior_chemo_regimens
+            })
+
     elif sub_tab == "MRD Review":
         st.markdown("### Minimal Residual Disease (MRD) Monitoring Recommendations")
         
@@ -1852,7 +2001,9 @@ def results_page():
         "aml_additional_comments",
         "initial_parsed_data",
         "free_text_input",
-        "erythroid_form_submitted"
+        "erythroid_form_submitted",
+        "matched_trials",
+        "formatted_patient_data"
     ]
 
     col_download, col3, col4, col5, col6, col_back, col_clear = st.columns(7)
