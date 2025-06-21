@@ -183,7 +183,7 @@ def show_login_page():
         }
         
         /* Button styling */
-        .stButton button {
+        .stButton button, .stFormSubmitButton button {
             background: linear-gradient(90deg, #009688, #00897b);
             color: white;
             border-radius: 8px;
@@ -198,13 +198,13 @@ def show_login_page():
             letter-spacing: 0.5px;
         }
         
-        .stButton button:hover {
+        .stButton button:hover, .stFormSubmitButton button:hover {
             background: linear-gradient(90deg, #00897b, #00796b);
             transform: translateY(-2px);
             box-shadow: 0 6px 18px rgba(0, 150, 136, 0.3);
         }
         
-        .stButton button:active {
+        .stButton button:active, .stFormSubmitButton button:active {
             transform: translateY(0);
         }
         
@@ -278,24 +278,25 @@ def show_login_page():
         </div>
         """, unsafe_allow_html=True)
         
-        # Login form
-        username = st.text_input("Username", placeholder="Enter your username", key="username_input")
-        password = st.text_input("Password", type="password", placeholder="Enter your password", key="password_input")
-        
-        # Login button
-        login_button = st.empty()
-        if login_button.button("Sign In", key="login_button"):
-            if authenticate_user(username, password):
-                with login_button:
+        # Login form with Enter key support
+        with st.form("login_form", clear_on_submit=False):
+            username = st.text_input("Username", placeholder="Enter your username", key="username_input")
+            password = st.text_input("Password", type="password", placeholder="Enter your password", key="password_input")
+            
+            # Login button - will be triggered by Enter key
+            login_submitted = st.form_submit_button("Sign In", use_container_width=True)
+            
+            if login_submitted:
+                if authenticate_user(username, password):
                     st.success("Signing in...")
-                token = create_jwt_token(username)
-                st.session_state["jwt_token"] = token
-                st.session_state["username"] = username
-                cookies["jwt_token"] = token
-                cookies.save()
-                st.rerun()
-            else:
-                st.error("Invalid username or password!")
+                    token = create_jwt_token(username)
+                    st.session_state["jwt_token"] = token
+                    st.session_state["username"] = username
+                    cookies["jwt_token"] = token
+                    cookies.save()
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password!")
         
         st.markdown('<div class="version-text">Version 1.2.0</div>', unsafe_allow_html=True)
         
@@ -580,18 +581,23 @@ def data_entry_page():
             
             # Use saved report text if available
             default_report_text = st.session_state.get("saved_full_text_input", "")
-            full_report_text = st.text_area(
-                "Enter all relevant AML/MDS data here:",
-                value=default_report_text,
-                placeholder="Paste your AML/MDS report here including: clinical info, CBC, bone marrow findings, cytogenetics, mutations...",
-                key="full_text_input",
-                height=250
-            )
+            
+            # Main analysis form with Enter key support
+            with st.form("main_analysis_form", clear_on_submit=False):
+                full_report_text = st.text_area(
+                    "Enter all relevant AML/MDS data here:",
+                    value=default_report_text,
+                    placeholder="Paste your AML/MDS report here including: clinical info, CBC, bone marrow findings, cytogenetics, mutations...",
+                    key="full_text_input",
+                    height=250
+                )
+                
+                # Analyse button with Enter key support
+                analyse_button = st.form_submit_button("Analyse Report", type="primary", use_container_width=True)
+            
             # Save the input for future use
             st.session_state["saved_full_text_input"] = full_report_text
             
-            # Moved the Analyse button inside the expander
-            analyse_button = st.button("Analyse Report", key="analyse_report", type="primary")
             if analyse_button:
                 # Check if germline status is "Yes" but no mutations are selected
                 if germline_status == "Yes" and not st.session_state.get("selected_germline"):
@@ -831,8 +837,11 @@ def data_entry_page():
                         # Save for future use
                         st.session_state["saved_manual_differentiation"] = manual_differentiation
 
-                # Moved the analyse button inside the expander and made it primary
-                submit_button = st.button("Analyse With Manual Inputs", key="submit_manual", type="primary")
+                # Manual analysis form with Enter key support
+                with st.form("manual_analysis_form", clear_on_submit=False):
+                    st.write("")  # Empty space for form structure
+                    submit_button = st.form_submit_button("Analyse With Manual Inputs", type="primary", use_container_width=True)
+                
                 if submit_button:
                     # Check if germline status is "Yes" but no mutations are selected
                     if st.session_state.get("germline_status") == "Yes" and not st.session_state.get("selected_germline"):
@@ -3054,13 +3063,18 @@ def eln_risk_calculator_page():
     with col_main_input:
         if eln_mode_toggle:
             st.markdown("##### Paste Full Report Text")
-            report_text = st.text_area("Enter relevant AML data:", placeholder="Paste comprehensive AML report...", height=300, label_visibility="collapsed")
-            calculate_button = st.button("Analyse Report", type="primary", use_container_width=True, key="analyze_report_btn")
+            # ELN analysis form with Enter key support
+            with st.form("eln_analysis_form", clear_on_submit=False):
+                report_text = st.text_area("Enter relevant AML data:", placeholder="Paste comprehensive AML report...", height=300, label_visibility="collapsed")
+                calculate_button = st.form_submit_button("Analyse Report", type="primary", use_container_width=True)
         else:
             st.markdown("##### Select Findings Manually")
             with st.container(border=True):
                  eln_data_manual = build_manual_eln_data()
-            manual_calculate_button = st.button("Calculate ELN Risk", type="primary", use_container_width=True, key="calculate_manual_btn")
+            # Manual ELN calculation form with Enter key support
+            with st.form("eln_manual_form", clear_on_submit=False):
+                st.write("")  # Empty space for form structure
+                manual_calculate_button = st.form_submit_button("Calculate ELN Risk", type="primary", use_container_width=True)
     with col_options:
         if eln_mode_toggle:
             st.markdown("##### Overrides")
@@ -3073,7 +3087,7 @@ def eln_risk_calculator_page():
 
     # --- Calculation Logic ---
     triggered_calculation = False
-    if eln_mode_toggle and st.session_state.get('analyze_report_btn', False) and 'report_text' in locals() and report_text:
+    if eln_mode_toggle and calculate_button and 'report_text' in locals() and report_text:
         triggered_calculation = True
         overrides = {}
         if tp53_override != "Auto-detect": overrides["tp53_override"] = tp53_override == "Present"
@@ -3090,7 +3104,7 @@ def eln_risk_calculator_page():
                 st.error("⚠️ Could not extract factors. Check input or use manual entry.")
                 input_data = None
 
-    elif not eln_mode_toggle and st.session_state.get('calculate_manual_btn', False):
+    elif not eln_mode_toggle and manual_calculate_button:
         triggered_calculation = True
         with st.spinner("🔄 Calculating..."):
             input_data = eln_data_manual
@@ -3206,7 +3220,7 @@ def eln_risk_calculator_page():
 
         # --- Clear Button ---
         if st.button("Clear Results & Start Over", use_container_width=True, key="clear_results_btn"):
-            keys_to_clear = ['eln_results', 'manual_calculation', 'analyze_report_btn', 'calculate_manual_btn']
+            keys_to_clear = ['eln_results', 'manual_calculation']
             for key in keys_to_clear:
                 if key in st.session_state: del st.session_state[key]
             st.rerun()
