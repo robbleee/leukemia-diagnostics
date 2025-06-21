@@ -1704,6 +1704,30 @@ def results_page():
         else:
             additional_info["primary_diagnosis"] = "Blood cancer"
         
+        # Dataset selection
+        st.markdown("---")
+        st.markdown("#### 🎯 Choose Analysis Scope")
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            dataset_choice = st.radio(
+                "Select which dataset to analyze:",
+                options=["test", "full"],
+                format_func=lambda x: {
+                    "test": "🧪 Test Dataset (5 trials) - Quick & Cost-Effective",
+                    "full": "📊 Full Dataset (99 trials) - Comprehensive Analysis"
+                }[x],
+                key="dataset_choice",
+                help="Choose test dataset for quick evaluation or full dataset for comprehensive matching"
+            )
+        
+        with col2:
+            if dataset_choice == "test":
+                st.success("**💰 Cost: ~£0.02-0.05**\n\n🧪 **5 Representative Trials:**\n• MDS & Myelofibrosis\n• Acute Myeloid Leukemia\n• Chronic Lymphocytic Leukemia\n• Lymphoma\n• Myeloma\n\n✅ **Perfect for initial testing**")
+            else:
+                st.warning("**💰 Cost: ~£0.50+**\n\n📊 **99 Comprehensive Trials:**\n• 38 CRUK trials\n• 61 NIHR trials\n• Full UK coverage\n\n⚠️ **Use after testing with small dataset**")
+        
         # Button to start trial matching
         if st.button("🔍 Find Matching Clinical Trials", type="primary", use_container_width=True):
             # Format patient data for matching
@@ -1716,12 +1740,27 @@ def results_page():
             # Store the formatted data for debugging
             st.session_state["formatted_patient_data"] = patient_data_text
             
-            # Run trial matching
-            with st.spinner("🔄 Analyzing patient profile and matching to clinical trials..."):
+            # Determine which dataset to use
+            trials_file = (
+                "trials-aggregator/test_clinical_trials.json" if dataset_choice == "test" 
+                else "trials-aggregator/combined_clinical_trials.json"
+            )
+            
+            # Run trial matching with selected dataset
+            spinner_text = (
+                f"🧪 Testing with {5 if dataset_choice == 'test' else 99} trials..." if dataset_choice == "test"
+                else "🔄 Analyzing patient profile against full clinical trials database..."
+            )
+            
+            with st.spinner(spinner_text):
                 try:
-                    matched_trials = run_clinical_trial_matching(patient_data_text)
+                    matched_trials = run_clinical_trial_matching(patient_data_text, trials_file)
                     st.session_state["matched_trials"] = matched_trials
-                    st.success(f"✅ Found {len(matched_trials)} clinical trials to evaluate!")
+                    st.session_state["dataset_used"] = dataset_choice
+                    
+                    dataset_name = "test dataset (5 trials)" if dataset_choice == "test" else "full dataset (99 trials)"
+                    st.success(f"✅ Found {len(matched_trials)} clinical trials to evaluate from {dataset_name}!")
+                    
                 except Exception as e:
                     st.error(f"❌ Error during trial matching: {e}")
                     st.session_state["matched_trials"] = []
@@ -1729,6 +1768,14 @@ def results_page():
         # Display results if available
         if "matched_trials" in st.session_state:
             matched_trials = st.session_state["matched_trials"]
+            dataset_used = st.session_state.get("dataset_used", "unknown")
+            
+            # Show dataset info banner
+            if dataset_used == "test":
+                st.info("🧪 **Results from Test Dataset** - 5 representative trials analyzed for cost-effective evaluation")
+            elif dataset_used == "full":
+                st.success("📊 **Results from Full Dataset** - 99 comprehensive trials analyzed from CRUK and NIHR sources")
+            
             display_trial_matches(matched_trials)
         
         # Debug section

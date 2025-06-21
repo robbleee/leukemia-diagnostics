@@ -199,9 +199,21 @@ Clinical Trial Eligibility Text:
         print(f"📁 Loading clinical trials from {input_file}...")
         
         with open(input_file, 'r', encoding='utf-8') as f:
-            trials = json.load(f)
+            trials_data = json.load(f)
         
-        print(f"🏥 Found {len(trials)} clinical trials")
+        # Extract trials array from the combined file structure
+        if 'trials' in trials_data:
+            trials = trials_data['trials']
+            metadata = trials_data.get('metadata', {})
+            dataset_info = metadata.get('dataset_info', {})
+            sources = dataset_info.get('sources', {})
+            cruk_count = sources.get('cruk', {}).get('trial_count', 0)
+            nihr_count = sources.get('nihr', {}).get('trial_count', 0)
+            print(f"🏥 Found {len(trials)} clinical trials from combined dataset ({cruk_count} CRUK + {nihr_count} NIHR)")
+        else:
+            # Fallback for old format
+            trials = trials_data
+            print(f"🏥 Found {len(trials)} clinical trials from legacy format")
         
         # Filter trials that have eligibility text
         trials_with_eligibility = [
@@ -263,7 +275,7 @@ async def main():
     """Main function to run the eligibility extraction"""
     
     # Configuration
-    INPUT_FILE = "trials-aggregator/clinical_trials.json"
+    INPUT_FILE = "trials-aggregator/combined_clinical_trials.json"
     OUTPUT_FILE = "trials-aggregator/clinical_trials_with_structured_eligibility.json"
     
     print("🔬 Blood Cancer Clinical Trials Eligibility Extractor")

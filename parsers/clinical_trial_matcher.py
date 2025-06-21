@@ -11,6 +11,35 @@ class ClinicalTrialMatcher:
         self.client = AsyncOpenAI(api_key=st.secrets["openai"]["api_key"])
         self.semaphore = asyncio.Semaphore(max_concurrent_requests)
         
+        # Mapping for descriptive scores to numeric values (for sorting and compatibility)
+        self.relevance_score_mapping = {
+            "Very High": 90,
+            "High": 75,
+            "Moderate": 55,
+            "Low": 30,
+            "Very Low": 10
+        }
+        
+        # Reverse mapping for display
+        self.score_to_level_mapping = {
+            range(85, 101): "Very High",
+            range(70, 85): "High", 
+            range(50, 70): "Moderate",
+            range(25, 50): "Low",
+            range(0, 25): "Very Low"
+        }
+    
+    def get_numeric_score(self, relevance_level: str) -> int:
+        """Convert descriptive relevance level to numeric score for sorting"""
+        return self.relevance_score_mapping.get(relevance_level, 0)
+    
+    def get_descriptive_level(self, numeric_score: int) -> str:
+        """Convert numeric score to descriptive level"""
+        for score_range, level in self.score_to_level_mapping.items():
+            if numeric_score in score_range:
+                return level
+        return "Very Low"
+        
     async def match_patient_to_trial_batch(self, patient_data: str, trial_batch: List[Dict]) -> List[Dict]:
         """
         Match a patient to a batch of 5 clinical trials using OpenAI API
@@ -32,7 +61,7 @@ Eligibility Criteria: {trial.get('who_can_enter', 'No criteria available')}
 """
             
             prompt = f"""
-You are a clinical oncologist specializing in blood cancers. I will provide you with a patient's clinical data and 5 clinical trials. Your task is to evaluate which trials this patient might be eligible for and provide a relevance score.
+You are a clinical oncologist specializing in blood cancers. I will provide you with a patient's clinical data and 5 clinical trials. Your task is to evaluate which trials this patient might be eligible for and provide a relevance assessment.
 
 PATIENT DATA:
 {patient_data}
@@ -41,7 +70,13 @@ CLINICAL TRIALS TO EVALUATE:
 {trials_text}
 
 For each trial, please provide:
-1. A relevance score from 0-100 (where 100 = perfect match, 0 = completely irrelevant)
+1. A relevance level using one of these categories:
+   - "Very High": Patient clearly meets all major eligibility criteria, excellent match
+   - "High": Patient meets most major criteria, good match with minor concerns
+   - "Moderate": Patient meets some criteria, reasonable match but significant considerations
+   - "Low": Patient meets few criteria, poor match with major barriers
+   - "Very Low": Patient does not meet key criteria, unsuitable match
+
 2. A brief explanation of why the patient might or might not be eligible
 3. Key matching factors (age, diagnosis, genetic markers, prior treatments, etc.)
 4. Key exclusion factors (if any)
@@ -49,11 +84,11 @@ For each trial, please provide:
 Please respond in the following JSON format:
 {{
     "trial_1": {{
-        "relevance_score": <0-100>,
+        "relevance_level": "<Very High/High/Moderate/Low/Very Low>",
         "explanation": "<brief explanation>",
         "matching_factors": ["<factor1>", "<factor2>"],
         "exclusion_factors": ["<factor1>", "<factor2>"],
-        "recommendation": "<recommend/consider/not_suitable>"
+        "recommendation": "<strongly_recommend/recommend/consider/not_recommended>"
     }},
     "trial_2": {{ ... }},
     "trial_3": {{ ... }},
@@ -71,7 +106,7 @@ Focus on:
 - Comorbidities
 - Geographic accessibility
 
-Be conservative in your recommendations - only recommend trials where the patient clearly meets the major eligibility criteria.
+Be conservative in your assessments - only use "Very High" or "High" when the patient clearly meets the major eligibility criteria.
 """
 
             try:
@@ -105,13 +140,19 @@ Be conservative in your recommendations - only recommend trials where the patien
                         trial_key = f"trial_{i}"
                         if trial_key in results:
                             trial_result = results[trial_key]
+                            
+                            # Get relevance level and convert to numeric score for compatibility
+                            relevance_level = trial_result.get("relevance_level", "Very Low")
+                            numeric_score = self.get_numeric_score(relevance_level)
+                            
                             matched_trial = {
                                 **trial,  # Original trial data
-                                "relevance_score": trial_result.get("relevance_score", 0),
+                                "relevance_level": relevance_level,
+                                "relevance_score": numeric_score,  # Keep for backward compatibility
                                 "explanation": trial_result.get("explanation", "No explanation provided"),
                                 "matching_factors": trial_result.get("matching_factors", []),
                                 "exclusion_factors": trial_result.get("exclusion_factors", []),
-                                "recommendation": trial_result.get("recommendation", "not_suitable")
+                                "recommendation": trial_result.get("recommendation", "not_recommended")
                             }
                             matched_trials.append(matched_trial)
                     
@@ -141,7 +182,7 @@ Title: {trial.get('title', 'Unknown')}
 Description: {trial.get('description', 'No description')}
 Cancer Types: {trial.get('cancer_types', 'Unknown')}
 Eligibility Criteria: {trial.get('who_can_enter', 'No criteria provided')}
-Current Relevance Score: {trial.get('relevance_score', 0)}
+Current Relevance Level: {trial.get('relevance_level', 'Unknown')}
 Current Matching Factors: {', '.join(trial.get('matching_factors', []))}
 Locations: {trial.get('locations', 'Unknown')}
 
@@ -233,14 +274,24 @@ Write as if you're explaining to both the patient and their oncologist. Be thoro
             st.warning(f"Error generating detailed recommendations: {e}")
             return top_trials
     
-    async def find_matching_trials(self, patient_data: str, trials_file: str = "trials-aggregator/clinical_trials.json") -> List[Dict]:
+    async def find_matching_trials(self, patient_data: str, trials_file: str = "trials-aggregator/combined_clinical_trials.json") -> List[Dict]:
         """
         Find matching clinical trials for a patient by processing in batches
         """
         # Load clinical trials
         try:
             with open(trials_file, 'r', encoding='utf-8') as f:
-                all_trials = json.load(f)
+                trials_data = json.load(f)
+                
+            # Extract trials array from the combined file structure
+            if 'trials' in trials_data:
+                all_trials = trials_data['trials']
+                st.info(f"📊 Loaded {len(all_trials)} trials from combined dataset ({trials_data.get('metadata', {}).get('dataset_info', {}).get('sources', {}).get('cruk', {}).get('trial_count', 0)} CRUK + {trials_data.get('metadata', {}).get('dataset_info', {}).get('sources', {}).get('nihr', {}).get('trial_count', 0)} NIHR)")
+            else:
+                # Fallback for old format
+                all_trials = trials_data
+                st.info(f"📊 Loaded {len(all_trials)} trials from legacy format")
+                
         except Exception as e:
             st.error(f"Failed to load clinical trials: {e}")
             return []
@@ -275,8 +326,8 @@ Write as if you're explaining to both the patient and their oncologist. Be thoro
         # Sort by relevance score (highest first)
         all_matched_trials.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
         
-        # Generate detailed recommendations for top trials (score >= 60)
-        top_trials = [t for t in all_matched_trials if t.get('relevance_score', 0) >= 60][:5]  # Top 5 high-scoring trials
+        # Generate detailed recommendations for top trials (Moderate and above)
+        top_trials = [t for t in all_matched_trials if t.get('relevance_level', 'Very Low') in ['Very High', 'High', 'Moderate']][:5]  # Top 5 high-scoring trials
         
         if top_trials:
             st.info("Generating detailed recommendations for top matching trials...")
@@ -442,7 +493,7 @@ def format_patient_data_for_matching(parsed_data: Dict, free_text_input: str = N
     
     return patient_description
 
-def run_clinical_trial_matching(patient_data: str) -> List[Dict]:
+def run_clinical_trial_matching(patient_data: str, trials_file: str = "trials-aggregator/combined_clinical_trials.json") -> List[Dict]:
     """
     Synchronous wrapper for the async clinical trial matching
     """
@@ -452,7 +503,7 @@ def run_clinical_trial_matching(patient_data: str) -> List[Dict]:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        results = loop.run_until_complete(matcher.find_matching_trials(patient_data))
+        results = loop.run_until_complete(matcher.find_matching_trials(patient_data, trials_file))
         return results
     finally:
         loop.close()
@@ -466,17 +517,17 @@ def display_trial_matches(matched_trials: List[Dict]):
         return
     
     # Filter trials by recommendation level
-    recommended_trials = [t for t in matched_trials if t.get('recommendation') == 'recommend' and t.get('relevance_score', 0) >= 70]
-    consider_trials = [t for t in matched_trials if t.get('recommendation') == 'consider' and t.get('relevance_score', 0) >= 40]
+    recommended_trials = [t for t in matched_trials if t.get('recommendation') in ['strongly_recommend', 'recommend'] and t.get('relevance_level', 'Very Low') in ['Very High', 'High']]
+    consider_trials = [t for t in matched_trials if t.get('recommendation') == 'consider' and t.get('relevance_level', 'Very Low') in ['Moderate', 'High']]
     
     # Display statistics
     st.markdown("### Clinical Trial Matching Results")
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Highly Recommended", len(recommended_trials), help="Score ≥70")
+        st.metric("Highly Recommended", len(recommended_trials), help="Very High or High relevance")
     with col2:
-        st.metric("Consider", len(consider_trials), help="Score 40-69")
+        st.metric("Consider", len(consider_trials), help="Moderate to High relevance")
     with col3:
         st.metric("Total Evaluated", len(matched_trials))
     
@@ -484,18 +535,18 @@ def display_trial_matches(matched_trials: List[Dict]):
     if recommended_trials:
         st.markdown("### Highly Recommended Trials")
         for i, trial in enumerate(recommended_trials, 1):
-            score = trial.get('relevance_score', 0)
+            relevance_level = trial.get('relevance_level', 'Unknown')
             title = trial.get('title', 'Unknown Trial')
-            with st.expander(f"{title} (Score: {score})", expanded=i<=2):
+            with st.expander(f"{title} ({relevance_level} Relevance)", expanded=i<=2):
                 display_single_trial_with_details(trial)
     
     # Display trials to consider
     if consider_trials:
         st.markdown("### Trials to Consider")
         for trial in consider_trials[:5]:  # Limit to top 5
-            score = trial.get('relevance_score', 0)
+            relevance_level = trial.get('relevance_level', 'Unknown')
             title = trial.get('title', 'Unknown Trial')
-            with st.expander(f"{title} (Score: {score})"):
+            with st.expander(f"{title} ({relevance_level} Relevance)"):
                 display_single_trial(trial)
     
     # Show all results in a table
@@ -507,7 +558,7 @@ def display_trial_matches(matched_trials: List[Dict]):
         for trial in matched_trials:
             trial_data.append({
                 "Title": trial.get('title', 'Unknown')[:60] + "..." if len(trial.get('title', '')) > 60 else trial.get('title', 'Unknown'),
-                "Score": trial.get('relevance_score', 0),
+                "Relevance": trial.get('relevance_level', 'Unknown'),
                 "Recommendation": trial.get('recommendation', 'unknown'),
                 "Cancer Types": trial.get('cancer_types', 'Unknown'),
                 "Locations": trial.get('locations', 'Unknown')[:50] + "..." if len(trial.get('locations', '')) > 50 else trial.get('locations', 'Unknown')
@@ -531,22 +582,22 @@ def display_single_trial_with_details(trial: Dict):
         st.markdown(f"**Status:** {trial.get('status', 'Unknown')}")
         
     with col2:
-        # Score and priority information
-        score = trial.get('relevance_score', 0)
+        # Relevance level and priority information
+        relevance_level = trial.get('relevance_level', 'Unknown')
         priority = trial.get('priority_level', 'medium')
         recommendation = trial.get('recommendation', 'unknown').title()
         
-        # Score color coding
-        if score >= 80:
-            score_color = "#28a745"  # Green
-        elif score >= 60:
-            score_color = "#ffc107"  # Yellow
-        elif score >= 40:
-            score_color = "#fd7e14"  # Orange
-        else:
-            score_color = "#dc3545"  # Red
+        # Relevance level color coding
+        level_colors = {
+            "Very High": "#28a745",  # Green
+            "High": "#17a2b8",       # Blue
+            "Moderate": "#ffc107",   # Yellow
+            "Low": "#fd7e14",        # Orange
+            "Very Low": "#dc3545"    # Red
+        }
+        level_color = level_colors.get(relevance_level, "#6c757d")  # Default gray
         
-        st.markdown(f"**Relevance Score:** <span style='color: {score_color}; font-weight: bold;'>{score}/100</span>", unsafe_allow_html=True)
+        st.markdown(f"**Relevance Level:** <span style='color: {level_color}; font-weight: bold;'>{relevance_level}</span>", unsafe_allow_html=True)
         st.markdown(f"**Priority Level:** {priority.title()}")
         st.markdown(f"**Recommendation:** {recommendation}")
     
@@ -663,21 +714,21 @@ def display_single_trial(trial: Dict):
         st.markdown(f"**Status:** {trial.get('status', 'Unknown')}")
         
     with col2:
-        # Score and recommendation
-        score = trial.get('relevance_score', 0)
+        # Relevance level and recommendation
+        relevance_level = trial.get('relevance_level', 'Unknown')
         recommendation = trial.get('recommendation', 'unknown').title()
         
-        # Score color coding
-        if score >= 80:
-            score_color = "#28a745"  # Green
-        elif score >= 60:
-            score_color = "#ffc107"  # Yellow
-        elif score >= 40:
-            score_color = "#fd7e14"  # Orange
-        else:
-            score_color = "#dc3545"  # Red
+        # Relevance level color coding
+        level_colors = {
+            "Very High": "#28a745",  # Green
+            "High": "#17a2b8",       # Blue
+            "Moderate": "#ffc107",   # Yellow
+            "Low": "#fd7e14",        # Orange
+            "Very Low": "#dc3545"    # Red
+        }
+        level_color = level_colors.get(relevance_level, "#6c757d")  # Default gray
         
-        st.markdown(f"**Relevance Score:** <span style='color: {score_color}; font-weight: bold;'>{score}/100</span>", unsafe_allow_html=True)
+        st.markdown(f"**Relevance Level:** <span style='color: {level_color}; font-weight: bold;'>{relevance_level}</span>", unsafe_allow_html=True)
         st.markdown(f"**Recommendation:** {recommendation}")
     
     # Matching factors and exclusions

@@ -1,0 +1,174 @@
+{
+  "metadata": {
+    "dataset_info": {
+      "name": "Test Dataset - UK Clinical Trials - Leukemia",
+      "description": "Test dataset with 5 representative clinical trials for cost-effective evaluation",
+      "created_date": "2025-06-21T23:45:00.000000",
+      "total_trials": 5,
+      "sources": {
+        "cruk": {
+          "name": "Cancer Research UK Clinical Trials Database",
+          "url": "https://www.cancerresearchuk.org/find-a-clinical-trial",
+          "trial_count": 4,
+          "description": "Clinical trials from Cancer Research UK database"
+        },
+        "nihr": {
+          "name": "NIHR Be Part of Research",
+          "url": "https://bepartofresearch.nihr.ac.uk/",
+          "trial_count": 1,
+          "description": "Clinical trials from NHS Research and Development database"
+        }
+      }
+    },
+    "data_quality": {
+      "cruk_trials_with_eligibility": 4,
+      "nihr_trials_with_eligibility": 1,
+      "total_trials_with_eligibility": 5
+    },
+    "field_mapping": {
+      "common_fields": [
+        "trial_id",
+        "title",
+        "link",
+        "description",
+        "type",
+        "status",
+        "cancer_types",
+        "locations",
+        "who_can_enter",
+        "data_source"
+      ],
+      "cruk_specific_fields": [
+        "recruitment_start",
+        "recruitment_start_iso",
+        "recruitment_end",
+        "recruitment_end_iso",
+        "chief_investigator",
+        "supported_by",
+        "contact_phone",
+        "contact_email",
+        "location_panel"
+      ],
+      "nihr_specific_fields": [
+        "location_panel"
+      ]
+    },
+    "test_dataset_info": {
+      "purpose": "Cost-effective testing of clinical trial matching system",
+      "estimated_cost": "£0.02-0.05 per analysis vs £0.50+ for full dataset",
+      "coverage": "Diverse cancer types: MDS, AML, CLL, Lymphoma, Myeloma"
+    }
+  },
+  "trials": [
+    {
+      "title": "A study looking at a drug called INCB057643 for cancers affecting the bone marrow",
+      "type": "Clinical trial",
+      "description": "This study is looking at a new drug called INCB057643 to treat cancers that affect how well the bone marrow works.",
+      "status": "Open",
+      "cancer_types": "Blood cancers, Thrombocythaemia, Myelodysplastic syndrome (MDS), Polycythaemia, Myelofibrosis",
+      "locations": "Lincoln, Manchester, Oxford",
+      "link": "https://www.cancerresearchuk.org/about-cancer/find-a-clinical-trial/a-study-looking-at-a-drug-called-incb057643-for-cancers-affecting-the-bone-marrow",
+      "recruitment_start": "01/09/2020",
+      "recruitment_start_iso": "2020-09-01T00:00:00+01:00",
+      "recruitment_end": "30/06/2026",
+      "recruitment_end_iso": "2026-06-30T00:00:00+01:00",
+      "chief_investigator": "Dr Emma Searle",
+      "supported_by": "Incyte Corporation",
+      "contact_phone": "Freephone 0808 800 4040",
+      "contact_email": null,
+      "who_can_enter": "The following bullet points are a summary of the entry conditions for this study. Talk to your doctor or the study team if you are unsure about any of these. They will be able to advise you. \nWho can take part\nYou may be able to join this study if you have one of the following:\nmyelofibrosis\nmyelodysplastic/myeloproliferative overlap syndrome\nmyelodysplastic syndrome\nessential thrombocythaemia\nAnd all of the following apply.\nYou had at least 1 course of treatment for your condition.\nYour cancer continued to grow, came back, you couldn't continue with treatment due to bad side effects or there isn't any other available treatment that might help.\nIf you have myelofibrosis you had a drug that stops the JAK2 gene such as ruxolitinib. Or you have taken ruxolitinib for at least the past 8 weeks and the dose has been the same.\nYou are up and about for at least half the day but might not be able to work (performance status 0, 1 or 2).\nYou are willing to have a bone marrow tests and there is a previous sample of tissue (biopsy ) that the study team can access.\nYou have satisfactory blood test results.\nYou are willing to use reliable contraception during treatment and for a period of time after if there is any chance you or your partner could become pregnant.\nYou are at least 18 years old.\nWho can't take part\nCancer related\nYou cannot join this study if any of these apply. You:\nare able to have treatment with the aim to cure such as a stem cell transplant  \nare having a targeted drug that stops the BET gene. You might be able to join part 1 of the study if you have had this type of drug. Your doctor will know more about this.\nhad another cancer treatment within a certain time period before starting the study treatment. Your doctor will know how long this is for the different treatments.\nare having another cancer treatment. This is apart from a small dose of steroids.\nhad a stem cell transplant from a donor (allogeneic) within 6 months of taking part\nhad a stem cell transplant of your own cells (autologous) within 3 months of taking part\nhave graft versus host disease (GvHD)\nare taking medication that damps down your immune system . This after a stem cell transplant and within 2 weeks of starting study treatment.\nhave ongoing side effects from previous treatment. This is unless they are mild, stable and not expected to get any better. \nhave another cancer that is getting worse or needs treatment. This is apart from certain ones such as non melanoma skin cancer , in situ cancer of the cervix and some others. Your doctor will know about this. \nMedical conditions\nYou cannot join this study if any of these apply. You:\nhave problems with your digestive system such as bleeding, an ulcer, diarrhoea or inflammation of the bowel. Your doctor will know more about this.\nhave had a heart attack, chest pain (angina) or another heart problem .\nhave an infection that needs treatment\nhave HIV, hepatitis B or hepatitis C\nare taking certain medications such as ones that thin your blood or affect the CYP enzymes. Your doctor will know which medications these are.\nhave not recovered from any major surgery you might have had\nhave a disorder that can cause bleeding problems. Or you are at a high risk of bleeding.\nhave any other medical condition or mental health problem that your doctor thinks will affect you taking part\nOther\nYou cannot join this study if any of these apply. You are:\nallergic or very sensitive to INCB057643 or any of its ingredients\npregnant or breastfeeding",
+      "location_panel": "Lincoln\nManchester\nOxford",
+      "data_source": "CRUK",
+      "source_file": "cruk_clinical_trials.json",
+      "trial_id": 1
+    },
+    {
+      "title": "A trial of venetoclax with low dose cytarabine for acute myeloid leukaemia (VICTOR)",
+      "type": "Clinical trial",
+      "description": "This trial is comparing venetoclax and low dose cytarabine with intensive chemotherapy. It is for people with acute myeloid leukaemia aged 55 years and older.",
+      "status": "Open",
+      "cancer_types": "Blood cancers, Leukaemia, Acute leukaemia, Acute myeloid leukaemia (AML)",
+      "locations": "Aberdeen, Airdrie, Belfast, Birmingham, Blackpool, Boston, Bristol, Cambridge, Cardiff, Chichester, ...and more.",
+      "link": "https://www.cancerresearchuk.org/about-cancer/find-a-clinical-trial/a-trial-of-venetoclax-with-low-dose-cytarabine-for-acute-myeloid-leukaemia-victor",
+      "recruitment_start": "01/06/2021",
+      "recruitment_start_iso": "2021-06-01T00:00:00+01:00",
+      "recruitment_end": "01/06/2026",
+      "recruitment_end_iso": "2026-06-01T00:00:00+01:00",
+      "chief_investigator": "Dr Richard Dillon",
+      "supported_by": "Cancer Research UK\nUniversity of Birmingham",
+      "contact_phone": "Freephone 0808 800 4040",
+      "contact_email": null,
+      "who_can_enter": "The following bullet points are a summary of the entry conditions for this trial. Talk to your doctor or the trial team if you are unsure about any of these. They will be able to advise you. \nWho can take part\nYou may be able to join this trial if all of the following apply. You:\nhave AML that has the antigen CD33 on the cells. Your doctor can tell you about this.\nhave the NPM1 gene change (mutation). Your doctor can tell you whether you have this gene change or not.\nare fit enough to have intensive chemotherapy that includes an anthracycline  chemotherapy drug such as daunorubicin. Your doctor will know if you are fit enough.\ncan look after yourself but might not be able to work (performance status 0, 1 or 2)\ncan swallow tablets whole\nare willing to use contraception during the trial and for a time after if you or your partner could become pregnant\nare at least 55 years old  \nWho can't take part\nYou cannot join this trial if any of these apply. You:\nhave had chemotherapy for AML or any other blood cancer. This is apart from hydroxycarbamide to control your blood cell count .\nhave another cancer that needs treatment\nare newly diagnosed with HIV or it is not controlled by medication. You might be able to join if your last 2 viral load tests were negative and your treatment does not include certain types of HIV drugs. Your doctor will know which drugs these are.\nhave hepatitis B or hepatitis C. You might be able to join if your last 2 viral load tests were negative and your treatment does not include certain types of drugs. Your doctor will know which drugs these are.\nare sensitive to the drugs, or any of their ingredients, used in the trial\nare pregnant or breastfeeding",
+      "location_panel": "Aberdeen\nAirdrie\nBelfast\nBirmingham\nBlackpool\nBoston\nBristol\nCambridge\nCardiff\nChichester\nCottingham\nCoventry\nEdinburgh\nExeter\nGlasgow\nGrantham\nLeeds\nLeicester\nLincoln\nLondon\nManchester\nMiddlesbrough\nNorthallerton\nNorwich\nNottingham\nOldham\nRhyl\nRomford\nSalford\nSalisbury\nSheffield\nSouthampton\nStoke-on-Trent\nSwansea\nTruro\nWest Bromwich\nWorcester\nWorthing",
+      "data_source": "CRUK",
+      "source_file": "cruk_clinical_trials.json",
+      "trial_id": 2
+    },
+    {
+      "title": "A trial of R-CHOP and acalabrutinib for people with Richter's syndrome (STELLAR)",
+      "type": "Clinical trial",
+      "description": "This trial is looking at acalabrutinib to see if it can improve treatment for people with Richter's syndrome.",
+      "status": "Open",
+      "cancer_types": "Blood cancers, Chronic lymphocytic leukaemia (CLL), Chronic leukaemia, Leukaemia, High grade lymphoma, Lymphoma, Non-Hodgkin lymphoma",
+      "locations": "Belfast, Bournemouth, Cardiff, Glasgow, Leeds, Leicester, London, Manchester, Norwich, Nottingham, ...and more.",
+      "link": "https://www.cancerresearchuk.org/about-cancer/find-a-clinical-trial/a-trial-of-r-chop-and-acalabrutinib-for-people-with-richters-syndrome-stellar",
+      "recruitment_start": "23/07/2019",
+      "recruitment_start_iso": "2019-07-23T00:00:00+01:00",
+      "recruitment_end": "30/06/2025",
+      "recruitment_end_iso": "2025-06-30T00:00:00+01:00",
+      "chief_investigator": "Dr Toby Eyre",
+      "supported_by": "Blood Cancer UK\nTrials Acceleration Program (TAP) \nAcerta Pharma\nUniversity of Birmingham",
+      "contact_phone": "Freephone 0808 800 4040",
+      "contact_email": null,
+      "who_can_enter": "The following bullet points list the entry conditions for this trial. Talk to your doctor or the trial team if you are unsure about any of these. They will be able to advise you. \nThere are 2 open groups in this trial:\nthe randomised part\ngroup 1 (or cohort 1)\nWho can take part\nYou may be able to join the randomised part of the trial if all of the following apply. You:\nare suitable to have R-CHOP\nhaven't had R-CHOP in the past \nhave chronic lymphocytic leukaemia (CLL) and newly diagnosed Richter's syndrome\nhaven't had a drug called ibrutinib in the last 4 weeks\nTo join cohort 1 you joined the randomised part of the trial and had R-CHOP. Or you have previously had R-CHOP and the lymphoma got worse or came back afterwards. \nAs well as the above, for all parts of the trial the following must also apply. \nYou:\nare well enough to be up and about for at least some of each day, even if you need help looking after yourself (performance status 0, 1, 2 or 3) \nare willing to use reliable contraception during the trial and for 12 months afterwards if there is any chance you or your partner could become pregnant \nare at least 18 years old\nWho can't take part\nYou cannot join this trial if any of these apply. \nCancer related \nYou:\nhave had acalabrutinib in the past\nhave CLL or a type of NHL called diffuse large B cell lymphoma (DBCL) in the brain or spinal cord\nhave any other cancer that needs treatment apart from basal cell skin cancer , carcinoma insitu (CIS ) of the cervix or squamous cell skin cancer\nhave had an experimental treatment as part of a clinical trial in the last 4 weeks or you are taking part in a trial \nMedical conditions\nYou:\nhave a problem with how your blood clots \nare having treatment to thin your blood such as warfarin\nhave had major surgery within 30 days of being put into a treatment group \nhave a problem with your gut that affects how you absorb medication \nhave a problem with your heart such as angina, congestive heart failure or an abnormal heart beat that isn't well controlled with medication\nhave had a stroke in the last 6 months or a bleed into the brain \nhave a long term infection that isn't getting better with treatment or any active infection such as TB or a hepatitis B infection\nhave HIV\nhave any other medical condition or mental health problem that means the trial team think you won't be able to take part \nOther\nYou:\nare allergic to any of the drugs in the trial\nhave a problem with drugs or alcohol \nare pregnant or breastfeeding",
+      "location_panel": "Belfast\nBournemouth\nCardiff\nGlasgow\nLeeds\nLeicester\nLondon\nManchester\nNorwich\nNottingham\nOxford\nPlymouth\nSheffield\nSouthampton\nSutton",
+      "data_source": "CRUK",
+      "source_file": "cruk_clinical_trials.json",
+      "trial_id": 3
+    },
+    {
+      "title": "A study of the oxygen levels in the bone marrow of people with myeloma (CHIME)",
+      "type": "Clinical trial",
+      "description": "This study is looking at areas of low levels of oxygen in the bone marrow of people with myeloma.",
+      "status": "Open",
+      "cancer_types": "Blood cancers, Myeloma",
+      "locations": "Manchester",
+      "link": "https://www.cancerresearchuk.org/about-cancer/find-a-clinical-trial/a-study-of-the-oxygen-levels-in-the-bone-marrow-of-people-with-myeloma-chime",
+      "recruitment_start": "26/06/2024",
+      "recruitment_start_iso": "2024-06-26T00:00:00+01:00",
+      "recruitment_end": "01/12/2025",
+      "recruitment_end_iso": "2025-12-01T00:00:00+00:00",
+      "chief_investigator": "Dr Emma Searle",
+      "supported_by": "The Christie NHS Foundation Trust\nBritish Society for Haematology\nCancer Research UK Manchester Institute\nUniversity of Birmingham\nUniversity of Manchester\nManchester Cancer Research Centre (MCRC)",
+      "contact_phone": "Freephone 0808 800 4040",
+      "contact_email": null,
+      "who_can_enter": "The following bullet points are a summary of the entry conditions for this study. Talk to your doctor or the study team if you are unsure about any of these. They will be able to advise you. \nWho can take part\nYou may be able to join this study if all of the following apply. You:\nhave myeloma\nhave been referred to The Christie NHS Foundation Trust in Manchester \nare willing to have a bone marrow test  done \nare willing to take a capsule called pimonidazole. Your doctor will tell you more about this.\nare up for most of the day, can look after yourself but might not be able to work (performance status 0, 1 or 2)\nare at least 18 years old\nWho can't take part\nYou cannot join this study if either of the following apply. \nYou have another medical condition or a test result that could affect you taking part.\nYour doctor thinks you are not suitable.",
+      "location_panel": "Manchester",
+      "data_source": "CRUK",
+      "source_file": "cruk_clinical_trials.json",
+      "trial_id": 4
+    },
+    {
+      "title": "Study of Imetelstat in Participants With Intermediate-2 or High-Risk Myelodysplastic Syndromes",
+      "link": "https://bepartofresearch.nihr.ac.uk/trial-details/trial-detail?trialId=56534&location=&distance=",
+      "description": "Recruiting",
+      "type": "Clinical trial",
+      "status": "Open",
+      "cancer_types": "Leukaemia",
+      "locations": "Cities/Towns",
+      "recruitment_start": "",
+      "recruitment_start_iso": "",
+      "recruitment_end": "",
+      "recruitment_end_iso": "",
+      "chief_investigator": "",
+      "supported_by": "",
+      "contact_phone": "",
+      "contact_email": "",
+      "who_can_enter": "You can take part if: Inclusion Criteria: 1. Participants must be ≥18 years of age. 2. Participants must have a documented diagnosis of MDS according to WHO 2016 criteria or MDS/MPN overlap syndrome according to WHO 2016 criteria. 3. Participants must have intermediate-2 or high-risk MDS as defined by the Revised International Prognostic Scoring System (IPSS-R). 4. Participants must be ineligible for allogeneic HSCT or refuse allogeneic HSCT. 5. Participants must have failed or be intolerant to, or ineligible for, or refuse treatment with a hypomethylating agent (HMA). Participants who have failed treatment with an HMA are defined as those who meet any of the following criteria after a minimum of 4 cycles of an HMA (azacitidine or decitabine): a. Never achieved a response (CR, PR, marrow CR, or HI) b. Progressed at any time after achievement of a response c. Failed to achieve CR or PR after 6 cycles in the absence of progression 6. Participants must have an ECOG performance status of 0, 1, or 2. 7. Participants must have adequate hepatic function. 8. Participants must have adequate renal function. 9. Female participants of childbearing potential and male participants must agree to use adequate contraception. 10. Participants must be able to understand and willing to sign a written informed consent document. Exclusion Criteria: 1. Participants who have had chemotherapy, radiotherapy, immunotherapy, or investigational agents within 14 days of study treatment. 2. Participants with known active CNS involvement. 3. Participants with a history of allergic reactions attributed to compounds of similar chemical or biologic composition to imetelstat. 4. Participants with uncontrolled intercurrent illness. 5. Participants who are pregnant or breastfeeding. 6. Participants with known HIV-positivity. 7. Participants with active hepatitis B or C infection. 8. Participants who have received a prior allogeneic or autologous stem cell transplant. 9. Participants with a prior history of malignancy, except for adequately treated basal cell or squamous cell skin cancer, in situ cervical cancer, or other cancer for which the participant has been disease-free for ≥2 years. 10. Participants taking medications that are strong inhibitors or inducers of CYP3A4.",
+      "location_panel": "Cities/Towns",
+      "data_source": "NIHR",
+      "source_file": "nihr_clinical_trials.json",
+      "trial_id": 5
+    }
+  ]
+} 

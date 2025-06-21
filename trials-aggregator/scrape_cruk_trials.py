@@ -257,7 +257,7 @@ def scrape_trials():
             except Exception as e:
                 logger.error(f"Error extracting detail for trial {i+1}: {str(e)}")
                 continue
-        with open("clinical_trials.json", "w") as f:
+        with open("cruk_clinical_trials.json", "w") as f:
             json.dump(trials, f, indent=2)
         logger.info(f"Successfully scraped {len(trials)} trials.")
     except Exception as e:
